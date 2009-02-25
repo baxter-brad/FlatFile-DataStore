@@ -120,7 +120,7 @@ Several factors motivated the development of this module:
  - the desire for simple, efficient reading and writing of records
  - the need to handle any (reasonable) number and size of records
  - the desire to identify records using sequence numbers
- - the need to retain previous versions of records and toview history
+ - the need to retain previous versions of records and to view history
  - the ability to store any sort of data: binary or text in any encoding
  - the desire for a relatively simple file structure
  - the desire for the data to be fairly easily read by a human
@@ -137,8 +137,8 @@ records.  This while still retaining efficient reading and writing.
 
 When a record is created, it is assigned a sequence number (keynum)
 that persistently identifies that record for the life of the data
-store.  This way user-developed indexing schemes that employ--for
-example--bit maps can remain correct.
+store.  This should help user-developed indexing schemes that
+employ, e.g., bit maps to remain correct.
 
 Since a record links to it's predecessors, it's easy to get a history
 of that record's changes over time.  This can facilitate recovery and
@@ -461,639 +461,62 @@ sub convert_maxfilesize {
 }
 
 #---------------------------------------------------------------------
-
-=head1 OBJECT METHODS, ACCESSORS
-
-#---------------------------------------------------------------------
-
-=head2 $ds->specs( [$omap] )
-
-Sets and returns the C<specs> attribute value if C<$omap> is given,
-otherwise just returns the value.
-
-An 'omap' is an ordered hash as defined in
-
- http://yaml.org/type/omap.html
-
-That is, it's an array of single-key hashes.  This ordered hash
-contains the specifications for constructing and parsing a record
-preamble as defined in the name.uri file.
-
-=cut
-
-sub specs {
-    my( $self, $omap ) = @_;
-    for( $self->{specs} ) {
-        if( $omap ) {
-            croak qq/Invalid omap: /.omap_errstr()
-                unless omap_is_valid( $omap );
-            $_ = $omap;
-        }
-        return unless defined;
-        return @$_ if wantarray;
-        return $_;
-    }
-}
-
-#---------------------------------------------------------------------
-
-=head2 $ds->dir( [$dir] )
-
-Sets and returns the C<dir> attribute value if C<$dir> is given,
-otherwise just returns the value.
-
-If C<$dir> is given, the directory must already exist.
-
-=cut
-
-sub dir {
-    my( $self, $dir ) = @_;
-    if( defined $dir and $dir eq "" ) { delete $self->{dir} }
-    else {
-        for( $self->{dir} ) {
-            if( defined $dir ) {
-                croak qq/$dir doesn't exist/ unless -d $dir;
-                $_ = $dir
-            }
-            return $_;
-        }
-    }
-}
-
-#---------------------------------------------------------------------
-
-=head2 Preamble accessors
-
-The following methods set and return their respective attribute values
-if C<$value> is given.  Otherwise, they just return the value.
-
- $ds->indicator(   [$value] ); # from uri (length-characters)
- $ds->date(        [$value] ); # from uri (length-format)
- $ds->transnum(    [$value] ); # from uri (length-base)
- $ds->keynum(      [$value] ); # from uri (length-base)
- $ds->reclen(      [$value] ); # from uri (length-base)
- $ds->thisfilenum( [$value] ); # from uri (length-base)
- $ds->thisseekpos( [$value] ); # from uri (length-base)
- $ds->prevfilenum( [$value] ); # from uri (length-base)
- $ds->prevseekpos( [$value] ); # from uri (length-base)
- $ds->nextfilenum( [$value] ); # from uri (length-base)
- $ds->nextseekpos( [$value] ); # from uri (length-base)
- $ds->user(        [$value] ); # from uri (length-characters)
-
-=head2 Other accessors
-
- $ds->name(        [$value] ); # from uri, name of data store
- $ds->desc(        [$value] ); # from uri, description of data store
- $ds->recsep(      [$value] ); # from uri (character(s))
- $ds->uri(         [$value] ); # full uri as is
- $ds->preamblelen( [$value] ); # length of full preamble string
- $ds->translen(    [$value] ); # length of stored transaction number
- $ds->transbase(   [$value] ); # base of stored trancation number
- $ds->filenumlen(  [$value] ); # length of stored file number
- $ds->filenumbase( [$value] ); # base of stored file number
- $ds->dateformat(  [$value] ); # format from uri
- $ds->regx(        [$value] ); # capturing regx for preamble string
- $ds->maxfilesize( [$value] ); # max as an integer
- $ds->crud(        [$value] ); # hash ref, e.g.,
-
-     {
-        create => '+',
-        oldupd => '#',
-        update => '=',
-        olddel => '*',
-        delete => '-'
-     }
-
- (translates logical actions into their symbolic indicators)
-
-=cut
-
-sub indicator   {for($_[0]->{indicator}   ){$_=$_[1]if@_>1;return$_}}
-sub date        {for($_[0]->{date}        ){$_=$_[1]if@_>1;return$_}}
-sub transnum    {for($_[0]->{transnum}    ){$_=$_[1]if@_>1;return$_}}
-sub keynum      {for($_[0]->{keynum}      ){$_=$_[1]if@_>1;return$_}}
-sub reclen      {for($_[0]->{reclen}      ){$_=$_[1]if@_>1;return$_}}
-sub thisfilenum {for($_[0]->{thisfilenum} ){$_=$_[1]if@_>1;return$_}}
-sub thisseekpos {for($_[0]->{thisseekpos} ){$_=$_[1]if@_>1;return$_}}
-sub prevfilenum {for($_[0]->{prevfilenum} ){$_=$_[1]if@_>1;return$_}}
-sub prevseekpos {for($_[0]->{prevseekpos} ){$_=$_[1]if@_>1;return$_}}
-sub nextfilenum {for($_[0]->{nextfilenum} ){$_=$_[1]if@_>1;return$_}}
-sub nextseekpos {for($_[0]->{nextseekpos} ){$_=$_[1]if@_>1;return$_}}
-sub user        {for($_[0]->{user}        ){$_=$_[1]if@_>1;return$_}}
-
-sub name        {for($_[0]->{name}        ){$_=$_[1]if@_>1;return$_}}
-sub desc        {for($_[0]->{desc}        ){$_=$_[1]if@_>1;return$_}}
-sub recsep      {for($_[0]->{recsep}      ){$_=$_[1]if@_>1;return$_}}
-sub uri         {for($_[0]->{uri}         ){$_=$_[1]if@_>1;return$_}}
-sub preamblelen {for($_[0]->{preamblelen} ){$_=$_[1]if@_>1;return$_}}
-sub translen    {for($_[0]->{translen}    ){$_=$_[1]if@_>1;return$_}}
-sub transbase   {for($_[0]->{transbase}   ){$_=$_[1]if@_>1;return$_}}
-sub filenumlen  {for($_[0]->{filenumlen}  ){$_=$_[1]if@_>1;return$_}}
-sub filenumbase {for($_[0]->{filenumbase} ){$_=$_[1]if@_>1;return$_}}
-sub dateformat  {for($_[0]->{dateformat}  ){$_=$_[1]if@_>1;return$_}}
-sub regx        {for($_[0]->{regx}        ){$_=$_[1]if@_>1;return$_}}
-sub maxfilesize {for($_[0]->{maxfilesize} ){$_=$_[1]if@_>1;return$_}}
-sub crud        {for($_[0]->{crud}        ){$_=$_[1]if@_>1;return$_}}
-
-#---------------------------------------------------------------------
-# heart subs
-
-#---------------------------------------------------------------------
-# initialize(), called by init() when datastore is first used
-#     creates name.obj file to bypass uri parsing from now on
-
-sub initialize {
-    my( $self ) = @_;
-
-    my $dir      = $self->dir();
-    my $name     = $self->name();
-    my $len      = $self->filenumlen();
-    my $filenum  = sprintf "%0${len}d", 1;  # one is 1 in any base
-    my $datafile = "$dir/$name.$filenum.dat";
-
-    croak qq/Can't initialize database: data files exist (e.g., $datafile)./
-        if -e $datafile;
-
-    local $Data::Dumper::Terse  = 1;
-    local $Data::Dumper::Indent = 0;  # make object a one-liner
-
-    my $save = $self->dir();
-    # delete these, don't want in obj file
-    $self->dir("");
-
-    my $obj_file = "$dir/$name.obj";
-    $self->write_file( $obj_file, Dumper $self );
-    $self->close_files();
-
-    $self->dir( $save );
-}
-
-#---------------------------------------------------------------------
-# new_preamble(), called by various subs
-#     wrapper for FlatFile::DataStore::Preamble->new()
-
-sub new_preamble {
-    my( $self, $parms ) = @_;
-    $parms->{'datastore'} = $self;
-    FlatFile::DataStore::Preamble->new( $parms );
-}
-
-#---------------------------------------------------------------------
-# new_record(), called by various subs
-#     wrapper for FlatFile::DataStore::Record->new()
-
-sub new_record {
-    my( $self, $parms ) = @_;
-    my $preamble = $parms->{'preamble'};
-    if( ref $preamble eq 'HASH' ) {  # not an object
-        $parms->{'preamble'} = $self->new_preamble( $preamble );
-    }
-    FlatFile::DataStore::Record->new( $parms );
-}
-
-#---------------------------------------------------------------------
-
-=head1
-
-=cut
-
-sub all_datafiles {
-    my( $self ) = @_;
-
-    my $dir        = $self->dir();
-    my $name       = $self->name();
-    my $filenumlen = $self->filenumlen();
-
-    my $base = $self->filenumbase();
-    my $chars = base_chars( $base );
-    my $pattern = "[$chars]" x $filenumlen;
-
-    my @files = glob "$dir/$name.$pattern.dat";
-
-    return @files;
-}
-
-#---------------------------------------------------------------------
-# get the current data file
-#    if record would overfill the current one, make a new one
-
-sub current_datafile {
-    my( $self, $reclen ) = @_;
-
-    $reclen ||= 0;
-
-    my $dir        = $self->dir();
-    my $name       = $self->name();
-    my $filenumlen = $self->filenumlen();
-    my $recseplen  = length( $self->recsep() );
-    my @files      = $self->all_datafiles();
-
-    my $datafile;
-    my $filenum  = 0;  # zero is 0 in any base
-    my $transint;
-    my $transnum;
-    if( @files ) {
-        # get the last data file, i.e., the current one
-        $datafile    = $files[-1];
-        ( $filenum ) = $datafile =~ m{^$dir/$name\.(.+)\.dat$};
-        my $datafh   = $self->locked_for_write( $datafile );
-        ( $transint, $transnum ) = $self->nexttransnum( $datafh );
-    }
-    else {
-        # create first data file if none exists
-        $transint = 1;
-        ( $datafile, $filenum ) =
-            $self->new_datafile( $filenum, $transint )
-    }
-
-    # check if we're about to overfill the data file
-    # and if so, create a new data file--the new current one
-    my $maxfilesize = $self->maxfilesize();
-    my $checksize = $self->preamblelen() + $reclen + $recseplen;
-
-    if( (-s $datafile) + $checksize > $maxfilesize ) {
-
-        # head is:
-        #
-        # uri: [uri][recsep]                    5 + urilen         + recseplen
-        # file: [filenum] of [filenum][recsep] 10 + (2*filenumlen) + recseplen
-        # trans: [transnum] to [transnum][recsep]    11 + (2*translen)   + recseplen
-        #
-        # so headsize is:
-        #
-        # 26 + urilen + (2*filenumlen) + (2*translen) + (3*recseplen)
-
-        my $headsize = 26
-            + length( $self->uri() )
-            + ( 2 * $filenumlen )
-            + ( 2 * $self->translen() )
-            + ( 3 * $recseplen );
-        croak qq/Record too long/
-            if $headsize + $checksize > $maxfilesize;
-        ( $datafile, $filenum ) =
-            $self->new_datafile( $filenum, $transint );
-    }
-
-    return $datafile, $filenum;
-}
-
-#---------------------------------------------------------------------
-sub increment_base {
-    my( $num, $base ) = @_;
-    int2base( 1 + base2int( $num, $base ), $base );
-}
-
-#---------------------------------------------------------------------
-sub new_datafile {
-    my( $self, $old_filenum, $transint ) = @_;
-
-    my $filenumlen  = $self->filenumlen();
-    my $dir         = $self->dir();
-    my $name        = $self->name();
-    my $translen    = $self->translen();
-    my $transbase   = $self->transbase();
-    my $trans_is    = int2base( $transint,   $transbase, $translen );
-    my $trans_was   = int2base( $transint-1, $transbase, $translen );
-    my $filenumbase = $self->filenumbase();
-    my $filenumint  = base2int( $old_filenum, $filenumbase );
-    my $filenum     = int2base( ++$filenumint, $filenumbase, $filenumlen );
-    croak qq/Database exceeds configured size (filenum: "$filenum" too long)/
-        if length $filenum > $filenumlen;
-
-    my $datafile = "$dir/$name.$filenum.dat";
-
-    # initialize each data file with the datastore uri
-    # to help identify them and tie them together logically
-    # we also add file: X of Y to help disaster recovery
-    # and trans: A to B for similar reasons
-
-    my $recsep     = $self->recsep();
-    my $uri        = "uri: ".$self->uri().$recsep;
-    my $files      = "file: $filenum of $filenum$recsep";
-    # trans_was because of how we get the nexttransnum ...
-    my $transrange = "trans: $trans_is to $trans_was$recsep";
-    $self->write_file( $datafile, "$uri$files$transrange" );
-
-    # now update the files verbage in the previous data files
-    my $seekpos = length $uri;
-    for( 1 .. $filenumint-1 ) {
-        my $this     = int2base( $_, $filenumbase, $filenumlen );
-        my $datafile = "$dir/$name.$this.dat";
-        my $fh       = $self->locked_for_write( $datafile );
-        my $files    = "file: $this of $filenum";
-        $self->write_bytes( $fh, $seekpos, $files );
-    }
-    $self->close_files();
-
-    return $datafile, $filenum;
-}
-
-#---------------------------------------------------------------------
-
-=head1
-
-=cut
-
-sub keyfile {
-    my( $self ) = @_;
-
-    my $dir     = $self->dir();
-    my $name    = $self->name();
-    my $keyfile = "$dir/$name.key";
-
-    return $keyfile;
-}
-
-#---------------------------------------------------------------------
-
-=head1
-
-=cut
-
-sub which_datafile {
-    my( $self, $filenum ) = @_;
-
-    my $dir        = $self->dir();
-    my $name       = $self->name();
-    my $datafile   = "$dir/$name.$filenum.dat";
-
-    return $datafile;
-}
-
-#---------------------------------------------------------------------
-
-=head1
-
-=cut
-
-sub howmany {
-    my( $self ) = @_;
-
-    my $create = $self->crud()->{'create'};
-    my $update = $self->crud()->{'update'};
-    my $regx   = qr/[$create$update]/;
-
-    my $dir     = $self->dir();
-    my $name    = $self->name();
-    my $keyfile = "$dir/$name.key";
-    return unless -e $keyfile;
-                       # XXX
-$self->close_files();  # XXX needs figuring out ...
-                       # XXX
-    my $keyfh   = $self->locked_for_read( $keyfile );
-
-    # brute force scan of keyfile
-    my $keynum = 0;
-    my $keyvec = "";  # bit vector for keynums
-    while( <$keyfh> ) {
-        chomp;
-        my $parms = $self->burst_preamble( $_ );
-        setbit( $keyvec, $keynum, 1 ) if $parms->{'indicator'} =~ $regx;
-        $keynum++;
-    }
-    return @{bit2num( $keyvec )} if wantarray;
-    return bitcount( $keyvec, 1 );
-}
-
-#---------------------------------------------------------------------
-# keypos()
-
-=for comment
-
-     keynum preamble lines
-     0      preamble1
-     1      preamble2
-     2      preamble3
-            ^ keypos for keynum 2
-
-For example, if keynum is 2, then keypos is 2 * preamble line length,
-which places it just before the third preamble.
-
-=cut
-
-sub keypos {
-    my( $self, $keynum ) = @_;
-    
-    my $preamblelen = $self->preamblelen();
-    my $recsep      = $self->recsep();
-    my $keypos      = $keynum * ($preamblelen + length $recsep);
-
-    return $keypos;
-}
-
-#---------------------------------------------------------------------
-# nextkeynum()
-
-=for comment
-
- Since the key file consists of fixed-length records, dividing the
- size of the file by the length of each record should give us the
- number of records in the file.  Since the keynums start with 0,
- the number of records in the file is also the next available keynum,
- e.g.,
-
-     keynum record
-     0      rec1
-     1      rec2
-     2      rec3
-
- This shows that there are three records in the file and the next
- available keynum is 3.
-
- Each record in the key file consists of a preamble and a record
- separator, so we divide the file size by the lengths of those.
-
-=cut
-
-sub nextkeynum {
-    my( $self, $key_file ) = @_;
-
-    my $preamblelen = $self->preamblelen();
-    my $recsep      = $self->recsep();
-
-    my $keynum = (-s $key_file) / ($preamblelen + length $recsep);
-
-    return $keynum;
-}
-
-#---------------------------------------------------------------------
-# head is:
+# CRUD cases:
 #
-# uri: [uri][recsep]                    5 + urilen         + recseplen
-# file: [filenum] of [filenum][recsep] 10 + (2*filenumlen) + recseplen
-# trans: [transnum] to [transnum][recsep]    11 + (2*translen)   + recseplen
-#                      ^
-# so seekpos to 2nd transnum is:
+# Create: no previous preamble required or allowed
+#     - create a record object (with no previous)
+#     - write the record
+#     - return the record object
+# Retrieve:
+#     - read a data record
+#     - create a record object (with a preamble, which may become a previous)
+#     - return the record object
+# Update: previous preamble required (and it must not have changed)
+#     - create a record object (with a previous preamble)
+#     - write the record (updating the previous in the data store)
+#     - return the record object
+# Delete: previous preamble required (and it must not have changed)
+#     - create a record object (with a previous preamble)
+#     - write the record (updating the previous in the data store)
+#     - return the record object
 #
-# 26 + urilen + (2*filenumlen) + (2*recseplen) + translen
+# Some notes about the previous preamble:
 #
-sub nexttransnum {
-    my( $self, $datafh ) = @_;
-
-    my $urilen     = length( $self->uri() );
-    my $recseplen  = length( $self->recsep() );
-    my $filenumlen = $self->filenumlen();
-    my $translen   = $self->translen();
-    my $transbase  = $self->transbase();
-    my $seekpos    =
-        26 + $urilen + (2*$filenumlen) + (2*$recseplen) + $translen;
-    my $transnum   = $self->read_bytes( $datafh, $seekpos, $translen );
-    my $transint   = base2int( $transnum, $transbase );
-    ++$transint;
-    $transnum = int2base( $transint, $transbase, $translen );
-
-    return $transint, $transnum;
-}
-
-#---------------------------------------------------------------------
-sub write_transnum {
-    my( $self, $datafh, $transnum ) = @_;
-
-    my $urilen     = length( $self->uri() );
-    my $recseplen  = length( $self->recsep() );
-    my $filenumlen = $self->filenumlen();
-    my $translen   = $self->translen();
-    my $seekpos    =
-        26 + $urilen + (2*$filenumlen) + (2*$recseplen) + $translen;
-
-    $self->write_bytes( $datafh, $seekpos, $transnum );
-}
+# In order to protect data from conflicting concurrent updates, you may
+# not update or delete a record without first retrieving it from the data
+# store.  Supplying the previous preamble along with the new record data is
+# reasonable proof that you did this.  Before the new record is written,
+# the supplied previous preamble is compared with what's in the data store,
+# and if they are not exactly the same, it means that someone else
+# retrieved and updated/deleted the record between the time you read it
+# and the time you tried to update/delete it.
+#
+# So unless you supply a previous preamble and unless the one you supply
+# matches exactly the one in the data store, your update/delete will not
+# be accepted--you will have to re-retrieve the new version of the record
+# (getting a more recent preamble) and apply your updates to it.
 
 #---------------------------------------------------------------------
 
-=head1
+=head1 OBJECT METHODS, RECORD PROCESSING (C.R.U.D.)
 
-=cut
+=head2 create( $record_data, [$user_data] )
 
-sub history {
-    my( $self, $keynum ) = @_;
+Creates a record.  The parm C<$record_data> may be one of
 
-    my @history;
+ - data string
+ - scalar reference (to the data string)
+ - FlatFile::DataStore::Record object
 
-    my $rec = $self->retrieve( $keynum );
-    push @history, $rec;
+The parm C<$user_data> may be omitted if C<$record_data> is an object,
+in which case the user data will be gotten from it.
 
-    my $prevfilenum = $rec->prevfilenum();
-    my $prevseekpos = $rec->prevseekpos();
+Returns a Flatfile::DataStore::Record object.
 
-    while( $prevfilenum ) {
-
-        my $rec = $self->retrieve( $prevfilenum, $prevseekpos );
-        push @history, $rec;
-
-        $prevfilenum = $rec->prevfilenum();
-        $prevseekpos = $rec->prevseekpos();
-    }
-
-    return @history;
-}
-
-#---------------------------------------------------------------------
-# CRUD
-
-=for comment
-
- CRUD cases:
-
- Create: no previous preamble required or allowed
-     - create a record object (with no previous)
-     - write the record
-     - return the record object
- Retrieve:
-     - read a data record
-     - create a record object (with a preamble, which may become a previous)
-     - return the record object
- Update: previous preamble required (and it must not have changed)
-     - create a record object (with a previous preamble)
-     - write the record (updating the previous in the data store)
-     - return the record object
- Delete: previous preamble required (and it must not have changed)
-     - create a record object (with a previous preamble)
-     - write the record (updating the previous in the data store)
-     - return the record object
-
- Some notes about the previous preamble:
-
- In order to protect data from conflicting concurrent updates, you may
- not update or delete a record without first retrieving it from the data
- store.  Supplying the previous preamble along with the new record data is
- reasonable proof that you did this.  Before the new record is written,
- the supplied previous preamble is compared with what's in the data store,
- and if they are not exactly the same, it means that someone else
- retrieved and updated/deleted the record between the time you read it
- and the time you tried to update/delete it.
-
- So unless you supply a previous preamble and unless the one you supply
- matches exactly the one in the data store, your update/delete will not
- be accepted--you will have to re-retrieve the new version of the record
- (getting a more recent preamble) and apply your updates to it.
-
-=cut
-
-#---------------------------------------------------------------------
-
-=head1
-
-=cut
-
-sub retrieve {
-    my( $self, $num, $pos ) = @_;
-
-    my $preamblelen = $self->preamblelen();
-
-    my $filenum;
-    my $seekpos;
-    my $keystring;
-
-    if( defined $pos ) {
-        $filenum = $num;
-        $seekpos = $pos;
-    }
-    else {
-        my $keynum     = $num;
-        my $recsep     = $self->recsep();
-        my $keyseekpos = $keynum * ($preamblelen + length $recsep);
-
-        my $dir     = $self->dir();
-        my $name    = $self->name();
-        my $keyfile = "$dir/$name.key";
-        my $keyfh   = $self->locked_for_read( $keyfile );
-
-        my $trynum  = $self->nextkeynum( $keyfile );
-        croak qq/Record doesn't exist: "$keynum"/
-            if $keynum >= $trynum;
-
-        $keystring = $self->read_preamble( $keyfh, $keyseekpos );
-        my $parms  = $self->burst_preamble( $keystring );
-
-        $filenum = $parms->{'thisfilenum'};
-        $seekpos = $parms->{'thisseekpos'};
-    }
-
-    my $datafile = $self->which_datafile( $filenum );
-    my $datafh   = $self->locked_for_read( $datafile );
-    my $string   = $self->read_preamble( $datafh, $seekpos );
-
-    croak qq/Mismatch [$string] [$keystring]/
-        if $keystring and $string ne $keystring;
-
-    my $preamble = $self->new_preamble( { string => $string } );
-
-    $seekpos   += $preamblelen;
-    my $reclen  = $preamble->reclen();
-    my $recdata = $self->read_bytes( $datafh, $seekpos, $reclen ); 
-
-    my $record = $self->new_record( {
-        preamble => $preamble,
-        data     => \$recdata,
-        } );
-
-    return $record;
-}
-
-#---------------------------------------------------------------------
-
-=head1
+Note: the record data (but not user data) is stored in the FF::DS:Record
+object as a scalar reference.  This is done for efficiency in the cases
+where the record data may be very large.  Likewise, the first parm to
+create() may be a scalar reference for the same reason.
 
 =cut
 
@@ -1185,9 +608,93 @@ sub create {
 
 #---------------------------------------------------------------------
 
-=head1
+=head2 retrieve( $num, [$pos] )
+
+Retrieves a record.  The parm C<$num> may be one of
+
+ - a key number, i.e., record sequence number
+ - a file number
+
+The parm C<$pos> is required if C<$num> is a file number.
+
+Returns a Flatfile::DataStore::Record object.
 
 =cut
+
+sub retrieve {
+    my( $self, $num, $pos ) = @_;
+
+    my $preamblelen = $self->preamblelen();
+
+    my $filenum;
+    my $seekpos;
+    my $keystring;
+
+    if( defined $pos ) {
+        $filenum = $num;
+        $seekpos = $pos;
+    }
+    else {
+        my $keynum     = $num;
+        my $recsep     = $self->recsep();
+        my $keyseekpos = $keynum * ($preamblelen + length $recsep);
+
+        my $dir     = $self->dir();
+        my $name    = $self->name();
+        my $keyfile = "$dir/$name.key";
+        my $keyfh   = $self->locked_for_read( $keyfile );
+
+        my $trynum  = $self->nextkeynum( $keyfile );
+        croak qq/Record doesn't exist: "$keynum"/
+            if $keynum >= $trynum;
+
+        $keystring = $self->read_preamble( $keyfh, $keyseekpos );
+        my $parms  = $self->burst_preamble( $keystring );
+
+        $filenum = $parms->{'thisfilenum'};
+        $seekpos = $parms->{'thisseekpos'};
+    }
+
+    my $datafile = $self->which_datafile( $filenum );
+    my $datafh   = $self->locked_for_read( $datafile );
+    my $string   = $self->read_preamble( $datafh, $seekpos );
+
+    croak qq/Mismatch [$string] [$keystring]/
+        if $keystring and $string ne $keystring;
+
+    my $preamble = $self->new_preamble( { string => $string } );
+
+    $seekpos   += $preamblelen;
+    my $reclen  = $preamble->reclen();
+    my $recdata = $self->read_bytes( $datafh, $seekpos, $reclen ); 
+
+    my $record = $self->new_record( {
+        preamble => $preamble,
+        data     => \$recdata,
+        } );
+
+    return $record;
+}
+
+#---------------------------------------------------------------------
+
+=head2 update( $object_or_string, [$record_data], [$user_data] )
+
+Updates a record.  The parm $object_or_string may be one of:
+
+ - FlatFile::DataStore::Record object
+ - FlatFile::DataStore::Preamble object
+ - Preamble string
+
+The parms C<$record_data> and C<$user_data> may be omitted only if
+C<$object_or_string> is a FF::DS::Record object, in which case the
+record and user data will be gotten from it.
+
+Returns a Flatfile::DataStore::Record object.
+
+=cut
+
+# XXX shares way too much code with delete()
 
 sub update {
     my( $self, $obj, $record_data, $user_data ) = @_;
@@ -1323,9 +830,23 @@ sub update {
 
 #---------------------------------------------------------------------
 
-=head1
+=head2 delete( $object_or_string, [$record_data], [$user_data] )
+
+Deletes a record.  The parm $object_or_string may be one of:
+
+ - FlatFile::DataStore::Record object
+ - FlatFile::DataStore::Preamble object
+ - Preamble string
+
+The parms C<$record_data> and C<$user_data> may be omitted only if
+C<$object_or_string> is a FF::DS::Record object, in which case the
+record and user data will be gotten from it.
+
+Returns a Flatfile::DataStore::Record object.
 
 =cut
+
+# XXX shares way too much code with update()
 
 sub delete {
     my( $self, $obj, $record_data, $user_data ) = @_;
@@ -1459,7 +980,577 @@ sub delete {
 }
 
 #---------------------------------------------------------------------
-# turn a preamble string into parms for preamble->new()
+
+=head2 history( $keynum )
+
+Retrieves a record's history.  The parm C<$keynum> is always a key
+number, i.e., a record sequence number.
+
+Returns an array of FlatFile::DataStore::Record objects.
+
+The first element of this array is the current record.  The last
+element is the original record.  That is, the array is in reverse
+chronological order.
+
+=cut
+
+sub history {
+    my( $self, $keynum ) = @_;
+
+    my @history;
+
+    my $rec = $self->retrieve( $keynum );
+    push @history, $rec;
+
+    my $prevfilenum = $rec->prevfilenum();
+    my $prevseekpos = $rec->prevseekpos();
+
+    while( $prevfilenum ) {
+
+        my $rec = $self->retrieve( $prevfilenum, $prevseekpos );
+        push @history, $rec;
+
+        $prevfilenum = $rec->prevfilenum();
+        $prevseekpos = $rec->prevseekpos();
+    }
+
+    return @history;
+}
+
+#---------------------------------------------------------------------
+
+=head1 OBJECT METHODS, ACCESSORS
+
+=head2 $ds->specs( [$omap] )
+
+Sets and returns the C<specs> attribute value if C<$omap> is given,
+otherwise just returns the value.
+
+An 'omap' is an ordered hash as defined in
+
+ http://yaml.org/type/omap.html
+
+That is, it's an array of single-key hashes.  This ordered hash
+contains the specifications for constructing and parsing a record
+preamble as defined in the name.uri file.
+
+=cut
+
+sub specs {
+    my( $self, $omap ) = @_;
+    for( $self->{specs} ) {
+        if( $omap ) {
+            croak qq/Invalid omap: /.omap_errstr()
+                unless omap_is_valid( $omap );
+            $_ = $omap;
+        }
+        return unless defined;
+        return @$_ if wantarray;
+        return $_;
+    }
+}
+
+#---------------------------------------------------------------------
+
+=head2 $ds->dir( [$dir] )
+
+Sets and returns the C<dir> attribute value if C<$dir> is given,
+otherwise just returns the value.
+
+If C<$dir> is given, the directory must already exist.
+
+=cut
+
+sub dir {
+    my( $self, $dir ) = @_;
+    if( defined $dir and $dir eq "" ) { delete $self->{dir} }
+    else {
+        for( $self->{dir} ) {
+            if( defined $dir ) {
+                croak qq/$dir doesn't exist/ unless -d $dir;
+                $_ = $dir
+            }
+            return $_;
+        }
+    }
+}
+
+#---------------------------------------------------------------------
+
+=head2 Preamble accessors
+
+The following methods set and return their respective attribute values
+if C<$value> is given.  Otherwise, they just return the value.
+
+ $ds->indicator(   [$value] ); # from uri (length-characters)
+ $ds->date(        [$value] ); # from uri (length-format)
+ $ds->transnum(    [$value] ); # from uri (length-base)
+ $ds->keynum(      [$value] ); # from uri (length-base)
+ $ds->reclen(      [$value] ); # from uri (length-base)
+ $ds->thisfilenum( [$value] ); # from uri (length-base)
+ $ds->thisseekpos( [$value] ); # from uri (length-base)
+ $ds->prevfilenum( [$value] ); # from uri (length-base)
+ $ds->prevseekpos( [$value] ); # from uri (length-base)
+ $ds->nextfilenum( [$value] ); # from uri (length-base)
+ $ds->nextseekpos( [$value] ); # from uri (length-base)
+ $ds->user(        [$value] ); # from uri (length-characters)
+
+=head2 Other accessors
+
+ $ds->name(        [$value] ); # from uri, name of data store
+ $ds->desc(        [$value] ); # from uri, description of data store
+ $ds->recsep(      [$value] ); # from uri (character(s))
+ $ds->uri(         [$value] ); # full uri as is
+ $ds->preamblelen( [$value] ); # length of full preamble string
+ $ds->translen(    [$value] ); # length of stored transaction number
+ $ds->transbase(   [$value] ); # base of stored trancation number
+ $ds->filenumlen(  [$value] ); # length of stored file number
+ $ds->filenumbase( [$value] ); # base of stored file number
+ $ds->dateformat(  [$value] ); # format from uri
+ $ds->regx(        [$value] ); # capturing regx for preamble string
+ $ds->maxfilesize( [$value] ); # max as an integer
+ $ds->crud(        [$value] ); # hash ref, e.g.,
+
+     {
+        create => '+',
+        oldupd => '#',
+        update => '=',
+        olddel => '*',
+        delete => '-'
+     }
+
+ (translates logical actions into their symbolic indicators)
+
+=cut
+
+sub indicator   {for($_[0]->{indicator}   ){$_=$_[1]if@_>1;return$_}}
+sub date        {for($_[0]->{date}        ){$_=$_[1]if@_>1;return$_}}
+sub transnum    {for($_[0]->{transnum}    ){$_=$_[1]if@_>1;return$_}}
+sub keynum      {for($_[0]->{keynum}      ){$_=$_[1]if@_>1;return$_}}
+sub reclen      {for($_[0]->{reclen}      ){$_=$_[1]if@_>1;return$_}}
+sub thisfilenum {for($_[0]->{thisfilenum} ){$_=$_[1]if@_>1;return$_}}
+sub thisseekpos {for($_[0]->{thisseekpos} ){$_=$_[1]if@_>1;return$_}}
+sub prevfilenum {for($_[0]->{prevfilenum} ){$_=$_[1]if@_>1;return$_}}
+sub prevseekpos {for($_[0]->{prevseekpos} ){$_=$_[1]if@_>1;return$_}}
+sub nextfilenum {for($_[0]->{nextfilenum} ){$_=$_[1]if@_>1;return$_}}
+sub nextseekpos {for($_[0]->{nextseekpos} ){$_=$_[1]if@_>1;return$_}}
+sub user        {for($_[0]->{user}        ){$_=$_[1]if@_>1;return$_}}
+
+sub name        {for($_[0]->{name}        ){$_=$_[1]if@_>1;return$_}}
+sub desc        {for($_[0]->{desc}        ){$_=$_[1]if@_>1;return$_}}
+sub recsep      {for($_[0]->{recsep}      ){$_=$_[1]if@_>1;return$_}}
+sub uri         {for($_[0]->{uri}         ){$_=$_[1]if@_>1;return$_}}
+sub preamblelen {for($_[0]->{preamblelen} ){$_=$_[1]if@_>1;return$_}}
+sub translen    {for($_[0]->{translen}    ){$_=$_[1]if@_>1;return$_}}
+sub transbase   {for($_[0]->{transbase}   ){$_=$_[1]if@_>1;return$_}}
+sub filenumlen  {for($_[0]->{filenumlen}  ){$_=$_[1]if@_>1;return$_}}
+sub filenumbase {for($_[0]->{filenumbase} ){$_=$_[1]if@_>1;return$_}}
+sub dateformat  {for($_[0]->{dateformat}  ){$_=$_[1]if@_>1;return$_}}
+sub regx        {for($_[0]->{regx}        ){$_=$_[1]if@_>1;return$_}}
+sub maxfilesize {for($_[0]->{maxfilesize} ){$_=$_[1]if@_>1;return$_}}
+sub crud        {for($_[0]->{crud}        ){$_=$_[1]if@_>1;return$_}}
+
+#---------------------------------------------------------------------
+
+=head1 OBJECT METHODS, UTILITARIAN
+
+=cut
+
+#---------------------------------------------------------------------
+# initialize(), called by init() when datastore is first used
+#     creates name.obj file to bypass uri parsing from now on
+
+sub initialize {
+    my( $self ) = @_;
+
+    my $dir      = $self->dir();
+    my $name     = $self->name();
+    my $len      = $self->filenumlen();
+    my $filenum  = sprintf "%0${len}d", 1;  # one is 1 in any base
+    my $datafile = "$dir/$name.$filenum.dat";
+
+    croak qq/Can't initialize database: data files exist (e.g., $datafile)./
+        if -e $datafile;
+
+    local $Data::Dumper::Terse  = 1;
+    local $Data::Dumper::Indent = 0;  # make object a one-liner
+
+    my $save = $self->dir();
+    # delete these, don't want in obj file
+    $self->dir("");
+
+    my $obj_file = "$dir/$name.obj";
+    $self->write_file( $obj_file, Dumper $self );
+    $self->close_files();
+
+    $self->dir( $save );
+}
+
+#---------------------------------------------------------------------
+# new_preamble(), called by various subs
+#     wrapper for FlatFile::DataStore::Preamble->new()
+
+sub new_preamble {
+    my( $self, $parms ) = @_;
+    $parms->{'datastore'} = $self;
+    FlatFile::DataStore::Preamble->new( $parms );
+}
+
+#---------------------------------------------------------------------
+# new_record(), called by various subs
+#     wrapper for FlatFile::DataStore::Record->new()
+
+sub new_record {
+    my( $self, $parms ) = @_;
+    my $preamble = $parms->{'preamble'};
+    if( ref $preamble eq 'HASH' ) {  # not an object
+        $parms->{'preamble'} = $self->new_preamble( $preamble );
+    }
+    FlatFile::DataStore::Record->new( $parms );
+}
+
+#---------------------------------------------------------------------
+
+=head2 all_datafiles()
+
+Returns an array of all the data store's data file paths.
+
+Since the file numbers should sort well, the array should be in
+chronological order.
+
+=cut
+
+sub all_datafiles {
+    my( $self ) = @_;
+
+    my $dir        = $self->dir();
+    my $name       = $self->name();
+    my $filenumlen = $self->filenumlen();
+
+    my $base = $self->filenumbase();
+    my $chars = base_chars( $base );
+    my $pattern = "[$chars]" x $filenumlen;
+
+    my @files = glob "$dir/$name.$pattern.dat";
+
+    return @files;
+}
+
+#---------------------------------------------------------------------
+# current_datafile(), called by create(), update(), and delete() to
+#     get the current data file; the parm $reclen is used to see if
+#     new_datafile() needs to be called
+
+sub current_datafile {
+    my( $self, $reclen ) = @_;
+
+    $reclen ||= 0;
+
+    my $dir        = $self->dir();
+    my $name       = $self->name();
+    my $filenumlen = $self->filenumlen();
+    my $recseplen  = length( $self->recsep() );
+    my @files      = $self->all_datafiles();
+
+    my $datafile;
+    my $filenum  = 0;  # zero is 0 in any base
+    my $transint;
+    my $transnum;
+    if( @files ) {
+        # get the last data file, i.e., the current one
+        $datafile    = $files[-1];
+        ( $filenum ) = $datafile =~ m{^$dir/$name\.(.+)\.dat$};
+        my $datafh   = $self->locked_for_write( $datafile );
+        ( $transint, $transnum ) = $self->nexttransnum( $datafh );
+    }
+    else {
+        # create first data file if none exists
+        $transint = 1;
+        ( $datafile, $filenum ) =
+            $self->new_datafile( $filenum, $transint )
+    }
+
+    # check if we're about to overfill the data file
+    # and if so, create a new data file--the new current one
+    my $maxfilesize = $self->maxfilesize();
+    my $checksize = $self->preamblelen() + $reclen + $recseplen;
+
+    if( (-s $datafile) + $checksize > $maxfilesize ) {
+
+        # head is:
+        #
+        # uri: [uri][recsep]                    5 + urilen         + recseplen
+        # file: [filenum] of [filenum][recsep] 10 + (2*filenumlen) + recseplen
+        # trans: [transnum] to [transnum][recsep]    11 + (2*translen)   + recseplen
+        #
+        # so headsize is:
+        #
+        # 26 + urilen + (2*filenumlen) + (2*translen) + (3*recseplen)
+
+        my $headsize = 26
+            + length( $self->uri() )
+            + ( 2 * $filenumlen )
+            + ( 2 * $self->translen() )
+            + ( 3 * $recseplen );
+        croak qq/Record too long/
+            if $headsize + $checksize > $maxfilesize;
+        ( $datafile, $filenum ) =
+            $self->new_datafile( $filenum, $transint );
+    }
+
+    return $datafile, $filenum;
+}
+
+#---------------------------------------------------------------------
+# increment_base(), adds one to a number in any base and returns the
+#     incremented number
+#     XXX not actually used by anything yet
+
+sub increment_base {
+    my( $num, $base ) = @_;
+    int2base( 1 + base2int( $num, $base ), $base );
+}
+
+#---------------------------------------------------------------------
+# new_datafile(), called by current_datafile() to create a new current
+#     data file when a) this is the first data file in a newly created
+#     data store or b) the record being written would make the current
+#     file exceed the max file size
+
+sub new_datafile {
+    my( $self, $old_filenum, $transint ) = @_;
+
+    my $filenumlen  = $self->filenumlen();
+    my $dir         = $self->dir();
+    my $name        = $self->name();
+    my $translen    = $self->translen();
+    my $transbase   = $self->transbase();
+    my $trans_is    = int2base( $transint,   $transbase, $translen );
+    my $trans_was   = int2base( $transint-1, $transbase, $translen );
+    my $filenumbase = $self->filenumbase();
+    my $filenumint  = base2int( $old_filenum, $filenumbase );
+    my $filenum     = int2base( ++$filenumint, $filenumbase, $filenumlen );
+    croak qq/Database exceeds configured size (filenum: "$filenum" too long)/
+        if length $filenum > $filenumlen;
+
+    my $datafile = "$dir/$name.$filenum.dat";
+
+    # initialize each data file with the datastore uri
+    # to help identify them and tie them together logically
+    # we also add file: X of Y to help disaster recovery
+    # and trans: A to B for similar reasons
+
+    my $recsep     = $self->recsep();
+    my $uri        = "uri: ".$self->uri().$recsep;
+    my $files      = "file: $filenum of $filenum$recsep";
+    # trans_was because of how we get the nexttransnum ...
+    my $transrange = "trans: $trans_is to $trans_was$recsep";
+    $self->write_file( $datafile, "$uri$files$transrange" );
+
+    # now update the files verbage in the previous data files
+    my $seekpos = length $uri;
+    for( 1 .. $filenumint-1 ) {
+        my $this     = int2base( $_, $filenumbase, $filenumlen );
+        my $datafile = "$dir/$name.$this.dat";
+        my $fh       = $self->locked_for_write( $datafile );
+        my $files    = "file: $this of $filenum";
+        $self->write_bytes( $fh, $seekpos, $files );
+    }
+    $self->close_files();
+
+    return $datafile, $filenum;
+}
+
+#---------------------------------------------------------------------
+
+=head2 keyfile()
+
+Returns the file path of the data store's key file.
+
+=cut
+
+sub keyfile {
+    my( $self ) = @_;
+
+    my $dir     = $self->dir();
+    my $name    = $self->name();
+    my $keyfile = "$dir/$name.key";
+
+    return $keyfile;
+}
+
+#---------------------------------------------------------------------
+
+=head2 which_datefile( $filenum )
+
+The parm C<$filenum> should be passed as it is stored in the preamble,
+not as a decimal integer.  E.g., if the file number is 10 and the base
+is greater than 10, then C<$filenum> should be C<"A">.
+
+Returns the data file path that corresponds to the requested file
+number.
+
+=cut
+
+sub which_datafile {
+    my( $self, $filenum ) = @_;
+
+    my $dir        = $self->dir();
+    my $name       = $self->name();
+    my $datafile   = "$dir/$name.$filenum.dat";
+
+    return $datafile;
+}
+
+#---------------------------------------------------------------------
+
+=head2 howmany()
+
+Returns the number of current (non-deleted) records in the data store.
+This routine's speed is a function of the number of records in the data
+store.  It scans the key file, so the more records, the more lines to
+scan.  A more efficient way to get this data is to maintain a separate
+index as records are created, updated, deleted (outside the scope of
+this module--but facilitated by it).
+
+=cut
+
+sub howmany {
+    my( $self ) = @_;
+
+    my $create = $self->crud()->{'create'};
+    my $update = $self->crud()->{'update'};
+    my $regx   = qr/[$create$update]/;
+
+    my $dir     = $self->dir();
+    my $name    = $self->name();
+    my $keyfile = "$dir/$name.key";
+    return unless -e $keyfile;
+                       # XXX
+$self->close_files();  # XXX needs figuring out ...
+                       # XXX
+    my $keyfh   = $self->locked_for_read( $keyfile );
+
+    # brute force scan of keyfile
+    my $keynum = 0;
+    my $keyvec = "";  # bit vector for keynums
+    while( <$keyfh> ) {
+        chomp;
+        my $parms = $self->burst_preamble( $_ );
+        setbit( $keyvec, $keynum, 1 ) if $parms->{'indicator'} =~ $regx;
+        $keynum++;
+    }
+    return @{bit2num( $keyvec )} if wantarray;
+    return bitcount( $keyvec, 1 );
+}
+
+#---------------------------------------------------------------------
+# keypos(), called various places to seek to a particular line in the
+#     key file
+
+# keynum preamble lines
+# 0      preamble1
+# 1      preamble2
+# 2      preamble3
+#        ^ keypos for keynum 2
+# 
+# For example, if keynum is 2, then keypos is 2 * preamble line length,
+# which places it just before the third preamble.
+
+sub keypos {
+    my( $self, $keynum ) = @_;
+    
+    my $preamblelen = $self->preamblelen();
+    my $recsep      = $self->recsep();
+    my $keypos      = $keynum * ($preamblelen + length $recsep);
+
+    return $keypos;
+}
+
+#---------------------------------------------------------------------
+# nextkeynum(), called by create() to get next record sequence number
+#     and by retrieve() to check if requested number exists
+
+# Since the key file consists of fixed-length records, dividing the
+# size of the file by the length of each record should give us the
+# number of records in the file.  Since the keynums start with 0,
+# the number of records in the file is also the next available keynum,
+# e.g.,
+#
+#     keynum record
+#     0      rec1
+#     1      rec2
+#     2      rec3
+#
+# This shows that there are three records in the file and the next
+# available keynum is 3.
+#
+# Each record in the key file consists of a preamble and a record
+# separator, so we divide the file size by the lengths of those.
+
+sub nextkeynum {
+    my( $self, $key_file ) = @_;
+
+    my $preamblelen = $self->preamblelen();
+    my $recsep      = $self->recsep();
+    my $keynum      = (-s $key_file) / ($preamblelen + length $recsep);
+
+    return $keynum;
+}
+
+#---------------------------------------------------------------------
+# nexttransnum(), called various places to get the next transaction
+#     number from the current data file
+
+# head is:
+#
+# uri: [uri][recsep]                       5 + urilen         + recseplen
+# file: [filenum] of [filenum][recsep]    10 + (2*filenumlen) + recseplen
+# trans: [transnum] to [transnum][recsep] 11 + (2*translen)   + recseplen
+#                      ^
+# so seekpos to 2nd transnum is:
+#
+# 26 + urilen + (2*filenumlen) + (2*recseplen) + translen
+#
+
+sub nexttransnum {
+    my( $self, $datafh ) = @_;
+
+    my $urilen     = length( $self->uri() );
+    my $recseplen  = length( $self->recsep() );
+    my $filenumlen = $self->filenumlen();
+    my $translen   = $self->translen();
+    my $transbase  = $self->transbase();
+    my $seekpos    =
+        26 + $urilen + (2*$filenumlen) + (2*$recseplen) + $translen;
+    my $transnum   = $self->read_bytes( $datafh, $seekpos, $translen );
+    my $transint   = base2int( $transnum, $transbase );
+    ++$transint;
+    $transnum = int2base( $transint, $transbase, $translen );
+
+    return $transint, $transnum;
+}
+
+#---------------------------------------------------------------------
+# write_transnum(), called by create(), update(), delete() to update
+#     the transaction number in the head of the current data file
+
+sub write_transnum {
+    my( $self, $datafh, $transnum ) = @_;
+
+    my $urilen     = length( $self->uri() );
+    my $recseplen  = length( $self->recsep() );
+    my $filenumlen = $self->filenumlen();
+    my $translen   = $self->translen();
+    my $seekpos    =
+        26 + $urilen + (2*$filenumlen) + (2*$recseplen) + $translen;
+
+    $self->write_bytes( $datafh, $seekpos, $transnum );
+}
+
+#---------------------------------------------------------------------
+# burst_pramble(), called various places to parse preamble string
+
 sub burst_preamble {
     my( $self, $string ) = @_;
     croak qq/No preamble to burst/ unless $string;
@@ -1491,6 +1582,8 @@ sub burst_preamble {
 }
 
 #---------------------------------------------------------------------
+# update_preamble(), called by update() and delete() to flag old recs
+
 sub update_preamble {
     my( $self, $preamble, $parms ) = @_;
 
@@ -1526,6 +1619,8 @@ sub update_preamble {
 }
 
 #---------------------------------------------------------------------
+# analyze_preamble() (XXX will probably go away)
+
 sub analyze_preamble {
     my( $self, $preamble ) = @_;
     return unless $preamble;
@@ -1689,7 +1784,7 @@ sub write_file {
 }
 
 #---------------------------------------------------------------------
-# utilities
+# utilities (XXX will probably move to individual modules)
 #---------------------------------------------------------------------
 
 #---------------------------------------------------------------------
@@ -1716,7 +1811,7 @@ sub now {
 }
 
 #---------------------------------------------------------------------
-# then(), translates stored date to YYYY/MM/DD
+# then(), translates stored date to YYYY-MM-DD
 
 sub then {
     my( $self, $date, $format ) = @_;
@@ -1737,7 +1832,7 @@ sub then {
             $d = sprintf "%02d", base2int( $d, 62 );
         }
     }
-    return "$y/$m/$d";
+    return "$y-$m-$d";
 }
 
 #---------------------------------------------------------------------

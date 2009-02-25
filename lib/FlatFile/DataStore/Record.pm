@@ -1,10 +1,61 @@
-#!/usr/local/bin/perl
+#---------------------------------------------------------------------
+  package FlatFile::DataStore::Record;
+#---------------------------------------------------------------------
 
+=head1 NAME
+
+FlatFile::DataStore::Record - Perl module that implements a flat
+file data store record class.
+
+=head1 SYNOPSYS
+
+ # first, create a preamble object
+
+ use FlatFile::DataStore::Preamble;
+
+ my $preamble = FlatFile::DataStore::Preamble->new( {
+     indicator   => $indicator,     # single-character crud flag
+     date        => $date,          # pre-formatted date
+     transnum    => $transint,      # transaction number (integer)
+     keynum      => $keynum,        # record sequence number (integer)
+     reclen      => $reclen,        # record length (integer)
+     thisfilenum => $filenum,       # file number (in base format)
+     thisseekpos => $datapos,       # seek position (integer)
+     prevfilenum => $prevfilenum,   # ditto these ...
+     prevseekpos => $prevseekpos,
+     nextfilenum => $nextfilenum,
+     nextseekpos => $nextseekpos,
+     user        => $user_data,     # pre-formatted user-defined data
+     } );
+
+ # then create a record object with the preamble contained in it
+
+ use FlatFile::DataStore::Record;
+
+ my $record = FlatFile::DataStore::Record->new( {
+     preamble => $preamble,                 # i.e., a preamble object
+     data     => "This is a test record.",  # actual record data
+     } );
+
+=head1 DESCRIPTION
+
+FlatFile::DataStore::Record is a Perl module that implements a flat
+file data store record class.  This class defines objects used by
+FlatFile::DataStore.  You will likely not ever call new() yourself,
+(FlatFile::DataStore::create() would, e.g., do that) but you will
+likely call the accessors.
+
+=head1 VERSION
+
+FlatFile::DataStore::Record version 0.02
+
+=cut
+
+our $VERSION = '0.02';
+
+use 5.008003;
 use strict;
 use warnings;
-
-#---------------------------------------------------------------------
-package FlatFile::DataStore::Record;
 
 use Carp;
 
@@ -14,6 +65,26 @@ my %Attrs = qw(
     );
 
 #---------------------------------------------------------------------
+
+=head1 CLASS METHODS
+
+=head2 FlatFile::DataStore::Record->new( $parms )
+
+Constructs a new FlatFile::DataStore::Record object.
+
+The parm C<$parms> is a hash reference containing key/value pairs to
+populate the record string.  Two keys are recognized:
+
+ - preamble, i.e., a FlatFile::DataStore::Preamble object
+ - data,     the actual record data
+
+The record data is stored as a scalar reference.
+
+=cut
+
+# XXX allow new() to accept the parms for FF::DS::Preamble->new()
+# XXX analyze situations where storing the scalar reference is a problem
+
 sub new {
     my( $class, $parms ) = @_;
 
@@ -25,6 +96,8 @@ sub new {
 
 
 #---------------------------------------------------------------------
+# init(), called by new() to parse the parms
+
 sub init {
     my( $self, $parms ) = @_;
 
@@ -45,16 +118,41 @@ sub init {
 }
 
 #---------------------------------------------------------------------
-# accessors
 
-#---------------------------------------------------------------------
-# read/write
+=head1 OBJECT METHODS: ACCESSORS
+
+The following read/write methods set and return their respective
+attribute values if C<$value> is given.  Otherwise, they just return
+the value.
+
+ $record->data(     [$value] ); # actual record data
+ $record->preamble( [$value] ); # FlatFile::DataStore::Preamble object
+
+=cut
 
 sub data     {for($_[0]->{data}    ){$_=$_[1]if@_>1;return$_}}
 sub preamble {for($_[0]->{preamble}){$_=$_[1]if@_>1;return$_}}
 
-#---------------------------------------------------------------------
-# readonly
+=pod
+
+The following read-only methods just return their respective values.
+The values all come from the record's contained preamble object.
+
+ $record->user()
+ $record->string()
+ $record->indicator()
+ $record->date()
+ $record->keynum()
+ $record->reclen()
+ $record->transnum()
+ $record->thisfilenum()
+ $record->thisseekpos()
+ $record->prevfilenum()
+ $record->prevseekpos()
+ $record->nextfilenum()
+ $record->nextseekpos()
+
+=cut
 
 sub user        {for($_[0]->preamble()){defined&&return$_->user()}}
 sub string      {$_[0]->preamble()->string()     }
@@ -71,3 +169,18 @@ sub nextfilenum {$_[0]->preamble()->nextfilenum()}
 sub nextseekpos {$_[0]->preamble()->nextseekpos()}
 
 __END__
+
+=head1 AUTHOR
+
+Brad Baxter, E<lt>bbaxter@cpan.orgE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2008 by Brad Baxter
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.8.8 or,
+at your option, any later version of Perl 5 you may have available.
+
+=cut
+
