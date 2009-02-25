@@ -54,50 +54,6 @@ store, and running a history will return all of them.  Another result
 is that each record in the data store represents a transaction: create,
 update, or delete.
 
-A key file acts as an index into the data file(s).  The versions of the
-records in the data file(s) act as linked lists:
-
- - the first version of a record links just to it's successor
- - a second, third, etc., versions, to their successors and predecessors
- - the final (current) version, just to its predecessor
-
-Each record is stored with a I<preamble>, which is a fixed-length
-string of fields containing:
-
- - crud indicator       (flag for created, updated, deleted, etc.)
- - transaction number   (incremented when a record is touched)
- - date                 (of the "transaction")
- - key number           (record sequence number)
- - record length        (in bytes)
- - user data            (for out-of-band* user-defined data)
- - "this" file number   (linked list pointers ...)
- - "this" seek position
- - "prev" file number
- - "prev" seek position
- - "next" file number
- - "next" seek position
-
-* That is, data about the record not stored in the record.
-
-The formats and sizes of these fixed-length fields may be configured
-when the data store is first defined, and will determine certain
-constraints on the size of the data store.  For example, if the file
-number is base 10 and 2 bytes in size, then the data store may have
-up to 99 data files.  And if the seek position is base 10 and 9 bytes
-in size, then each data file may contain up to 1 Gig of data.
-
-Number bases larger than 10 (up to 36 for file numbers and up to 62 for
-other numbers) may be used to help shorten the length of the preamble
-string.
-
-A data store will always have only one key file, but may have many data
-files.  To retrieve a record, one must know the data file number and
-the seek position into that data file, or one must know the record's
-sequence number (the order it was added to the data store).  With a
-sequence number, the file number and seek position can be looked up in
-the key file, so these sequence numbers are called "key numbers" or
-C<keynum>.
-
 Methods support the following actions:
 
  - create
@@ -113,56 +69,8 @@ Scripts supplied in the distribution perform:
  - migration of data store records to newly configured data store
  - comparison of pre-migration and post-migration data stores
 
-=head1 MOTIVATION
-
-Several factors motivated the development of this module:
-
- - the desire for simple, efficient reading and writing of records
- - the need to handle any (reasonable) number and size of records
- - the desire to identify records using sequence numbers
- - the need to retain previous versions of records and to view history
- - the ability to store any sort of data: binary or text in any encoding
- - the desire for a relatively simple file structure
- - the desire for the data to be fairly easily read by a human
- - the ability to easily increase the data store size (through migration)
-
-The key file makes it easy and efficient to retrieve the current
-version of a record--you just need the record's sequence number.  Other
-retrievals via file number and seek position (e.g., gotten from a
-history list) are also fast and easy.
-
-Because the size and number of data files is configurable, the
-data store should scale up to large numbers of (perhaps large)
-records.  This while still retaining efficient reading and writing.
-
-When a record is created, it is assigned a sequence number (keynum)
-that persistently identifies that record for the life of the data
-store.  This should help user-developed indexing schemes that
-employ, e.g., bit maps to remain correct.
-
-Since a record links to it's predecessors, it's easy to get a history
-of that record's changes over time.  This can facilitate recovery and
-reporting.
-
-Since record retrieval is by seek position and record length (in
-bytes), any sequence of bytes may be stored and retrieved.  Disparate
-types of data may be stored in the same data store.
-
-Outside of the record data itself, the data store file structure uses
-ascii characters for the key file and preambles.  It appends a record
-separator, typically a newline character, after each record.  This is
-intended to make the file structure relatively simple and more easily
-read by a human--to aid copying, debugging, disaster recovery, simple
-curiosity, etc.
-
-Migration scripts are included in the module distribution.  If your
-initial configuration values prove too small to accommodate your data,
-you can configure a new data store with larger values and migrate all
-the records to the new data store.  All of the transaction and sequence
-numbers remain the same; the record data and user data are identical;
-and interfacing with the new data store vs. the old one should be
-completely transparent to programs using the FlatFile::DataStore
-module.
+There is more general discussion and tutorials about this module
+in FlatFile::DataStore::Tutorial.
 
 =head1 VERSION
 
@@ -458,42 +366,6 @@ sub convert_maxfilesize {
 
     return 0+$max;
 }
-
-#---------------------------------------------------------------------
-# CRUD cases:
-#
-# Create: no previous preamble required or allowed
-#     - create a record object (with no previous)
-#     - write the record
-#     - return the record object
-# Retrieve:
-#     - read a data record
-#     - create a record object (with a preamble, which may become a previous)
-#     - return the record object
-# Update: previous preamble required (and it must not have changed)
-#     - create a record object (with a previous preamble)
-#     - write the record (updating the previous in the data store)
-#     - return the record object
-# Delete: previous preamble required (and it must not have changed)
-#     - create a record object (with a previous preamble)
-#     - write the record (updating the previous in the data store)
-#     - return the record object
-#
-# Some notes about the previous preamble:
-#
-# In order to protect data from conflicting concurrent updates, you may
-# not update or delete a record without first retrieving it from the data
-# store.  Supplying the previous preamble along with the new record data is
-# reasonable proof that you did this.  Before the new record is written,
-# the supplied previous preamble is compared with what's in the data store,
-# and if they are not exactly the same, it means that someone else
-# retrieved and updated/deleted the record between the time you read it
-# and the time you tried to update/delete it.
-#
-# So unless you supply a previous preamble and unless the one you supply
-# matches exactly the one in the data store, your update/delete will not
-# be accepted--you will have to re-retrieve the new version of the record
-# (getting a more recent preamble) and apply your updates to it.
 
 #---------------------------------------------------------------------
 
