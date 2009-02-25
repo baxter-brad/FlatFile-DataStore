@@ -323,7 +323,6 @@ sub init {
 
         $self->initialize();
     }
-    $self->close_files();
 
     return $self;  # this is either the same self or a new self
 }
@@ -1181,7 +1180,6 @@ sub initialize {
 
     my $obj_file = "$dir/$name.obj";
     $self->write_file( $obj_file, Dumper $self );
-    $self->close_files();
 
     $self->dir( $save );
 }
@@ -1356,7 +1354,6 @@ sub new_datafile {
         my $files    = "file: $this of $filenum";
         $self->write_bytes( $fh, $seekpos, $files );
     }
-    $self->close_files();
 
     return $datafile, $filenum;
 }
