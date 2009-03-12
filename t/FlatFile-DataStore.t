@@ -20,7 +20,7 @@ ACCESSORS: {
         qq'http://example.com?name=$name',
         qq'desc=$desc',
         qw(
-            maxfilesize=10_000
+            datamax=10_000
             recsep=%0A
             indicator=1-%2B%23%3D%2A%2D
             date=8-yyyymmdd
@@ -48,30 +48,30 @@ ACCESSORS: {
 
     ok( $ds );
 
-    is( $ds->dir,           $dir,         "dir()"         );
-    is( $ds->name,          $name,        "name()"        );
-    is( $ds->desc,          $desc,        "desc()"        );
-    is( $ds->maxfilesize,   10_000,       "maxfilesize()" );
-    is( $ds->recsep,        "\x0A",       "recseip()"     );
-    is( $ds->indicator,     "1-+#=*-",    "indicator()"   );
-    is( $ds->date,          "8-yyyymmdd", "date()"        );
-    is( $ds->transnum,      "2-10",       "transnum()"    );
-    is( $ds->keynum,        "2-10",       "keynum()"      );
-    is( $ds->reclen,        "2-10",       "reclen()"      );
-    is( $ds->thisfilenum,   "1-10",       "thisfilenum()" );
-    is( $ds->thisseekpos,   "4-10",       "thisseekpos()" );
-    is( $ds->prevfilenum,   "1-10",       "prevfilenum()" );
-    is( $ds->prevseekpos,   "4-10",       "prevseekpos()" );
-    is( $ds->nextfilenum,   "1-10",       "nextfilenum()" );
-    is( $ds->nextseekpos,   "4-10",       "nextseekpos()" );
-    is( $ds->user,          "10- -~",     "user()"        );
-    is( $ds->dateformat,    "yyyymmdd",   "dateformat()"  );
-    is( $ds->filenumbase,   "10",         "filenumbase()" );
-    is( $ds->filenumlen,    1,            "filenumlen()"  ); # XXX 0+
-    is( $ds->uri,           $uri,         "uri()"         );
-    is( $ds->preamblelen,   40,           "preamblelen()" );
-    is( $ds->translen,      2,            "translen()"    ); # XXX 0+
-    is( $ds->transbase,     "10",         "transbase()"   );
+    is( $ds->dir,          $dir,         "dir()"         );
+    is( $ds->name,         $name,        "name()"        );
+    is( $ds->desc,         $desc,        "desc()"        );
+    is( $ds->datamax,      10_000,       "datamax()" );
+    is( $ds->recsep,       "\x0A",       "recseip()"     );
+    is( $ds->indicator,    "1-+#=*-",    "indicator()"   );
+    is( $ds->date,         "8-yyyymmdd", "date()"        );
+    is( $ds->transnum,     "2-10",       "transnum()"    );
+    is( $ds->keynum,       "2-10",       "keynum()"      );
+    is( $ds->reclen,       "2-10",       "reclen()"      );
+    is( $ds->thisfilenum,  "1-10",       "thisfilenum()" );
+    is( $ds->thisseekpos,  "4-10",       "thisseekpos()" );
+    is( $ds->prevfilenum,  "1-10",       "prevfilenum()" );
+    is( $ds->prevseekpos,  "4-10",       "prevseekpos()" );
+    is( $ds->nextfilenum,  "1-10",       "nextfilenum()" );
+    is( $ds->nextseekpos,  "4-10",       "nextseekpos()" );
+    is( $ds->user,         "10- -~",     "user()"        );
+    is( $ds->dateformat,   "yyyymmdd",   "dateformat()"  );
+    is( $ds->filenumbase,  "10",         "filenumbase()" );
+    is( $ds->filenumlen,   1,            "filenumlen()"  );
+    is( $ds->uri,          $uri,         "uri()"         );
+    is( $ds->preamblelen,  40,           "preamblelen()" );
+    is( $ds->translen,     2,            "translen()"    );
+    is( $ds->transbase,    "10",         "transbase()"   );
     is( Dumper($ds->crud),
         "{'create' => '+','delete' => '-','olddel' => '*','oldupd' => '#','update' => '='}",
         "crud()" );
@@ -84,6 +84,11 @@ ACCESSORS: {
 }
 
 CRUD: {
+
+    my( $y, $m, $d ) = sub{($_[5]+1900,$_[4]+1,$_[3])}->(localtime);
+    my $yyyy_mm_dd   = sprintf "%04d-%02d-%02d", $y, $m, $d;
+    my $yyyymmdd     = sprintf "%04d%02d%02d",   $y, $m, $d;
+
     my $ds = FlatFile::DataStore->new( {
         dir  => $dir,
         name => $name,
@@ -96,10 +101,48 @@ CRUD: {
     my $record_data = "This is testing record1.";
 
     my $record = $ds->create( $record_data, $user_data );
-exit;
     is( Dumper($record),
-        "xxx",
+        qq/bless( {'data' => \\'This is testing record1.','preamble' => bless( {'date' => '$yyyy_mm_dd','indicator' => '+','keynum' => 0,'reclen' => 24,'string' => '+${yyyymmdd}01002410325----------Testing1  ','thisfilenum' => '1','thisseekpos' => 325,'transnum' => 1,'user' => 'Testing1'}, 'FlatFile::DataStore::Preamble' )}, 'FlatFile::DataStore::Record' )/,
         "create()" );
 
+    my $data = $record->data();
+    is( $$data, "This is testing record1.", "data()" );
+
+    my $keynum = $record->keynum();
+    is( $keynum, 0, "keynum()" );
+
+    my $user = $record->user();
+    is( $user, "Testing1", "user()" );
+
+    my $string = $record->string();
+    is( $string, "+${yyyymmdd}01002410325----------Testing1  ", "string()" );
+
+    my $indicator = $record->indicator();
+    is( $indicator, "+", "indicator()" );
+
+    my $date = $record->date();
+    is( $date, $yyyy_mm_dd, "date()" );
+
+    my $reclen = $record->reclen();
+    is( $reclen, 24, "reclen()" );
+
+    my $transnum = $record->transnum();
+    is( $transnum, 1, "transnum()" );
+
+    my $thisfilenum = $record->thisfilenum();
+    is( $thisfilenum, "1", "thisfilenum()" );
+
+    my $thisseekpos = $record->thisseekpos();
+    is( $thisseekpos, 325, "thisseekpos()" );
+
+    # XXX not the same, new() needs to make the same object as retrieve()
+    # XXX e.g., thisseekpos = 0+$s, $user =~ s/\s+$//;
+    my $record2 = $ds->retrieve( $keynum );
+    is( Dumper($record), Dumper($record2), "retrieve()" );
+
+    # my $data_ref = $rec->data();
+    # my $newrec = $ds->delete( $rec );
+    # my $newrec = $ds->update( $rec, "$$data_ref$$data_ref", "Test" );
+    # print Dumper( $newrec->preamble() ), "\n";
 }
 

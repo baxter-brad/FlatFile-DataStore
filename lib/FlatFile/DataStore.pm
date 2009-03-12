@@ -98,12 +98,7 @@ use Data::Omap qw( :ALL );
 #---------------------------------------------------------------------
 # globals:
 
-# user-supplied attributes that define the preamble ...
-my %Optional = qw(
-    user         1
-    );
-
-my %Preamble = ( %Optional, qw(
+my %Preamble = qw(
     user         1
     indicator    1
     date         1
@@ -116,7 +111,15 @@ my %Preamble = ( %Optional, qw(
     prevseekpos  1
     nextfilenum  1
     nextseekpos  1
-    ) );
+    );
+
+my %Optional = qw(
+    dirmax       1
+    dirlev       1
+    tocmax       1
+    keymax       1
+    datamax      1
+    );
 
 # attributes that we generate (vs. user-supplied)
 my %Generated = qw(
@@ -133,12 +136,11 @@ my %Generated = qw(
     );
 
 # all attributes, including some more user-supplied ones
-my %Attrs = ( %Preamble, %Generated, qw(
+my %Attrs = ( %Preamble, %Optional, %Generated, qw(
     name         1
     dir          1
     desc         1
     recsep       1
-    maxfilesize  1
     ) );
 
 my $Ascii_chars = qr/^[ -~]+$/;
@@ -212,17 +214,18 @@ sub init {
         }
 
         # now for some generated attributes
-        my( $len, $base ) = split /-/, $self->thisfilenum();
-        $self->filenumlen( $len );
-        $self->filenumbase( $base );
+        my( $len, $base );
+        ( $len, $base ) = split /-/, $self->thisfilenum();
+        $self->filenumlen(  0+$len                          );
+        $self->filenumbase(   $base                         );
         ( $len, $base ) = split /-/, $self->transnum();
-        $self->translen( $len );
-        $self->transbase( $base );
-        $self->dateformat( (split /-/, $self->date())[1] );
-        $self->regx( $self->make_preamble_regx() );
-        $self->crud( $self->make_crud() );
-        $self->maxfilesize( $self->convert_maxfilesize() );
-        $self->dir( $dir );  # dir not in uri
+        $self->translen(    0+$len                          );
+        $self->transbase(     $base                         );
+        $self->dateformat(    (split /-/, $self->date())[1] );
+        $self->regx(          $self->make_preamble_regx()   );
+        $self->crud(          $self->make_crud()            );
+        $self->datamax(       $self->convert_datamax()      );
+        $self->dir(           $dir                          );  # dir not in uri
 
         for my $attr ( keys %Attrs ) {
             croak qq/Uninitialized attribute: "$_"/
@@ -344,11 +347,11 @@ sub make_crud {
 }
 
 #---------------------------------------------------------------------
-# convert_maxfilesize(), called by init() to convert user-supplied
-#     maxfilesize value into an integer: one can say, "500_000_000",
+# convert_datamax(), called by init() to convert user-supplied
+#     datamax value into an integer: one can say, "500_000_000",
 #     "500M", or ".5G" to mean 500,000,000 bytes
 
-sub convert_maxfilesize {
+sub convert_datamax {
     my( $self ) = @_;
 
     # ignoring M/G ambiguities and using round numbers:
@@ -357,7 +360,7 @@ sub convert_maxfilesize {
         G => 10**9,
         );
 
-    my $max = $self->maxfilesize();
+    my $max = $self->datamax();
     $max =~ s/_//g;
     if( $max =~ /^([.0-9]+)([MG])/ ) {
         my( $n, $s ) = ( $1, $2 );
@@ -433,13 +436,13 @@ sub create {
 
     # use these magic values to create a record
     my $preamble_parms = {
-        indicator   => $indicator,
-        date        => $date,
-        transnum    => $transint,
-        keynum      => $keynum,
-        reclen      => $reclen,
-        thisfilenum => $filenum,
-        thisseekpos => $datapos,
+        indicator   =>   $indicator,
+        date        =>   $date,
+        transnum    => 0+$transint,
+        keynum      => 0+$keynum,
+        reclen      => 0+$reclen,
+        thisfilenum =>   $filenum,
+        thisseekpos => 0+$datapos,
         };
     $preamble_parms->{ user } = $user_data
         if defined $user_data;
@@ -651,15 +654,15 @@ sub update {
 
     # use these magic values to create an update record
     my $preamble_parms = {
-        indicator   => $indicator,
-        date        => $date,
-        transnum    => $transint,
-        keynum      => $keynum,
-        reclen      => $reclen,
-        thisfilenum => $filenum,
-        thisseekpos => $datapos,
-        prevfilenum => $prevfilenum,
-        prevseekpos => $prevseekpos,
+        indicator   =>   $indicator,
+        date        =>   $date,
+        transnum    => 0+$transint,
+        keynum      => 0+$keynum,
+        reclen      => 0+$reclen,
+        thisfilenum =>   $filenum,
+        thisseekpos => 0+$datapos,
+        prevfilenum =>   $prevfilenum,
+        prevseekpos => 0+$prevseekpos,
         };
     $preamble_parms->{ user } = $user_data
         if defined $user_data;
@@ -802,15 +805,15 @@ sub delete {
 
     # use these magic values to create an update record
     my $preamble_parms = {
-        indicator   => $indicator,
-        date        => $date,
-        transnum    => $transint,
-        keynum      => $keynum,
-        reclen      => $reclen,
-        thisfilenum => $filenum,
-        thisseekpos => $datapos,
-        prevfilenum => $prevfilenum,
-        prevseekpos => $prevseekpos,
+        indicator   =>   $indicator,
+        date        =>   $date,
+        transnum    => 0+$transint,
+        keynum      => 0+$keynum,
+        reclen      => 0+$reclen,
+        thisfilenum =>   $filenum,
+        thisseekpos => 0+$datapos,
+        prevfilenum =>   $prevfilenum,
+        prevseekpos => 0+$prevseekpos,
         };
     $preamble_parms->{ user } = $user_data
         if defined $user_data;
@@ -979,7 +982,6 @@ if C<$value> is given.  Otherwise, they just return the value.
  $ds->filenumbase( [$value] ); # base of stored file number
  $ds->dateformat(  [$value] ); # format from uri
  $ds->regx(        [$value] ); # capturing regx for preamble string
- $ds->maxfilesize( [$value] ); # max as an integer
  $ds->crud(        [$value] ); # hash ref, e.g.,
 
      {
@@ -991,6 +993,28 @@ if C<$value> is given.  Otherwise, they just return the value.
      }
 
  (translates logical actions into their symbolic indicators)
+
+=head2 Optional accessors
+
+ $ds->dirmax(  [$value] ); # maximum files in a directory
+ $ds->dirlev(  [$value] ); # number of directory levels
+ $ds->tocmax(  [$value] ); # maximum toc entries
+ $ds->keymax(  [$value] ); # maximum key entries
+ $ds->datamax( [$value] ); # maximum bytes in a data file
+
+If no C<dirmax>, directories will keep being added to.
+
+If no C<dirlev>, toc, key, and data files will reside in top-level
+directory.  If C<dirmax> given, C<dirlev> defaults to 1.
+
+If no C<tocmax>, there will be only one toc file, which will grow
+indefinitely.
+
+If no C<keymax>, there will be only one key file, which will grow
+indefinitely.
+
+If no C<datamax>, the length and number base of the seek position
+numbers will determine the maximum size for the data files.
 
 =cut
 
@@ -1018,8 +1042,13 @@ sub filenumlen  {for($_[0]->{filenumlen}  ){$_=$_[1]if@_>1;return$_}}
 sub filenumbase {for($_[0]->{filenumbase} ){$_=$_[1]if@_>1;return$_}}
 sub dateformat  {for($_[0]->{dateformat}  ){$_=$_[1]if@_>1;return$_}}
 sub regx        {for($_[0]->{regx}        ){$_=$_[1]if@_>1;return$_}}
-sub maxfilesize {for($_[0]->{maxfilesize} ){$_=$_[1]if@_>1;return$_}}
 sub crud        {for($_[0]->{crud}        ){$_=$_[1]if@_>1;return$_}}
+
+sub dirmax      {for($_[0]->{dirmax}      ){$_=$_[1]if@_>1;return$_}}
+sub dirlev      {for($_[0]->{dirlev}      ){$_=$_[1]if@_>1;return$_}}
+sub tocmax      {for($_[0]->{tocmax}      ){$_=$_[1]if@_>1;return$_}}
+sub keymax      {for($_[0]->{keymax}      ){$_=$_[1]if@_>1;return$_}}
+sub datamax     {for($_[0]->{datamax}     ){$_=$_[1]if@_>1;return$_}}
 
 #---------------------------------------------------------------------
 
@@ -1142,10 +1171,10 @@ sub current_datafile {
 
     # check if we're about to overfill the data file
     # and if so, create a new data file--the new current one
-    my $maxfilesize = $self->maxfilesize();
+    my $datamax   = $self->datamax();
     my $checksize = $self->preamblelen() + $reclen + $recseplen;
 
-    if( (-s $datafile) + $checksize > $maxfilesize ) {
+    if( (-s $datafile) + $checksize > $datamax ) {
 
         # head is:
         #
@@ -1163,7 +1192,7 @@ sub current_datafile {
             + ( 2 * $self->translen() )
             + ( 3 * $recseplen );
         croak qq/Record too long/
-            if $headsize + $checksize > $maxfilesize;
+            if $headsize + $checksize > $datamax;
         ( $datafile, $filenum ) =
             $self->new_datafile( $filenum, $transint );
     }
@@ -1434,8 +1463,13 @@ sub burst_preamble {
         my( $pos, $len, $parm ) = @$aref;
         my $field = $fields[ $i++ ];
         for( $key ) {
-            if( /indicator|date|user/ ) {
+            if( /indicator|date/ ) {
                 $parms{ $key } = $field;
+            }
+            elsif( /user/ ) {
+                my $try = $field;
+                $try =~ s/\s+$//;
+                $parms{ $key } = $try;
             }
             elsif( /filenum/ ) {
                 next if $field =~ /^-+$/;

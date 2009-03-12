@@ -208,7 +208,7 @@ sub init {
                 my $try = sprintf "%0${len}s", /filenum/? $value: int2base( $value, $parm );
                 croak qq'Value of "$_" ($try) too long' if length $try > $len;
 
-                $self->{ $_ } = /filenum/? $try: $value;
+                $self->{ $_ } = /filenum/? $try: 0+$value;
                 $string      .= $try;
             }
         }
