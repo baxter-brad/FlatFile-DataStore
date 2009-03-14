@@ -92,6 +92,7 @@ use Carp;
 
 use FlatFile::DataStore::Preamble;
 use FlatFile::DataStore::Record;
+use FlatFile::DataStore::Toc;
 use Math::Int2Base qw( base_chars int2base base2int );
 use Data::Omap qw( :ALL );
 
@@ -133,6 +134,9 @@ my %Generated = qw(
     filenumbase  1
     translen     1
     transbase    1
+    keylen       1
+    keybase      1
+    toclen       1
     );
 
 # all attributes, including some more user-supplied ones
@@ -221,11 +225,19 @@ sub init {
         ( $len, $base ) = split /-/, $self->transnum();
         $self->translen(    0+$len                          );
         $self->transbase(     $base                         );
+        ( $len, $base ) = split /-/, $self->keynum();
+        $self->keylen(      0+$len                          );
+        $self->keybase(       $base                         );
         $self->dateformat(    (split /-/, $self->date())[1] );
         $self->regx(          $self->make_preamble_regx()   );
         $self->crud(          $self->make_crud()            );
         $self->datamax(       $self->convert_datamax()      );
         $self->dir(           $dir                          );  # dir not in uri
+        $self->toclen( 9               +  # blanks
+            3 *    $self->filenumlen() +  # data, toc, key
+                   $self->keylen()     +  # keynum
+            6 *    $self->translen()   +  # transnum and cruds
+            length $self->recsep() );
 
         for my $attr ( keys %Attrs ) {
             croak qq/Uninitialized attribute: "$_"/
@@ -387,10 +399,12 @@ in which case the user data will be gotten from it.
 
 Returns a Flatfile::DataStore::Record object.
 
-Note: the record data (but not user data) is stored in the FF::DS:Record
+Note: the record data (but not user data) is stored in the FF::DS::Record
 object as a scalar reference.  This is done for efficiency in the cases
 where the record data may be very large.  Likewise, the first parm to
-create() may be a scalar reference for the same reason.
+create() is allowed to be a scalar reference for the same reason.
+
+XXX What was the idea about scalar ref?
 
 =cut
 
@@ -418,13 +432,11 @@ sub create {
     my $indicator = $self->crud()->{'create'};
     my $date      = now( $self->dateformat() );
 
-    my $dir     = $self->dir();
-    my $name    = $self->name();
-    my $keyfile = "$dir/$name.key";
+    my( $keyfile, $keyfilenum ) = $self->current_keyfile( 1 );
 
     # need to lock files before checking sizes
     my $keyfh   = $self->locked_for_write( $keyfile );
-    my $keynum  = $self->nextkeynum( $keyfile );
+    my( $keyint, $keynum ) = $self->nextkeynum( $keyfile );
     my $keypos  = -s $keyfile;  # seekpos into keyfile
 
     # want to lock keyfile before datafile
@@ -439,7 +451,7 @@ sub create {
         indicator   =>   $indicator,
         date        =>   $date,
         transnum    => 0+$transint,
-        keynum      => 0+$keynum,
+        keynum      => 0+$keyint,
         reclen      => 0+$reclen,
         thisfilenum =>   $filenum,
         thisseekpos => 0+$datapos,
@@ -456,7 +468,6 @@ sub create {
     my $preamble = $record->string();
     my $recsep   = $self->recsep();
     my $dataline = "$preamble$$data_ref$recsep";
-    my $keyline  = "$preamble$recsep";
 
     seek $datafh, $datapos, 0;
     print $datafh $dataline or croak "Can't write $datafile: $!";
@@ -469,6 +480,7 @@ sub create {
 
     $self->write_transnum( $datafh, $transnum );
 
+    my $keyline = "$preamble$recsep";
     seek $keyfh, $keypos, 0;
     print $keyfh $keyline or croak "Can't write $keyfile: $!";
     my $keytell = tell $keyfh;
@@ -476,6 +488,13 @@ sub create {
     if( $keypos + length $keyline ne $keytell ) {
         croak "Bad write?: $keyfile: things don't add up";
     }
+    
+    my( $tocfile, $tocfilenum ) = $self->current_tocfile( 1 );
+
+    my $tocfh   = $self->locked_for_write( $tocfile );
+    my $tocpos  = -s $tocfile;  # seekpos into tocfile
+
+    my $tocline = "$filenum $keyfilenum $tocfilenum $keynum $transnum";
 
     return $record;
 }
@@ -976,6 +995,9 @@ if C<$value> is given.  Otherwise, they just return the value.
  $ds->recsep(      [$value] ); # from uri (character(s))
  $ds->uri(         [$value] ); # full uri as is
  $ds->preamblelen( [$value] ); # length of full preamble string
+ $ds->toclen(      [$value] ); # length of toc entry
+ $ds->keylen(      [$value] ); # length of stored keynum
+ $ds->keybase(     [$value] ); # base of stored keynum
  $ds->translen(    [$value] ); # length of stored transaction number
  $ds->transbase(   [$value] ); # base of stored trancation number
  $ds->filenumlen(  [$value] ); # length of stored file number
@@ -1036,6 +1058,9 @@ sub desc        {for($_[0]->{desc}        ){$_=$_[1]if@_>1;return$_}}
 sub recsep      {for($_[0]->{recsep}      ){$_=$_[1]if@_>1;return$_}}
 sub uri         {for($_[0]->{uri}         ){$_=$_[1]if@_>1;return$_}}
 sub preamblelen {for($_[0]->{preamblelen} ){$_=$_[1]if@_>1;return$_}}
+sub toclen      {for($_[0]->{toclen}      ){$_=$_[1]if@_>1;return$_}}
+sub keylen      {for($_[0]->{keylen}      ){$_=$_[1]if@_>1;return$_}}
+sub keybase     {for($_[0]->{keybase}     ){$_=$_[1]if@_>1;return$_}}
 sub translen    {for($_[0]->{translen}    ){$_=$_[1]if@_>1;return$_}}
 sub transbase   {for($_[0]->{transbase}   ){$_=$_[1]if@_>1;return$_}}
 sub filenumlen  {for($_[0]->{filenumlen}  ){$_=$_[1]if@_>1;return$_}}
@@ -1066,23 +1091,37 @@ sub initialize {
     my $dir      = $self->dir();
     my $name     = $self->name();
     my $len      = $self->filenumlen();
-    my $filenum  = sprintf "%0${len}d", 1;  # one is 1 in any base
-    my $datafile = "$dir/$name.$filenum.dat";
+    my $filenum  = sprintf "%0${len}d", 1;  # one in any base
+    my $datafile = "$dir/$name.$filenum.data";
 
     croak qq/Can't initialize database: data files exist (e.g., $datafile)./
         if -e $datafile;
 
+    local $Data::Dumper::Pair   = ',';
+    local $Data::Dumper::Useqq  = 1;
     local $Data::Dumper::Terse  = 1;
     local $Data::Dumper::Indent = 0;  # make object a one-liner
 
     my $save = $self->dir();
-    # delete these, don't want in obj file
+    # delete dir, don't want in obj file
     $self->dir("");
 
     my $obj_file = "$dir/$name.obj";
     $self->write_file( $obj_file, Dumper $self );
 
     $self->dir( $save );
+
+    $self->init_tocfile();
+}
+
+#---------------------------------------------------------------------
+# new_toc()
+#     wrapper for FlatFile::DataStore::Toc->new()
+
+sub new_toc {
+    my( $self, $parms ) = @_;
+    $parms->{'datastore'} = $self;
+    FlatFile::DataStore::Toc->new( $parms );
 }
 
 #---------------------------------------------------------------------
@@ -1130,9 +1169,111 @@ sub all_datafiles {
     my $chars = base_chars( $base );
     my $pattern = "[$chars]" x $filenumlen;
 
-    my @files = glob "$dir/$name.$pattern.dat";
+    my @files = glob "$dir/$name.$pattern.data";
 
     return @files;
+}
+
+#---------------------------------------------------------------------
+# XXX provisional
+sub tocnum {
+    my( $self, $want ) = @_;
+
+    my $dir     = $self->dir();
+    my $name    = $self->name();
+    my $tocmax  = $self->tocmax();
+    my $tocfile = "$dir/$name." . ($tocmax?"1.":"") . "toc";
+    my $tocfh   = $self->locked_for_write( $tocfile );
+    my $toclen  = $self->toclen();
+    my $tocline = $self->read_bytes( $self, $tocfh, 0, $toclen ) = @_;
+    my @fields  = split " ", $tocline;
+
+    return @fields unless $want;
+
+    my $int;
+    my $num;
+
+    for( $want ) {
+        /datafile/  and do { $num = $fields[ 0 ];
+            $int = base2int( $num,  $self->filenumbase() ); last },
+        /keyfile/   and do { $num = $fields[ 1 ];
+            $int = base2int( $num,  $self->filenumbase() ); last },
+        /tocfile/   and do { $num = $fields[ 2 ];
+            $int = base2int( $num,  $self->filenumbase() ); last },
+        /keynum/    and do { $num = $fields[ 3 ];
+            $int = base2int( $num,  $self->keybase()     ); last },
+        /transnum/  and do { $num = $fields[ 4 ];
+            $int = base2int( $num,  $self->transbase()   ); last },
+        /create/    and do { $num = $fields[ 5 ];
+            $int = base2int( $num,  $self->transbase()   ); last },
+        /oldupd/    and do { $num = $fields[ 6 ];
+            $int = base2int( $num,  $self->transbase()   ); last },
+        /update/    and do { $num = $fields[ 7 ];
+            $int = base2int( $num,  $self->transbase()   ); last },
+        /olddel/    and do { $num = $fields[ 8 ];
+            $int = base2int( $num,  $self->transbase()   ); last },
+        /delete/    and do { $num = $fields[ 9 ];
+            $int = base2int( $num,  $self->transbase()   ); last },
+    }
+
+    return ( $int, $num ) if wantarray;
+    return $int;
+}
+
+#---------------------------------------------------------------------
+# XXX provisional
+sub current_tocfile {
+    my( $self, $entries ) = @_;
+
+    my $dir         = $self->dir();
+    my $name        = $self->name();
+
+    my $filenumlen  = $self->filenumlen();
+    my $filenumbase = $self->filenumbase();
+
+    my $tocfilenum  = int2base( 1, $filenumbase, $filenumlen ); # 1 for now
+
+    my $tocmax      = $self->tocmax();
+    my $tocfile     = "$dir/$name.toc";
+
+    my $tocfilesize = -s $tocfile;
+
+    return ( $tocfile, $tocfilenum ) if wantarray;
+    return $tocfile;
+}
+
+#---------------------------------------------------------------------
+sub init_tocfile {
+    my( $self ) = @_;
+
+    my $toc = $self->new_toc();
+
+    $toc->datafile( 0 );
+    $toc->keyfile(  0 );
+    $toc->tocfile(  0 );
+    $toc->keynum(   0 );
+    $toc->transnum( 0 );
+    $toc->create(   0 );
+    $toc->oldupd(   0 );
+    $toc->update(   0 );
+    $toc->olddel(   0 );
+    $toc->delete(   0 );
+
+    $toc->write_toc( 0 );
+}
+
+#---------------------------------------------------------------------
+# XXX provisional
+sub current_keyfile {
+    my( $self, $entries ) = @_;
+    my $dir         = $self->dir();
+    my $name        = $self->name();
+    my $filenumlen  = $self->filenumlen();
+    my $filenumbase = $self->filenumbase();
+    my $keyfilenum  = int2base( 1, $filenumbase, $filenumlen ); # 1 for now
+    my $keyfile = "$dir/$name.key";
+    return ( $keyfile, $keyfilenum ) if wantarray;
+    return $keyfile;
 }
 
 #---------------------------------------------------------------------
@@ -1158,7 +1299,7 @@ sub current_datafile {
     if( @files ) {
         # get the last data file, i.e., the current one
         $datafile    = $files[-1];
-        ( $filenum ) = $datafile =~ m{^$dir/$name\.(.+)\.dat$};
+        ( $filenum ) = $datafile =~ m{^$dir/$name\.(.+)\.data$};
         my $datafh   = $self->locked_for_write( $datafile );
         ( $transint, $transnum ) = $self->nexttransnum( $datafh );
     }
@@ -1201,16 +1342,6 @@ sub current_datafile {
 }
 
 #---------------------------------------------------------------------
-# increment_base(), adds one to a number in any base and returns the
-#     incremented number
-#     XXX not actually used by anything yet
-
-sub increment_base {
-    my( $num, $base ) = @_;
-    int2base( 1 + base2int( $num, $base ), $base );
-}
-
-#---------------------------------------------------------------------
 # new_datafile(), called by current_datafile() to create a new current
 #     data file when a) this is the first data file in a newly created
 #     data store or b) the record being written would make the current
@@ -1227,12 +1358,12 @@ sub new_datafile {
     my $trans_is    = int2base( $transint,   $transbase, $translen );
     my $trans_was   = int2base( $transint-1, $transbase, $translen );
     my $filenumbase = $self->filenumbase();
-    my $filenumint  = base2int( $old_filenum, $filenumbase );
-    my $filenum     = int2base( ++$filenumint, $filenumbase, $filenumlen );
+    my $fileint     = 1 + base2int( $old_filenum, $filenumbase );
+    my $filenum     = int2base( $fileint, $filenumbase, $filenumlen );
     croak qq/Database exceeds configured size (filenum: "$filenum" too long)/
         if length $filenum > $filenumlen;
 
-    my $datafile = "$dir/$name.$filenum.dat";
+    my $datafile = "$dir/$name.$filenum.data";
 
     # initialize each data file with the datastore uri
     # to help identify them and tie them together logically
@@ -1248,13 +1379,19 @@ sub new_datafile {
 
     # now update the files verbage in the previous data files
     my $seekpos = length $uri;
-    for( 1 .. $filenumint-1 ) {
+    for( 1 .. $fileint - 1 ) {
         my $this     = int2base( $_, $filenumbase, $filenumlen );
-        my $datafile = "$dir/$name.$this.dat";
+        my $datafile = "$dir/$name.$this.data";
         my $fh       = $self->locked_for_write( $datafile );
         my $files    = "file: $this of $filenum";
         $self->write_bytes( $fh, $seekpos, $files );
     }
+
+    my $toc = $self->new_toc( { int => $fileint - 1 } );  # get the prev one
+    $toc->datafile( $fileint );
+    $toc->keyfile( $toc->keyfile || 1 );
+    $toc->tocfile( $toc->tocfilenum( $fileint ) );
+    $toc->write_toc( $fileint );
 
     return $datafile, $filenum;
 }
@@ -1295,7 +1432,7 @@ sub which_datafile {
 
     my $dir        = $self->dir();
     my $name       = $self->name();
-    my $datafile   = "$dir/$name.$filenum.dat";
+    my $datafile   = "$dir/$name.$filenum.data";
 
     return $datafile;
 }
@@ -1391,9 +1528,13 @@ sub nextkeynum {
 
     my $preamblelen = $self->preamblelen();
     my $recsep      = $self->recsep();
-    my $keynum      = (-s $key_file) / ($preamblelen + length $recsep);
+    my $keylen      = $self->keylen();
+    my $keybase     = $self->keybase();
+    my $keyint      = (-s $key_file) / ($preamblelen + length $recsep);
+    my $keynum      = int2base( $keyint, $keybase, $keylen );
 
-    return $keynum;
+    return( $keyint, $keynum ) if wantarray;
+    return $keyint;
 }
 
 #---------------------------------------------------------------------
@@ -1426,7 +1567,8 @@ sub nexttransnum {
     ++$transint;
     $transnum = int2base( $transint, $transbase, $translen );
 
-    return $transint, $transnum;
+    return( $transint, $transnum ) if wantarray;
+    return $transint;
 }
 
 #---------------------------------------------------------------------
