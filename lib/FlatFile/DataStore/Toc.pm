@@ -11,16 +11,14 @@ file data store toc (table of contents) class.
 
  use FlatFile::DataStore::Toc;
 
- my $toc = FlatFile::DataStore::Toc->new( {
-     datastore => $datastore_obj,
-     str => "0 0 0 0000 0000 0000 0000 0000 0000 0000 0000" } );
 
- my $toc = FlatFile::DataStore::Toc->new( {
-     datastore => $datastore_obj,
-     int => 10  } );
- my $toc = FlatFile::DataStore::Toc->new( {
-     datastore => $datastore_obj,
-     num => "A" } );
+$toc = FlatFile::DataStore::Toc->new( { int => 10,
+    datastore => $datastore_obj } );
+
+# or
+
+$toc = FlatFile::DataStore::Toc->new( { num => "A",
+    datastore => $datastore_obj } );
 
 =head1 DESCRIPTION
 
@@ -153,7 +151,7 @@ sub to_string {
 }
 
 #---------------------------------------------------------------------
-# seekpos if tocmax, e.g., 3 toclen = 4 fileint = 7 tocmax = 3
+# seekpos if tocmax, e.g., tocmax=3, fileint=7, toclen=4
 #
 # 1: 0   xxxx     skip    = int( fileint / tocmax )
 #    1   xxxx             = int(    7    /   3    )
@@ -216,8 +214,9 @@ sub tocfilenum {
     # get toc file number based on tocmax and fileint
     my $tocfileint;
 
-    if( my $tocmax = $ds->tocmax ) { $tocfileint = int( $fileint / $tocmax ) + 1 }
-    else                           { $tocfileint = 1                             }
+    my $tocmax = $ds->tocmax;
+    if( $tocmax ) { $tocfileint = int( $fileint / $tocmax ) + 1 }
+    else          { $tocfileint = 1                             }
 
     my $tocfilenum = int2base( $tocfileint, $filenumbase, $filenumlen );
 

@@ -432,11 +432,11 @@ sub create {
     my $indicator = $self->crud()->{'create'};
     my $date      = now( $self->dateformat() );
 
-    my( $keyfile, $keyfilenum ) = $self->current_keyfile( 1 );
+    my( $keyfile, $keyfileint, $keyfilenum ) = $self->current_keyfile( 1 );
 
     # need to lock files before checking sizes
     my $keyfh   = $self->locked_for_write( $keyfile );
-    my( $keyint, $keynum ) = $self->nextkeynum( $keyfile );
+    my( $keyint, $keynum ) = $self->nextkeynum;
     my $keypos  = -s $keyfile;  # seekpos into keyfile
 
     # want to lock keyfile before datafile
@@ -489,12 +489,21 @@ sub create {
         croak "Bad write?: $keyfile: things don't add up";
     }
     
-    my( $tocfile, $tocfilenum ) = $self->current_tocfile( 1 );
+    my $toc = $self->new_toc( { num => $filenum } );
+    $toc->keyfile(  $keyfileint );
+    $toc->keynum(   $keyint );
+    $toc->transnum( $transint );
+    $toc->create(   $toc->create + 1 );
+    $toc->write_toc( $toc->datafile );
 
-    my $tocfh   = $self->locked_for_write( $tocfile );
-    my $tocpos  = -s $tocfile;  # seekpos into tocfile
-
-    my $tocline = "$filenum $keyfilenum $tocfilenum $keynum $transnum";
+    my $top_toc = $self->new_toc( { int => 0 } );
+    $top_toc->datafile( $toc->datafile );
+    $top_toc->keyfile(  $toc->keyfile );
+    $top_toc->tocfile(  $toc->tocfile );
+    $top_toc->keynum(   $toc->keynum );
+    $top_toc->transnum( $toc->transnum );
+    $top_toc->create(   $top_toc->create + 1 );
+    $top_toc->write_toc( 0 );
 
     return $record;
 }
@@ -537,9 +546,9 @@ sub retrieve {
         my $keyfile = "$dir/$name.key";
         my $keyfh   = $self->locked_for_read( $keyfile );
 
-        my $trynum  = $self->nextkeynum( $keyfile );
+        my $trynum  = $self->lastkeynum();
         croak qq/Record doesn't exist: "$keynum"/
-            if $keynum >= $trynum;
+            if $keynum > $trynum;
 
         $keystring = $self->read_preamble( $keyfh, $keyseekpos );
         my $parms  = $self->burst_preamble( $keystring );
@@ -1263,16 +1272,33 @@ sub init_tocfile {
 }
 
 #---------------------------------------------------------------------
-# XXX provisional
 sub current_keyfile {
     my( $self, $entries ) = @_;
+
+    my $top_toc    = $self->new_toc( { int => 0 } );
+    my $keyfileint = $top_toc->keyfile || 1;
+    my $keynumint  = $top_toc->keynum;
+
+    my $keymax = $self->keymax;
+    if( $keymax and $entries ) {
+        my $try = int( ( $keynumint + $entries ) / $keymax ) + 1;
+        if( $try != $keyfileint ) {
+            $top_toc->keyfile( $try );
+            $top_toc->write_toc( 0 );
+            $keyfileint = $try;
+        }
+    }
+
     my $dir         = $self->dir();
     my $name        = $self->name();
     my $filenumlen  = $self->filenumlen();
     my $filenumbase = $self->filenumbase();
-    my $keyfilenum  = int2base( 1, $filenumbase, $filenumlen ); # 1 for now
-    my $keyfile = "$dir/$name.key";
-    return ( $keyfile, $keyfilenum ) if wantarray;
+
+    my $keyfilenum  = int2base( $keyfileint, $filenumbase, $filenumlen );
+
+    my $keyfile = "$dir/$name" . ( $keymax? ".$keyfilenum.": "." ) . "key";
+
+    return ( $keyfile, $keyfileint, $keyfilenum ) if wantarray;
     return $keyfile;
 }
 
@@ -1506,34 +1532,32 @@ sub keypos {
 # nextkeynum(), called by create() to get next record sequence number
 #     and by retrieve() to check if requested number exists
 
-# Since the key file consists of fixed-length records, dividing the
-# size of the file by the length of each record should give us the
-# number of records in the file.  Since the keynums start with 0,
-# the number of records in the file is also the next available keynum,
-# e.g.,
-#
-#     keynum record
-#     0      rec1
-#     1      rec2
-#     2      rec3
-#
-# This shows that there are three records in the file and the next
-# available keynum is 3.
-#
-# Each record in the key file consists of a preamble and a record
-# separator, so we divide the file size by the lengths of those.
-
+#---------------------------------------------------------------------
 sub nextkeynum {
-    my( $self, $key_file ) = @_;
+    my( $self ) = @_;
 
-    my $preamblelen = $self->preamblelen();
-    my $recsep      = $self->recsep();
-    my $keylen      = $self->keylen();
-    my $keybase     = $self->keybase();
-    my $keyint      = (-s $key_file) / ($preamblelen + length $recsep);
-    my $keynum      = int2base( $keyint, $keybase, $keylen );
+    my $top_toc = $self->new_toc( { int => 0 } );
+    my $keyint  = $top_toc->keynum;
+    my $dataint = $top_toc->datafile;
+    $keyint++ if $dataint;  # elsif $dataint == 0, leave $keyint == 0
+    $top_toc->keynum( $keyint );
+    $top_toc->write_toc( 0 );
+
+    my $keylen  = $self->keylen();
+    my $keybase = $self->keybase();
+    my $keynum  = int2base( $keyint, $keybase, $keylen );
 
     return( $keyint, $keynum ) if wantarray;
+    return $keyint;
+}
+
+#---------------------------------------------------------------------
+sub lastkeynum {
+    my( $self ) = @_;
+
+    my $top_toc = $self->new_toc( { int => 0 } );
+    my $keyint  = $top_toc->keynum;
+
     return $keyint;
 }
 
