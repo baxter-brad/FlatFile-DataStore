@@ -4,26 +4,29 @@
 
 =head1 NAME
 
-FlatFile::DataStore::Toc - Perl module that implements a flat
-file data store toc (table of contents) class.
+FlatFile::DataStore::Toc - Perl module that implements a flat file data
+store TOC (table of contents) class.
 
 =head1 SYNOPSYS
 
  use FlatFile::DataStore::Toc;
+ my $toc;
 
+ $toc = FlatFile::DataStore::Toc->new( { int => 10,
+     datastore => $datastore_obj } );
 
-$toc = FlatFile::DataStore::Toc->new( { int => 10,
-    datastore => $datastore_obj } );
+ # or
 
-# or
-
-$toc = FlatFile::DataStore::Toc->new( { num => "A",
-    datastore => $datastore_obj } );
+ $toc = FlatFile::DataStore::Toc->new( { num => "A",
+     datastore => $datastore_obj } );
 
 =head1 DESCRIPTION
 
 FlatFile::DataStore::Toc is a Perl module that implements a flat file
-data store toc (table of contents) class.
+data store TOC (table of contents) class.
+
+This module is used by FlatFile::DataStore.  You will likely never call
+any of it's methods yourself.
 
 =head1 VERSION
 
@@ -37,6 +40,7 @@ use 5.008003;
 use strict;
 use warnings;
 
+use File::Path;
 use Carp;
 use Math::Int2Base qw( base_chars int2base base2int );
 
@@ -63,10 +67,11 @@ my %Attrs = qw(
 Constructs a new FlatFile::DataStore::Toc object.
 
 The parm C<$parms> is a hash reference containing key/value pairs to
-populate the record string.  Two keys are recognized:
+populate the record string.  Three keys are recognized:
 
- - str, a toc string that comprises a line in the toc file (with or without an ending recsep)
+ - datastore, data store object (required) and one of:
  - int, data file number as integer, will load object from tocfile
+   or
  - num, data file number as number in number base, will load from tocfile
 
 An C<int> or C<num> of 0 will load the first (totals) line from tocfile
@@ -107,7 +112,7 @@ sub init {
         $self->tocfnum( $self->toc_getfnum( $datafint ) );
         $self->keynum(   $datafint == 0? -1: 0 );
         $self->$_( 0 )
-            for qw( keyfnum tocfnum transnum create oldupd update olddel delete );
+            for qw( keyfnum transnum create oldupd update olddel delete );
         return $self;
     }
 
@@ -179,7 +184,7 @@ sub read_toc {
 
     my $ds = $self->datastore;
 
-    my $tocfile = $self->toc_getfile( $fint );
+    my $tocfile = $self->tocfile( $fint );
     return unless -e $tocfile;
 
     my $tocfh  = $ds->locked_for_read( $tocfile );
@@ -201,7 +206,7 @@ sub write_toc {
 
     my $ds = $self->datastore;
 
-    my $tocfh   = $ds->locked_for_write( $self->toc_getfile( $fint ) );
+    my $tocfh   = $ds->locked_for_write( $self->tocfile( $fint ) );
     my $toclen  = $ds->toclen;
 
     my $seekpos;
@@ -215,13 +220,11 @@ sub write_toc {
 }
 
 #---------------------------------------------------------------------
+# toc_getfnum(), called by tocfile() and init()
 sub toc_getfnum {
     my( $self, $fint ) = @_;
 
     my $ds = $self->datastore;
-
-    my $fnumlen  = $ds->fnumlen;
-    my $fnumbase = $ds->fnumbase;
 
     # get toc file number based on tocmax and fint
     my $tocfint;
@@ -230,44 +233,45 @@ sub toc_getfnum {
     if( $tocmax ) { $tocfint = int( $fint / $tocmax ) + 1 }
     else          { $tocfint = 1                          }
 
+    my $fnumlen  = $ds->fnumlen;
+    my $fnumbase = $ds->fnumbase;
     my $tocfnum = int2base $tocfint, $fnumbase, $fnumlen;
-
+    croak qq/Database exceeds configured size (tocfnum: "$tocfnum" too long)/
+        if length $tocfnum > $fnumlen;
     return( $tocfint, $tocfnum ) if wantarray;
     return $tocfint;
-
 }
 
 #---------------------------------------------------------------------
-sub toc_getfile {
+sub tocfile {
     my( $self, $fint ) = @_;
 
     my $ds = $self->datastore;
 
-    my $dir      = $ds->dir;
-    my $name     = $ds->name;
-    my $fnumlen  = $ds->fnumlen;
-    my $fnumbase = $ds->fnumbase;
-    my $fnum     = int2base $fint, $fnumbase, $fnumlen;
+    my $name = $ds->name;
 
     my( $tocfint, $tocfnum ) = $self->toc_getfnum( $fint );
-    my $tocpath = $name . ( $ds->tocmax? ".$tocfnum.": ".") . "toc";
+    my $tocfile = $name . ( $ds->tocmax? ".$tocfnum": "") . ".toc";
 
     # get toc path based on dirlev, dirmax, and toc file number
     if( my $dirlev = $ds->dirlev ) {
-        my $dirmax = $ds->dirmax||croak "No dirmax?";
-        my $path   = "";
-        my $this   = $tocfint;
+        my $fnumlen  = $ds->fnumlen;
+        my $fnumbase = $ds->fnumbase;
+        my $dirmax   = $ds->dirmax;
+        my $path     = "";
+        my $this     = $tocfint;
         for( 1 .. $dirlev ) {
-            my $dirint = int( ( $this - 1 ) / $dirmax ) + 1;
+            my $dirint = $dirmax? (int( ( $this - 1 ) / $dirmax ) + 1): 1;
             my $dirnum = int2base $dirint, $fnumbase, $fnumlen;
-            $path = "$dirnum/$path";
+            $path = $path? "$dirnum/$path": $dirnum;
             $this = $dirint;
         }
-        $tocpath = "toc$path/$tocpath";
+        $path = "$name/toc$path";
+        mkpath( $path ) unless -d $path;
+        $tocfile = "$path/$tocfile";
     }
 
-    return "$dir/$tocpath";
-
+    return $ds->dir . "/$tocfile";
 }
 
 #---------------------------------------------------------------------
@@ -278,20 +282,12 @@ The following read/write methods set and return their respective
 attribute values if C<$value> is given.  Otherwise, they just return
 the value.
 
- $record->data(     [$value] ); # actual record data
- $record->preamble( [$value] ); # FlatFile::DataStore::Preamble object
-
-=cut
-
-sub data     {for($_[0]->{data}    ){$_=$_[1]if@_>1;return$_}}
-sub preamble {for($_[0]->{preamble}){$_=$_[1]if@_>1;return$_}}
-
-=pod
-
-The following read-only methods just return their respective values.
-The values all come from the record's contained preamble object.
-
  $record->datastore()
+
+The following methods expect an integer parm and return an integer
+value (even though these are stored in the tocfile as numbers in their
+respective bases).
+
  $record->datafnum()
  $record->keyfnum()
  $record->tocfnum()

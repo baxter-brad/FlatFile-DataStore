@@ -10,11 +10,11 @@ $Data::Dumper::Sortkeys = 1;
 
 BEGIN { use_ok('FlatFile::DataStore') };
 
-my $dir  = tempdir( CLEANUP => 1 );
+my $dir  = tempdir( CLEANUP => 0 );
 my $name = "example";
 my $desc = "Example+FlatFile::DataStore";
 
-ACCESSORS: {
+{  # accessors
 
     my $uri = join ";",
         qq'http://example.com?name=$name',
@@ -83,7 +83,7 @@ ACCESSORS: {
         "specs()" );
 }
 
-CRUD: {
+{  # crud
 
     my( $y, $m, $d ) = sub{($_[5]+1900,$_[4]+1,$_[3])}->(localtime);
     my $yyyy_mm_dd   = sprintf "%04d-%02d-%02d", $y, $m, $d;
@@ -135,14 +135,17 @@ CRUD: {
     my $thisseek = $record->thisseek();
     is( $thisseek, 0, "thisseek()" );
 
-    # XXX not the same, new() needs to make the same object as retrieve()
-    # XXX e.g., thisseek = 0+$s, $user =~ s/\s+$//;
     my $record2 = $ds->retrieve( $keynum );
     is( Dumper($record), Dumper($record2), "retrieve()" );
 
-    # my $data_ref = $rec->data();
-    # my $newrec = $ds->delete( $rec );
-    # my $newrec = $ds->update( $rec, "$$data_ref$$data_ref", "Test" );
-    # print Dumper( $newrec->preamble() ), "\n";
+    my $updrec = $ds->update( $record, "Updated Record", "Updated1" );
+
+    my $rec_data = $updrec->data;
+    is( $$rec_data,    "Updated Record", "rec->data()" );
+    is( $updrec->user, "Updated1",       "rec->user()" );
+
+    my $delrec = $ds->delete( $updrec );
+    is( $delrec->indicator, $ds->crud()->{'delete'}, "deleted indicator()" );
+
 }
 
