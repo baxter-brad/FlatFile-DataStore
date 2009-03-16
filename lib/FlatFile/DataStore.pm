@@ -61,7 +61,7 @@ Methods support the following actions:
  - update
  - delete
  - history
- - iterate (over all transactions in the data files)
+ - iterate (over all transactions in the data files) (TODO)
 
 Scripts supplied in the distribution perform:
 
@@ -1067,6 +1067,8 @@ sub datamax     {for($_[0]->{datamax}     ){$_=$_[1]if@_>1;return$_}}
 
 =head1 OBJECT METHODS, UTILITARIAN
 
+TODO: more pod here ...
+
 =cut
 
 #---------------------------------------------------------------------
@@ -1667,6 +1669,23 @@ sub bit2num {
 1;  # returned
 
 __END__
+
+=head1 CAVEATS
+
+This module is still in an experimental stage.  The tests and pod are
+sparse.  When I start using it in production, I'll up the version to
+1.00.
+
+Until then (afterwards, too) please use with care.
+
+=head1 TODO
+
+ - iteration function
+ - cgi to analyze data store configuation (for uri to point to)
+ - more tests
+ - more pod
+ - split Tutorial.pm into Tutorial.pm and FMTEYEWTK.pm
+ - make Tutorial.pm a real tutorial
 
 =head1 AUTHOR
 
