@@ -14,18 +14,18 @@ file data store record class.
  use FlatFile::DataStore::Preamble;
 
  my $preamble = FlatFile::DataStore::Preamble->new( {
-     indicator   => $indicator,     # single-character crud flag
-     date        => $date,          # pre-formatted date
-     transnum    => $transint,      # transaction number (integer)
-     keynum      => $keynum,        # record sequence number (integer)
-     reclen      => $reclen,        # record length (integer)
-     thisfilenum => $filenum,       # file number (in base format)
-     thisseekpos => $datapos,       # seek position (integer)
-     prevfilenum => $prevfilenum,   # ditto these ...
-     prevseekpos => $prevseekpos,
-     nextfilenum => $nextfilenum,
-     nextseekpos => $nextseekpos,
-     user        => $user_data,     # pre-formatted user-defined data
+     indicator => $indicator,  # single-character crud flag
+     date      => $date,       # pre-formatted date
+     transnum  => $transint,   # transaction number (integer)
+     keynum    => $keynum,     # record sequence number (integer)
+     reclen    => $reclen,     # record length (integer)
+     thisfnum  => $fnum,       # file number (in base format)
+     thisseek  => $datapos,    # seek position (integer)
+     prevfnum  => $prevfnum,   # ditto these ...
+     prevseek  => $prevseek,
+     nextfnum  => $nextfnum,
+     nextseek  => $nextseek,
+     user      => $user_data,  # pre-formatted user-defined data
      } );
 
  # then create a record object with the preamble contained in it
@@ -145,28 +145,29 @@ The values all come from the record's contained preamble object.
  $record->keynum()
  $record->reclen()
  $record->transnum()
- $record->thisfilenum()
- $record->thisseekpos()
- $record->prevfilenum()
- $record->prevseekpos()
- $record->nextfilenum()
- $record->nextseekpos()
+ $record->thisfnum()
+ $record->thisseek()
+ $record->prevfnum()
+ $record->prevseek()
+ $record->nextfnum()
+ $record->nextseek()
 
 =cut
 
-sub user        {for($_[0]->preamble()){defined&&return$_->user()}}
-sub string      {$_[0]->preamble()->string()     }
-sub indicator   {$_[0]->preamble()->indicator()  }
-sub date        {$_[0]->preamble()->date()       }
-sub keynum      {$_[0]->preamble()->keynum()     }
-sub reclen      {$_[0]->preamble()->reclen()     }
-sub transnum    {$_[0]->preamble()->transnum()   }
-sub thisfilenum {$_[0]->preamble()->thisfilenum()}
-sub thisseekpos {$_[0]->preamble()->thisseekpos()}
-sub prevfilenum {$_[0]->preamble()->prevfilenum()}
-sub prevseekpos {$_[0]->preamble()->prevseekpos()}
-sub nextfilenum {$_[0]->preamble()->nextfilenum()}
-sub nextseekpos {$_[0]->preamble()->nextseekpos()}
+sub user {for($_[0]->preamble()){defined&&return$_->user()}}
+
+sub string    {$_[0]->preamble()->string()   }
+sub indicator {$_[0]->preamble()->indicator()}
+sub date      {$_[0]->preamble()->date()     }
+sub keynum    {$_[0]->preamble()->keynum()   }
+sub reclen    {$_[0]->preamble()->reclen()   }
+sub transnum  {$_[0]->preamble()->transnum() }
+sub thisfnum  {$_[0]->preamble()->thisfnum() }
+sub thisseek  {$_[0]->preamble()->thisseek() }
+sub prevfnum  {$_[0]->preamble()->prevfnum() }
+sub prevseek  {$_[0]->preamble()->prevseek() }
+sub nextfnum  {$_[0]->preamble()->nextfnum() }
+sub nextseek  {$_[0]->preamble()->nextseek() }
 
 __END__
 

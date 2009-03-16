@@ -42,9 +42,9 @@ use Math::Int2Base qw( base_chars int2base base2int );
 
 my %Attrs = qw(
     datastore 1
-    datafile  1
-    keyfile   1
-    tocfile   1
+    datafnum  1
+    keyfnum   1
+    tocfnum   1
     keynum    1
     transnum  1
     create    1
@@ -92,17 +92,28 @@ sub init {
     my $ds = $parms->{'datastore'} || croak "Missing datastore";
     $self->datastore( $ds );
 
-    my $filenumbase = $ds->filenumbase;
-    my $keybase     = $ds->keybase;
-    my $transbase   = $ds->transbase;
+    my $datafint;
+    if(    defined( my $int = $parms->{'int'} ) ) {
+        $datafint = $int; }
+    elsif( defined( my $num = $parms->{'num'} ) ) {
+        $datafint = base2int $num, $ds->fnumbase; }
+    else {
+        croak qq/Missing parms 'int' or 'num'./; }
 
-    my $datafileint;
-    if(    defined( my $int = $parms->{'int'} ) ) { $datafileint = $int                        }
-    elsif( defined( my $num = $parms->{'num'} ) ) { $datafileint = base2int $num, $filenumbase }
+    my $string = $self->read_toc( $datafint );
 
-    my $string = defined $datafileint? $self->read_toc( $datafileint ): $parms->{'str'};
+    unless( $string ) {
+        $self->datafnum( $datafint );
+        $self->tocfnum( $self->toc_getfnum( $datafint ) );
+        $self->keynum(   $datafint == 0? -1: 0 );
+        $self->$_( 0 )
+            for qw( keyfnum tocfnum transnum create oldupd update olddel delete );
+        return $self;
+    }
 
-    return $self unless $string;
+    my $fnumbase  = $ds->fnumbase;
+    my $keybase   = $ds->keybase;
+    my $transbase = $ds->transbase;
 
     my $recsep = $ds->recsep;
     $string =~ s/$recsep$//;  # chompish
@@ -110,12 +121,12 @@ sub init {
 
     my @fields = split " ", $string;
     my $i = 0;
-    for( qw( datafile keyfile tocfile )                    ) {
-        $self->$_( base2int $fields[ $i++ ], $filenumbase  ) }
-    for( qw( keynum )                                      ) {
-        $self->$_( base2int $fields[ $i++ ], $keybase      ) }
-    for( qw( transnum create oldupd update olddel delete ) ) {
-        $self->$_( base2int $fields[ $i++ ], $transbase    ) }
+    $self->$_( base2int $fields[ $i++ ], $fnumbase )
+        for qw( datafnum keyfnum tocfnum );
+    $self->$_( base2int $fields[ $i++ ], $keybase )
+        for qw( keynum );
+    $self->$_( base2int $fields[ $i++ ], $transbase )
+        for qw( transnum create oldupd update olddel delete );
 
     return $self;
 }
@@ -132,31 +143,31 @@ sub to_string {
 
     my $ds = $self->datastore;
 
-    my $filenumbase = $ds->filenumbase;
-    my $filenumlen  = $ds->filenumlen;
-    my $keybase     = $ds->keybase;
-    my $keylen      = $ds->keylen;
-    my $transbase   = $ds->transbase;
-    my $translen    = $ds->translen;
+    my $fnumbase  = $ds->fnumbase;
+    my $fnumlen   = $ds->fnumlen;
+    my $keybase   = $ds->keybase;
+    my $keylen    = $ds->keylen;
+    my $transbase = $ds->transbase;
+    my $translen  = $ds->translen;
 
     my @fields;
-    for( qw( datafile keyfile tocfile )                                ) {
-        push @fields, int2base( $self->$_(), $filenumbase, $filenumlen ) }
-    for( qw( keynum )                                                  ) {
-        push @fields, int2base( $self->$_(), $keybase, $keylen         ) }
-    for( qw( transnum create oldupd update olddel delete )             ) {
-        push @fields, int2base( $self->$_(), $transbase, $translen     ) }
+    push @fields, int2base $self->$_(), $fnumbase, $fnumlen
+        for qw( datafnum keyfnum tocfnum );
+    push @fields, int2base $self->$_(), $keybase, $keylen
+        for qw( keynum );
+    push @fields, int2base $self->$_(), $transbase, $translen
+        for qw( transnum create oldupd update olddel delete );
 
     return join( " " => @fields ) . $ds->recsep;
 }
 
 #---------------------------------------------------------------------
-# seekpos if tocmax, e.g., tocmax=3, fileint=7, toclen=4
+# seekpos if tocmax, e.g., tocmax=3, fint=7, toclen=4
 #
-# 1: 0   xxxx     skip    = int( fileint / tocmax )
+# 1: 0   xxxx     skip    = int( fint / tocmax )
 #    1   xxxx             = int(    7    /   3    )
 #    2   xxxx             = 2 (files to skip)
-# 2: 3   xxxx     seekpos = toclen * ( fileint - ( skip * tocmax ) )
+# 2: 3   xxxx     seekpos = toclen * ( fint - ( skip * tocmax ) )
 #    4   xxxx             =   4    * (    7    - (  2   *   3    ) )
 #    5   xxxx             =   4    * (    7    -        6          )
 # 3: 6   xxxx             =   4    *           1
@@ -164,90 +175,91 @@ sub to_string {
 #    8   xxxx     '=>' marks seekpos 4 in file 3
             
 sub read_toc {
-    my( $self, $fileint ) = @_;
+    my( $self, $fint ) = @_;
 
     my $ds = $self->datastore;
 
-    my $tocfh  = $ds->locked_for_read( $self->tocfilename( $fileint ) );
+    my $tocfile = $self->toc_getfile( $fint );
+    return unless -e $tocfile;
+
+    my $tocfh  = $ds->locked_for_read( $tocfile );
     my $toclen = $ds->toclen;
 
     my $seekpos;
     if( my $tocmax = $ds->tocmax ) {
-        my $skip = int( $fileint / $tocmax );
-        $seekpos = $toclen * ( $fileint - ( $skip * $tocmax ) ); }
+        my $skip = int( $fint / $tocmax );
+        $seekpos = $toclen * ( $fint - ( $skip * $tocmax ) ); }
     else {
-        $seekpos = $toclen * $fileint; }
+        $seekpos = $toclen * $fint; }
 
-    my $string = $ds->read_bytes( $tocfh, $seekpos, $toclen );
-    croak "No toc string?" unless $string;
-    return $string;
+    return $ds->read_bytes( $tocfh, $seekpos, $toclen );
 }
 
 #---------------------------------------------------------------------
 sub write_toc {
-    my( $self, $fileint ) = @_;
+    my( $self, $fint ) = @_;
 
     my $ds = $self->datastore;
 
-    my $tocfh   = $ds->locked_for_write( $self->tocfilename( $fileint ) );
+    my $tocfh   = $ds->locked_for_write( $self->toc_getfile( $fint ) );
     my $toclen  = $ds->toclen;
 
     my $seekpos;
     if( my $tocmax = $ds->tocmax ) {
-        my $skip = int( $fileint / $tocmax );
-        $seekpos = $toclen * ( $fileint - ( $skip * $tocmax ) ); }
+        my $skip = int( $fint / $tocmax );
+        $seekpos = $toclen * ( $fint - ( $skip * $tocmax ) ); }
     else {
-        $seekpos = $toclen * $fileint; }
+        $seekpos = $toclen * $fint; }
 
     return $ds->write_bytes( $tocfh, $seekpos, $self->to_string );
 }
 
 #---------------------------------------------------------------------
-sub tocfilenum {
-    my( $self, $fileint ) = @_;
+sub toc_getfnum {
+    my( $self, $fint ) = @_;
 
     my $ds = $self->datastore;
 
-    my $filenumlen  = $ds->filenumlen;
-    my $filenumbase = $ds->filenumbase;
+    my $fnumlen  = $ds->fnumlen;
+    my $fnumbase = $ds->fnumbase;
 
-    # get toc file number based on tocmax and fileint
-    my $tocfileint;
+    # get toc file number based on tocmax and fint
+    my $tocfint;
 
     my $tocmax = $ds->tocmax;
-    if( $tocmax ) { $tocfileint = int( $fileint / $tocmax ) + 1 }
-    else          { $tocfileint = 1                             }
+    if( $tocmax ) { $tocfint = int( $fint / $tocmax ) + 1 }
+    else          { $tocfint = 1                          }
 
-    my $tocfilenum = int2base( $tocfileint, $filenumbase, $filenumlen );
+    my $tocfnum = int2base $tocfint, $fnumbase, $fnumlen;
 
-    return( $tocfileint, $tocfilenum ) if wantarray;
-    return $tocfileint;
+    return( $tocfint, $tocfnum ) if wantarray;
+    return $tocfint;
 
 }
 
 #---------------------------------------------------------------------
-sub tocfilename {
-    my( $self, $fileint ) = @_;
+sub toc_getfile {
+    my( $self, $fint ) = @_;
 
     my $ds = $self->datastore;
 
-    my $dir         = $ds->dir;
-    my $name        = $ds->name;
-    my $filenumlen  = $ds->filenumlen;
-    my $filenumbase = $ds->filenumbase;
-    my $filenum     = int2base( $fileint, $filenumbase, $filenumlen );
+    my $dir      = $ds->dir;
+    my $name     = $ds->name;
+    my $fnumlen  = $ds->fnumlen;
+    my $fnumbase = $ds->fnumbase;
+    my $fnum     = int2base $fint, $fnumbase, $fnumlen;
 
-    my( $tocfileint, $tocfilenum ) = $self->tocfilenum( $fileint );
-    my $tocpath = $name . ( $ds->tocmax? ".$tocfilenum.": ".") . "toc";
+    my( $tocfint, $tocfnum ) = $self->toc_getfnum( $fint );
+    my $tocpath = $name . ( $ds->tocmax? ".$tocfnum.": ".") . "toc";
 
     # get toc path based on dirlev, dirmax, and toc file number
     if( my $dirlev = $ds->dirlev ) {
         my $dirmax = $ds->dirmax||croak "No dirmax?";
         my $path   = "";
-        my $this   = $tocfileint;
+        my $this   = $tocfint;
         for( 1 .. $dirlev ) {
             my $dirint = int( ( $this - 1 ) / $dirmax ) + 1;
-            my $dirnum = int2base( $dirint, $filenumbase, $filenumlen );
+            my $dirnum = int2base $dirint, $fnumbase, $fnumlen;
             $path = "$dirnum/$path";
             $this = $dirint;
         }
@@ -280,9 +292,9 @@ The following read-only methods just return their respective values.
 The values all come from the record's contained preamble object.
 
  $record->datastore()
- $record->datafile()
- $record->keyfile()
- $record->tocfile()
+ $record->datafnum()
+ $record->keyfnum()
+ $record->tocfnum()
  $record->keynum()
  $record->transnum()
  $record->create()
@@ -295,9 +307,9 @@ The values all come from the record's contained preamble object.
 =cut
 
 sub datastore {for($_[0]->{datastore} ){$_=$_[1]if@_>1;return$_}}
-sub datafile  {for($_[0]->{datafile}  ){$_=$_[1]if@_>1;return$_}}
-sub keyfile   {for($_[0]->{keyfile}   ){$_=$_[1]if@_>1;return$_}}
-sub tocfile   {for($_[0]->{tocfile}   ){$_=$_[1]if@_>1;return$_}}
+sub datafnum  {for($_[0]->{datafnum}  ){$_=$_[1]if@_>1;return$_}}
+sub keyfnum   {for($_[0]->{keyfnum}   ){$_=$_[1]if@_>1;return$_}}
+sub tocfnum   {for($_[0]->{tocfnum}   ){$_=$_[1]if@_>1;return$_}}
 sub keynum    {for($_[0]->{keynum}    ){$_=$_[1]if@_>1;return$_}}
 sub transnum  {for($_[0]->{transnum}  ){$_=$_[1]if@_>1;return$_}}
 sub create    {for($_[0]->{create}    ){$_=$_[1]if@_>1;return$_}}

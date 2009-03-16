@@ -12,18 +12,18 @@ file data store preamble class.
  use FlatFile::DataStore::Preamble;
 
  my $preamble = FlatFile::DataStore::Preamble->new( {
-     indicator   => $indicator,     # single-character crud flag
-     date        => $date,          # pre-formatted date
-     transnum    => $transint,      # transaction number (integer)
-     keynum      => $keynum,        # record sequence number (integer)
-     reclen      => $reclen,        # record length (integer)
-     thisfilenum => $filenum,       # file number (in base format)
-     thisseekpos => $datapos,       # seek position (integer)
-     prevfilenum => $prevfilenum,   # ditto these ...
-     prevseekpos => $prevseekpos,
-     nextfilenum => $nextfilenum,
-     nextseekpos => $nextseekpos,
-     user        => $user_data,     # pre-formatted user-defined data
+     indicator => $indicator,  # single-character crud flag
+     date      => $date,       # pre-formatted date
+     transnum  => $transint,   # transaction number (integer)
+     keynum    => $keynum,     # record sequence number (integer)
+     reclen    => $reclen,     # record length (integer)
+     thisfnum  => $fnum,       # file number (in base format)
+     thisseek  => $datapos,    # seek position (integer)
+     prevfnum  => $prevfnum,   # ditto these ...
+     prevseek  => $prevseek,
+     nextfnum  => $nextfnum,
+     nextseek  => $nextseek,
+     user      => $user_data,  # pre-formatted user-defined data
      } );
 
  my $string = $preamble->string(); # e.g.,
@@ -67,18 +67,18 @@ my %Generated = qw(
     );
 
 my %Attrs = ( %Generated, qw(
-    indicator   1
-    date        1
-    keynum      1
-    reclen      1
-    transnum    1
-    thisfilenum 1
-    thisseekpos 1
-    prevfilenum 1
-    prevseekpos 1
-    nextfilenum 1
-    nextseekpos 1
-    user        1
+    indicator 1
+    date      1
+    keynum    1
+    reclen    1
+    transnum  1
+    thisfnum  1
+    thisseek  1
+    prevfnum  1
+    prevseek  1
+    nextfnum  1
+    nextseek  1
+    user      1
     ) );
 
 my $asc_chr = qr/^[ -~]+$/;
@@ -106,36 +106,6 @@ sub new {
     $self->init( $parms ) if $parms;
     return $self;
 }
-
-#---------------------------------------------------------------------
-
-# XXX these comments are somewhat old--should be reviewed and removed
-# parms (
-#     datastore   = $datastore_obj,  # FlatFile::DataStore object
-#     parent      = $old_preamble,   # FlatFile::DataStore::Preamble object
-#     indicator   = $indicator,      # required, one of qw(- = + * #) usually
-#        # -|delete, =|update, +|create, *|olddel, #|oldupd
-#        # indicator  '+'  must NOT have a parent
-#        # indicators '-=' MUST     have a parent
-#        # (XXX what's the deal with '*' and '#', then?)
-#     date        = $date,           # required, yyyymmdd usually
-#     keynum      = $keynum,         # required, may be 0
-#     reclen      = $reclen,         # required, may be 0
-#     thisfilenum = $thisfilenum,    # required, is never 0
-#     thisseekpos = $thisseekpos,    # required, may be 0
-#     prevfilenum = $prevfilenum,    # required for -=, is never 0
-#     prevseekpos = $prevseekpos,    # required for -=, may be 0
-#     nextfilenum = $nextfilenum,    # required for *#, prohibited for -=+, is never 0
-#     nextseekpos = $nextseekpos,    # required for *#, prohibited for -=+, may be 0
-#     user        = $user,           # required if configured, must match /^[ -~]+$/
-# );
-#
-# if parent, it is changed like this:
-#     - nextfilenum = new file number   (can't be zero)
-#     - nextseekpos = new seek position (could be zero, if new file)
-#     - for (update, including recover),  indicator = '#'
-#     - for (delete),                     indicator = '*'
-#     - all other parent fields are left unchanged
 
 #---------------------------------------------------------------------
 # init(), called by new() to parse the parms
@@ -193,22 +163,22 @@ sub init {
                 $string      .= $try;
             }
             elsif( not defined $value ) {
-                if( (/keynum|reclen|transnum|thisfilenum|thisseekpos/              ) or
-                    (/prevfilenum|prevseekpos/ and $indicator =~ /[$update$delete]/) or
-                    (/nextfilenum|nextseekpos/ and $indicator =~ /[$oldupd$olddel]/) ) {
+                if( (/keynum|reclen|transnum|thisfnum|thisseek/              ) or
+                    (/prevfnum|prevseek/ and $indicator =~ /[$update$delete]/) or
+                    (/nextfnum|nextseek/ and $indicator =~ /[$oldupd$olddel]/) ) {
                     croak qq'Missing value for "$_"';
                 }
                 $string .= "-" x $len;  # string of '-' for null
             }
             else {
-                if( (/nextfilenum|nextseekpos/ and $indicator =~ /[$update$delete]/) or
-                    (/prevfilenum|prevseekpos/ and $indicator =~ /[$create]/       ) ) {
+                if( (/nextfnum|nextseek/ and $indicator =~ /[$update$delete]/) or
+                    (/prevfnum|prevseek/ and $indicator =~ /[$create]/       ) ) {
                     croak qq'Setting value of "$_" not permitted';
                 }
-                my $try = sprintf "%0${len}s", /filenum/? $value: int2base( $value, $parm );
+                my $try = sprintf "%0${len}s", /fnum/? $value: int2base( $value, $parm );
                 croak qq'Value of "$_" ($try) too long' if length $try > $len;
 
-                $self->{ $_ } = /filenum/? $try: 0+$value;
+                $self->{ $_ } = /fnum/? $try: 0+$value;
                 $string      .= $try;
             }
         }
@@ -229,19 +199,19 @@ sub init {
 The following methods set and return their respective attribute values
 if C<$value> is given.  Otherwise, they just return the value.
 
- $preamble->string(      [$value] ); # full preamble string
- $preamble->indicator(   [$value] ); # single-character crud indicator
- $preamble->date(        [$value] ); # date as YYYY-MM-DD
- $preamble->keynum(      [$value] ); # record sequence number (integer)
- $preamble->reclen(      [$value] ); # record length (integer)
- $preamble->transnum(    [$value] ); # transaction number (integer)
- $preamble->thisfilenum( [$value] ); # file number (in base format)
- $preamble->thisseekpos( [$value] ); # seek position (integer)
- $preamble->prevfilenum( [$value] ); # ditto these ...
- $preamble->prevseekpos( [$value] ); # 
- $preamble->nextfilenum( [$value] ); # 
- $preamble->nextseekpos( [$value] ); # 
- $preamble->user(        [$value] ); # pre-formatted user-defined data
+ $preamble->string(    [$value] ); # full preamble string
+ $preamble->indicator( [$value] ); # single-character crud indicator
+ $preamble->date(      [$value] ); # date as YYYY-MM-DD
+ $preamble->keynum(    [$value] ); # record sequence number (integer)
+ $preamble->reclen(    [$value] ); # record length (integer)
+ $preamble->transnum(  [$value] ); # transaction number (integer)
+ $preamble->thisfnum(  [$value] ); # file number (in base format)
+ $preamble->thisseek(  [$value] ); # seek position (integer)
+ $preamble->prevfnum(  [$value] ); # ditto these ...
+ $preamble->prevseek(  [$value] ); # 
+ $preamble->nextfnum(  [$value] ); # 
+ $preamble->nextseek(  [$value] ); # 
+ $preamble->user(      [$value] ); # pre-formatted user-defined data
 
 Note: the class code uses these accessors to set values in the object
 as it is assembling the preamble string in new().  Unless you have a
@@ -254,19 +224,19 @@ only use them for reading.
 
 =cut
 
-sub string      {for($_[0]->{string}      ){$_=$_[1]if@_>1;return$_}}
-sub indicator   {for($_[0]->{indicator}   ){$_=$_[1]if@_>1;return$_}}
-sub date        {for($_[0]->{date}        ){$_=$_[1]if@_>1;return$_}}
-sub keynum      {for($_[0]->{keynum}      ){$_=$_[1]if@_>1;return$_}}
-sub reclen      {for($_[0]->{reclen}      ){$_=$_[1]if@_>1;return$_}}
-sub transnum    {for($_[0]->{transnum}    ){$_=$_[1]if@_>1;return$_}}
-sub thisfilenum {for($_[0]->{thisfilenum} ){$_=$_[1]if@_>1;return$_}}
-sub thisseekpos {for($_[0]->{thisseekpos} ){$_=$_[1]if@_>1;return$_}}
-sub prevfilenum {for($_[0]->{prevfilenum} ){$_=$_[1]if@_>1;return$_}}
-sub prevseekpos {for($_[0]->{prevseekpos} ){$_=$_[1]if@_>1;return$_}}
-sub nextfilenum {for($_[0]->{nextfilenum} ){$_=$_[1]if@_>1;return$_}}
-sub nextseekpos {for($_[0]->{nextseekpos} ){$_=$_[1]if@_>1;return$_}}
-sub user        {for($_[0]->{user}        ){$_=$_[1]if@_>1;return$_}}
+sub string    {for($_[0]->{string}    ){$_=$_[1]if@_>1;return$_}}
+sub indicator {for($_[0]->{indicator} ){$_=$_[1]if@_>1;return$_}}
+sub date      {for($_[0]->{date}      ){$_=$_[1]if@_>1;return$_}}
+sub keynum    {for($_[0]->{keynum}    ){$_=$_[1]if@_>1;return$_}}
+sub reclen    {for($_[0]->{reclen}    ){$_=$_[1]if@_>1;return$_}}
+sub transnum  {for($_[0]->{transnum}  ){$_=$_[1]if@_>1;return$_}}
+sub thisfnum  {for($_[0]->{thisfnum}  ){$_=$_[1]if@_>1;return$_}}
+sub thisseek  {for($_[0]->{thisseek}  ){$_=$_[1]if@_>1;return$_}}
+sub prevfnum  {for($_[0]->{prevfnum}  ){$_=$_[1]if@_>1;return$_}}
+sub prevseek  {for($_[0]->{prevseek}  ){$_=$_[1]if@_>1;return$_}}
+sub nextfnum  {for($_[0]->{nextfnum}  ){$_=$_[1]if@_>1;return$_}}
+sub nextseek  {for($_[0]->{nextseek}  ){$_=$_[1]if@_>1;return$_}}
+sub user      {for($_[0]->{user}      ){$_=$_[1]if@_>1;return$_}}
 
 __END__
 
