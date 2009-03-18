@@ -539,6 +539,7 @@ sub create {
     $toc->keynum(    $keyint           );
     $toc->transnum(  $transint         );
     $toc->create(    $toc->create  + 1 );
+    $toc->numrecs(   $toc->numrecs + 1 );
 
     $toc->write_toc( $toc->datafnum );
 
@@ -549,8 +550,8 @@ sub create {
     $top_toc->tocfnum(  $toc->tocfnum         );
     $top_toc->keynum(   $toc->keynum          );
     $top_toc->transnum( $toc->transnum        );
-    $top_toc->numrecs(  $top_toc->numrecs + 1 );
     $top_toc->create(   $top_toc->create  + 1 );
+    $top_toc->numrecs(  $top_toc->numrecs + 1 );
 
     $top_toc->write_toc( 0 );
 
@@ -729,15 +730,18 @@ sub update_delete {
     my $delete = $self->crud->{'delete'};
 
     my $this_old;
+    my $plus_minus;  # change numrecs?
     if( $this_action eq 'update' ) {
         $this_old = 'oldupd';
         croak qq/$this_action not allowed: "$prevind"/
             unless $prevind =~ /[\Q$create$update$delete\E]/;
+        $plus_minus = +1 if $prevind eq $delete;
     }
     elsif( $this_action eq 'delete' ) {
         $this_old = 'olddel';
         croak qq/$this_action not allowed: "$prevind"/
             unless $prevind =~ /[\Q$create$update\E]/;
+        $plus_minus = -1;
     }
     else {
         croak "Not recognized: $this_action";
@@ -830,7 +834,19 @@ sub update_delete {
     $toc->keynum(       $top_toc->keynum         );
     $toc->transnum(     $transint                );
     $toc->$this_action( $toc->$this_action() + 1 );
-    $toc->$this_old(    $toc->$this_old()    + 1 );
+    $toc->numrecs(      $toc->numrecs        + 1 ) if $this_action eq 'update';
+
+    # was the previous record in another data file?
+    if( $prevfnum ne $datafnum ) {
+        my $prevtoc = $self->new_toc( { num => $prevfnum } );
+        $prevtoc->$this_old( $prevtoc->$this_old() + 1 );
+        $prevtoc->numrecs(   $prevtoc->numrecs     - 1 ) if $prevind ne $delete;
+        $prevtoc->write_toc( $prevtoc->datafnum        );
+    }
+    else {
+        $toc->$this_old( $toc->$this_old() + 1 );
+        $toc->numrecs(   $toc->numrecs     - 1 ) if $prevind ne $delete;
+    }
 
     $toc->write_toc( $toc->datafnum );
 
@@ -840,7 +856,8 @@ sub update_delete {
     $top_toc->transnum(     $toc->transnum               );
     $top_toc->$this_action( $top_toc->$this_action() + 1 );
     $top_toc->$this_old(    $top_toc->$this_old()    + 1 );
-    $top_toc->numrecs(      $top_toc->numrecs        - 1 ) if $this_action eq 'delete';
+
+    $top_toc->numrecs( $top_toc->numrecs + $plus_minus ) if $plus_minus;
 
     $top_toc->write_toc( 0 );
 
