@@ -74,11 +74,11 @@ in FlatFile::DataStore::Tutorial.
 
 =head1 VERSION
 
-FlatFile::DataStore version 0.06
+FlatFile::DataStore version 0.07
 
 =cut
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use 5.008003;
 use strict;
@@ -218,9 +218,17 @@ sub init {
             $self->$attr( $uri_parms->{ $attr } );
         }
 
-        # now for some generated attributes
+        # check that all fnums and seeks are the same
+        croak qq/fnum parameters differ/
+            unless $self->thisfnum eq $self->prevfnum and
+                   $self->thisfnum eq $self->nextfnum;
+        croak qq/seek parameters differ/
+            unless $self->thisseek eq $self->prevseek and
+                   $self->thisseek eq $self->nextseek;
+
+        # now for some generated attributes ...
         my( $len, $base );
-        ( $len, $base ) = split /-/, $self->thisfnum;
+        ( $len, $base ) = split /-/, $self->thisfnum;  # fnums are equal
         $self->fnumlen(     0+$len                        );
         $self->fnumbase(      $base                       );
         ( $len, $base ) = split /-/, $self->transnum;
@@ -240,13 +248,16 @@ sub init {
             6 *    $self->translen +  # transnum and cruds
             length $self->recsep );
 
+        ( $len, $base ) = split /-/, $self->thisseek;  # seeks are equal
+        my $maxnum = (split //, base_chars $base)[-1] x $len;
+        my $maxint = base2int $maxnum, $base;
+
         if( $self->datamax ) {
             $self->datamax( $self->convert_datamax );
+            croak qq/datamax too large/ if $self->datamax > $maxint;
         }
         else {
-            ( $len, $base ) = split /-/, $self->thisseek;  # check all seeks equal
-            my $maxnum = (split //, base_chars $base)[-1] x $len;
-            $self->datamax( base2int $maxnum, $base );
+            $self->datamax( $maxint );
         }
 
         if( $self->dirmax ) {
@@ -456,10 +467,10 @@ sub create {
     my $top_toc = $self->new_toc( { int => 0 } );
 
     # get next keynum with top toc
-    my $keyint = $top_toc->keynum + 1;
+    my $keyint  = $top_toc->keynum + 1;
     my $keylen  = $self->keylen;
     my $keybase = $self->keybase;
-    my $keynum = int2base $keyint, $keybase, $keylen;
+    my $keynum  = int2base $keyint, $keybase, $keylen;
     croak qq/Database exceeds configured size (keynum: "$keynum" too long)/
         if length $keynum > $keylen;
 
@@ -591,8 +602,6 @@ sub retrieve {
         my $recsep  = $self->recsep;
         my $keyseek = $self->keyseek( $keynum );
 
-        my $dir     = $self->dir;
-        my $name    = $self->name;
         my $keyfile = $self->keyfile( $keynum );
         my $keyfh   = $self->locked_for_read( $keyfile );
 
@@ -647,8 +656,127 @@ Returns a Flatfile::DataStore::Record object.
 =cut
 
 sub update {
-    my( $self, $obj, $record_data, $user_data ) = @_;
-    $self->update_delete( 'update', $obj, $record_data, $user_data );
+    my $self = shift;
+    my( $obj, $data_ref, $user_data ) = $self->normalize_parms( @_ );
+
+    my $prevpreamble = $obj->string;
+    my $keyint       = $obj->keynum;
+    my $prevind      = $obj->indicator;
+    my $prevfnum     = $obj->thisfnum;
+    my $prevseek     = $obj->thisseek;
+    my $prevuser     = $obj->user;
+
+    # update is okay for these:
+    my $create = $self->crud->{'create'};
+    my $update = $self->crud->{'update'};
+    my $delete = $self->crud->{'delete'};
+
+    croak qq/update not allowed: "$prevind"/
+        unless $prevind =~ /[\Q$create$update$delete\E]/;
+
+    # get keyfile
+    # need to lock files before getting seek positions
+    # want to lock keyfile before datafile
+    my( $keyfile, $keyfint ) = $self->keyfile( $keyint );
+    my $keyfh                = $self->locked_for_write( $keyfile );
+    my $keyseek              = $self->keyseek( $keyint );
+
+    my $try = $self->read_preamble( $keyfh, $keyseek );
+    croak qq/Mismatch [$try] [$prevpreamble]/ unless $try eq $prevpreamble;
+
+    # get datafile (datafnum might increment)
+    my $top_toc  = $self->new_toc( { int => 0 } );
+    my $datafnum = int2base $top_toc->datafnum, $self->fnumbase, $self->fnumlen;
+    my $reclen   = length $$data_ref;
+
+    my $datafile;
+    ( $datafile, $datafnum ) = $self->datafile( $datafnum, $reclen );
+    my $datafh               = $self->locked_for_write( $datafile );
+    my $dataseek             = -s $datafile;  # seekpos into datafile
+
+    # get next transaction number
+    my $transint  = $top_toc->transnum + 1;
+    my $translen  = $self->translen;
+    my $transbase = $self->transbase;
+    my $transnum = int2base $transint, $transbase, $translen;
+    croak qq/Database exceeds configured size (transnum: "$transnum" too long)/
+        if length $transnum > $translen;
+
+    # make new record
+    my $record = $self->new_record( {
+        data     => $data_ref,
+        preamble => {
+            indicator =>   $self->crud->{'update'},
+            date      =>   now( $self->dateformat ),
+            transnum  => 0+$transint,
+            keynum    => 0+$keyint,
+            reclen    => 0+$reclen,
+            thisfnum  =>   $datafnum,
+            thisseek  => 0+$dataseek,
+            prevfnum  =>   $prevfnum,
+            prevseek  => 0+$prevseek,
+            user      =>   $user_data,
+            } } );
+
+    # write record to datafile
+    my $preamble = $record->string;
+    my $dataline = $preamble . $$data_ref . $self->recsep;
+    $self->write_bytes( $datafh, $dataseek, $dataline );
+    my $datatell = tell $datafh;
+
+    croak qq/Bad write?: $datafile: things don't add up/
+        if $dataseek + length $dataline ne $datatell;
+
+    # write preamble to keyfile (recsep there already)
+    $self->write_bytes( $keyfh, $keyseek, $preamble );
+
+    # update the old preamble in prev datafile
+    $prevpreamble = $self->update_preamble( $prevpreamble, {
+        indicator => $self->crud->{ 'oldupd' },
+        nextfnum  => $datafnum,
+        nextseek  => $dataseek,
+        } );
+    my $prevdatafile = $self->which_datafile( $prevfnum );
+    my $prevdatafh   = $self->locked_for_write( $prevdatafile );
+    $self->write_bytes( $prevdatafh, $prevseek, $prevpreamble );
+
+    # update table of contents (toc) file
+    my $toc = $self->new_toc( { num => $datafnum } );
+
+    # note: datafnum and tocfnum are set in toc->new
+    $toc->keyfnum(  $top_toc->keyfnum );  # keep last nums going
+    $toc->keynum(   $top_toc->keynum  );
+    $toc->transnum( $transint         );
+    $toc->update(   $toc->update  + 1 );
+    $toc->numrecs(  $toc->numrecs + 1 );
+
+    # was the previous record in another data file?
+    if( $prevfnum ne $datafnum ) {
+        my $prevtoc = $self->new_toc( { num => $prevfnum } );
+        $prevtoc->oldupd(    $prevtoc->oldupd  + 1 );
+        $prevtoc->numrecs(   $prevtoc->numrecs - 1 ) if $prevind ne $delete;
+        $prevtoc->write_toc( $prevtoc->datafnum    );
+    }
+    else {
+        $toc->oldupd(  $toc->oldupd  + 1 );
+        $toc->numrecs( $toc->numrecs - 1 ) if $prevind ne $delete;
+    }
+
+    $toc->write_toc( $toc->datafnum );
+
+    # update top toc
+    $top_toc->datafnum( $toc->datafnum       );
+    $top_toc->tocfnum(  $toc->tocfnum        );
+    $top_toc->transnum( $toc->transnum       );
+    $top_toc->update(   $top_toc->update + 1 );
+    $top_toc->oldupd(   $top_toc->oldupd + 1 );
+
+    # if recovering a deleted record
+    $top_toc->numrecs( $top_toc->numrecs + 1 ) if $prevind eq $delete;
+
+    $top_toc->write_toc( 0 );
+
+    return $record;
 }
 
 #---------------------------------------------------------------------
@@ -670,155 +798,83 @@ Returns a Flatfile::DataStore::Record object.
 =cut
 
 sub delete {
-    my( $self, $obj, $record_data, $user_data ) = @_;
-    $self->update_delete( 'delete', $obj, $record_data, $user_data );
-}
+    my $self = shift;
+    my( $obj, $data_ref, $user_data ) = $self->normalize_parms( @_ );
 
-#---------------------------------------------------------------------
-# udpate_delete(), called by update() and delete()
-sub update_delete {
-    my( $self, $this_action, $obj, $record_data, $user_data ) = @_;
-
-    croak qq/Bad call to update_delete()/ unless $this_action and $obj;
-
-    # get values from obj, record_data, user_data
-    my( $prevpreamble,
-        $keyint,
-        $prevind,
-        $prevfnum,
-        $prevseek,
-        $prevuser,
-        $data_ref
-        );
-
-    if( my $reftype = ref $obj ) {  # Preamble or Record
-        $prevpreamble = $obj->string;
-        $keyint       = $obj->keynum;
-        $prevind      = $obj->indicator;
-        $prevfnum     = $obj->thisfnum;
-        $prevseek     = $obj->thisseek;
-        $prevuser     = $obj->user;
-        $data_ref     = $obj->data if $reftype =~ /Record/;
-    }
-    else {
-        $prevpreamble = $obj;  # string
-        my $parms     = $self->burst_preamble( $prevpreamble );
-        $keyint       = $parms->{'keynum'};
-        $prevind      = $parms->{'indicator'};
-        $prevfnum     = $parms->{'thisfnum'};
-        $prevseek     = $parms->{'thisseek'};
-        $prevuser     = $parms->{'user'};
-    }
-
-    $user_data = $prevuser unless defined $user_data;
-
-    if( defined $record_data ) {
-        if( my $reftype = ref $record_data ) {
-            if( $reftype eq "SCALAR" ) {
-                $data_ref = $record_data; }
-            elsif( $reftype =~ /Record/ ) {
-                $data_ref  = $record_data->data; }
-        }
-        else { $data_ref = \$record_data }
-    }
-
-    croak qq/No record data./ unless $data_ref;
+    my $prevpreamble = $obj->string;
+    my $keyint       = $obj->keynum;
+    my $prevind      = $obj->indicator;
+    my $prevfnum     = $obj->thisfnum;
+    my $prevseek     = $obj->thisseek;
+    my $prevuser     = $obj->user;
 
     # check if this action is allowed
     my $create = $self->crud->{'create'};
     my $update = $self->crud->{'update'};
     my $delete = $self->crud->{'delete'};
 
-    my $this_old;
-    my $plus_minus;  # change numrecs?
-    if( $this_action eq 'update' ) {
-        $this_old = 'oldupd';
-        croak qq/$this_action not allowed: "$prevind"/
-            unless $prevind =~ /[\Q$create$update$delete\E]/;
-        $plus_minus = +1 if $prevind eq $delete;
-    }
-    elsif( $this_action eq 'delete' ) {
-        $this_old = 'olddel';
-        croak qq/$this_action not allowed: "$prevind"/
-            unless $prevind =~ /[\Q$create$update\E]/;
-        $plus_minus = -1;
-    }
-    else {
-        croak "Not recognized: $this_action";
-    }
+    croak qq/'delete' not allowed: "$prevind"/
+        unless $prevind =~ /[\Q$create$update\E]/;
 
-    # get keyfile with keynum
-    my( $keyfile, $keyfint ) = $self->keyfile( $keyint );
-
-    # need to lock files before checking sizes
+    # get keyfile
+    # need to lock files before getting seek positions
     # want to lock keyfile before datafile
-    my $keyfh = $self->locked_for_write( $keyfile );
-    my $keyseek = $self->keyseek( $keyint );
+    my( $keyfile, $keyfint ) = $self->keyfile( $keyint );
+    my $keyfh                = $self->locked_for_write( $keyfile );
+    my $keyseek              = $self->keyseek( $keyint );
 
     my $try = $self->read_preamble( $keyfh, $keyseek );
-    croak qq/Mismatch [$try] [$prevpreamble]/
-        unless $try eq $prevpreamble;
+    croak qq/Mismatch [$try] [$prevpreamble]/ unless $try eq $prevpreamble;
 
-    # get datafnum from top toc
+    # get datafile
     my $top_toc  = $self->new_toc( { int => 0 } );
     my $datafnum = int2base $top_toc->datafnum, $self->fnumbase, $self->fnumlen;
+    my $reclen   = length $$data_ref;
 
-    # get datafile with datafnum and reclen
     my $datafile;
-    my $reclen               = length $$data_ref;
     ( $datafile, $datafnum ) = $self->datafile( $datafnum, $reclen );
     my $datafh               = $self->locked_for_write( $datafile );
     my $dataseek             = -s $datafile;  # seekpos into datafile
 
-    # get next transnum with top toc
+    # get next transaction number
     my $transint  = $top_toc->transnum + 1;
     my $translen  = $self->translen;
     my $transbase = $self->transbase;
-    my $transnum = int2base $transint, $transbase, $translen;
+    my $transnum  = int2base $transint, $transbase, $translen;
     croak qq/Database exceeds configured size (transnum: "$transnum" too long)/
         if length $transnum > $translen;
 
-    # make new preamble
-    my $preamble_parms = {
-        indicator =>   $self->crud->{ $this_action },
-        date      =>   now( $self->dateformat ),
-        transnum  => 0+$transint,
-        keynum    => 0+$keyint,
-        reclen    => 0+$reclen,
-        thisfnum  =>   $datafnum,
-        thisseek  => 0+$dataseek,
-        prevfnum  =>   $prevfnum,
-        prevseek  => 0+$prevseek,
-        };
-    $preamble_parms->{ user } = $user_data
-        if defined $user_data;
-
     # make new record
     my $record = $self->new_record( {
-        preamble => $preamble_parms,
-        data     => $data_ref,
-        } );
+        data      => $data_ref,
+        preamble  => {
+            indicator =>   $self->crud->{ 'delete' },
+            date      =>   now( $self->dateformat ),
+            transnum  => 0+$transint,
+            keynum    => 0+$keyint,
+            reclen    => 0+$reclen,
+            thisfnum  =>   $datafnum,
+            thisseek  => 0+$dataseek,
+            prevfnum  =>   $prevfnum,
+            prevseek  => 0+$prevseek,
+            user      =>   $user_data,
+            } } );
 
     # write record to datafile
     my $preamble = $record->string;
-    my $recsep   = $self->recsep;
-    my $dataline = "$preamble$$data_ref$recsep";
-
-    seek $datafh, $dataseek, 0;
-    print $datafh $dataline or croak "Can't write $datafile: $!";
+    my $dataline = $preamble . $$data_ref . $self->recsep;
+    $self->write_bytes( $datafh, $dataseek, $dataline );
     my $datatell = tell $datafh;
 
-    # "belt and suspenders" ...
-    if( $dataseek + length $dataline ne $datatell ) {
-        croak qq/Bad write?: $datafile: things don't add up/;
-    }
+    croak qq/Bad write?: $datafile: things don't add up/
+        if $dataseek + length $dataline ne $datatell;
 
     # write preamble to keyfile (recsep there already)
     $self->write_bytes( $keyfh, $keyseek, $preamble );
 
     # update the old preamble
     $prevpreamble = $self->update_preamble( $prevpreamble, {
-        indicator => $self->crud->{ $this_old },
+        indicator => $self->crud->{ 'olddel' },
         nextfnum  => $datafnum,
         nextseek  => $dataseek,
         } );
@@ -826,42 +882,88 @@ sub update_delete {
     my $prevdatafh   = $self->locked_for_write( $prevdatafile );
     $self->write_bytes( $prevdatafh, $prevseek, $prevpreamble );
 
-    # get toc with datafnum and update it
+    # update table of contents (toc) file
     my $toc = $self->new_toc( { num => $datafnum } );
 
     # note, $toc->datafnum and $toc->tocfnum are set in toc->new
-    $toc->keyfnum(      $top_toc->keyfnum        );  # keep last nums going
-    $toc->keynum(       $top_toc->keynum         );
-    $toc->transnum(     $transint                );
-    $toc->$this_action( $toc->$this_action() + 1 );
-    $toc->numrecs(      $toc->numrecs        + 1 ) if $this_action eq 'update';
+    $toc->keyfnum(  $top_toc->keyfnum );  # keep last nums going
+    $toc->keynum(   $top_toc->keynum  );
+    $toc->transnum( $transint         );
+    $toc->delete(   $toc->delete + 1  );
 
     # was the previous record in another data file?
     if( $prevfnum ne $datafnum ) {
         my $prevtoc = $self->new_toc( { num => $prevfnum } );
-        $prevtoc->$this_old( $prevtoc->$this_old() + 1 );
-        $prevtoc->numrecs(   $prevtoc->numrecs     - 1 ) if $prevind ne $delete;
-        $prevtoc->write_toc( $prevtoc->datafnum        );
+        $prevtoc->olddel(    $prevtoc->olddel  + 1 );
+        $prevtoc->numrecs(   $prevtoc->numrecs - 1 );
+        $prevtoc->write_toc( $prevtoc->datafnum    );
     }
     else {
-        $toc->$this_old( $toc->$this_old() + 1 );
-        $toc->numrecs(   $toc->numrecs     - 1 ) if $prevind ne $delete;
+        $toc->olddel(  $toc->olddel  + 1 );
+        $toc->numrecs( $toc->numrecs - 1 );
     }
 
     $toc->write_toc( $toc->datafnum );
 
     # update top toc
-    $top_toc->datafnum(     $toc->datafnum               );
-    $top_toc->tocfnum(      $toc->tocfnum                );
-    $top_toc->transnum(     $toc->transnum               );
-    $top_toc->$this_action( $top_toc->$this_action() + 1 );
-    $top_toc->$this_old(    $top_toc->$this_old()    + 1 );
-
-    $top_toc->numrecs( $top_toc->numrecs + $plus_minus ) if $plus_minus;
+    $top_toc->datafnum( $toc->datafnum        );
+    $top_toc->tocfnum(  $toc->tocfnum         );
+    $top_toc->transnum( $toc->transnum        );
+    $top_toc->delete(   $top_toc->delete  + 1 );
+    $top_toc->olddel(   $top_toc->olddel  + 1 );
+    $top_toc->numrecs(  $top_toc->numrecs - 1 );
 
     $top_toc->write_toc( 0 );
 
     return $record;
+}
+
+#---------------------------------------------------------------------
+# $obj         may be string, preamble obj, or record obj
+# $record_data may be string, scalar ref  , or record obj
+# $user_data   may be string
+#
+# $user_data, if not given, will be gotten from $record_data or $obj
+# $record_data, if not given, will be gotten from $obj
+
+sub normalize_parms {
+    my( $self, $obj, $record_data, $user_data ) = @_;
+
+    croak qq/Bad call./ unless $obj;
+
+    # set the preamble object
+    my( $preamble, $data_ref, $try_user );
+    my $reftype = ref $obj;
+    unless( $reftype ) {  # string
+        $preamble = $self->new_preamble( { string => $obj } ); }
+    elsif( $reftype =~ /Preamble/ ) {
+        $preamble = $obj; }
+    elsif( $reftype =~ /Record/ ) {
+        $preamble = $obj->preamble;
+        $data_ref = $obj->data; }
+    else {
+        croak qq/Unrecognized: $reftype/; }
+    $try_user = $preamble->user;
+
+    # set the record data
+    if( defined $record_data ) {
+        my $reftype = ref $record_data;
+        unless( $reftype ) {  # string
+            $data_ref = \$record_data; }
+        elsif( $reftype eq "SCALAR" ) {
+            $data_ref = $record_data; }
+        elsif( $reftype =~ /Record/ ) {
+            $data_ref = $record_data->data;
+            $try_user = $record_data->user; }
+        else {
+            croak qq/Unrecognized: $reftype/; }
+    }
+    croak qq/No record data./ unless $data_ref;
+
+    # set the user data
+    $user_data = $try_user unless defined $user_data;
+
+    return $preamble, $data_ref, $user_data;
 }
 
 #---------------------------------------------------------------------
@@ -1097,29 +1199,28 @@ TODO: more pod here ...
 sub initialize {
     my( $self ) = @_;
 
-    my $dir      = $self->dir;
-    my $name     = $self->name;
-    my $len      = $self->fnumlen;
-    my $fnum     = sprintf "%0${len}d", 1;  # one in any base
-    my $datafile = "$dir/$name.$fnum.data";
-
+    # can't initialize after data has been added
+    my $fnum     = int2base 1, $self->fnumbase, $self->fnumlen;
+    my $datafile = $self->which_datafile( $fnum );
     croak qq/Can't initialize database: data files exist (e.g., $datafile)./
         if -e $datafile;
 
+    # make object a one-liner
     local $Data::Dumper::Quotekeys = 0;
     local $Data::Dumper::Pair      = '=>';
     local $Data::Dumper::Useqq     = 1;
     local $Data::Dumper::Terse     = 1;
-    local $Data::Dumper::Indent    = 0;  # make object a one-liner
+    local $Data::Dumper::Indent    = 0;
 
-    my $save = $self->dir;
-    # delete dir, don't want in obj file
+    # delete dir, don't want it in obj file
+    my $savedir = $self->dir;
     $self->dir("");
 
-    my $obj_file = "$dir/$name.obj";
+    my $obj_file = "$savedir/" . $self->name . ".obj";
     $self->write_file( $obj_file, Dumper $self );
 
-    $self->dir( $save );
+    # restore dir
+    $self->dir( $savedir );
 
 }
 
@@ -1164,9 +1265,10 @@ sub keyfile {
     my $fnumlen  = $self->fnumlen;
     my $fnumbase = $self->fnumbase;
 
-    # get key file number based on keymax and keyint
     my $keyfint = 1;
     my $keyfile = $name;
+
+    # get key file number (if any) based on keymax and keyint
     if( my $keymax = $self->keymax ) {
         $keyfint = int( $keyint / $keymax ) + 1;
         my $keyfnum = int2base $keyfint, $fnumbase, $fnumlen;
@@ -1174,6 +1276,7 @@ sub keyfile {
             if length $keyfnum > $fnumlen;
         $keyfile .= ".$keyfnum";
     }
+
     $keyfile .= ".key";
 
     # get path based on dirlev, dirmax, and key file number
@@ -1406,7 +1509,7 @@ sub update_preamble {
             $try = sprintf "%0${len}s", $value;
         }
         else {
-            $try = sprintf "%0${len}s", int2base( $value, $parm );
+            $try = int2base $value, $parm, $len;
         }
         croak qq/Value of "$_" ($try) too long/ if length $try > $len;
 

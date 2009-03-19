@@ -7,7 +7,7 @@ of FlatFile::DataStore.
 
 =head1 VERSION
 
-Discusses FlatFile::DataStore version 0.06.
+Discusses FlatFile::DataStore version 0.07.
 
 =head1 SYNOPSYS
 
@@ -308,7 +308,7 @@ But some additional parameters are needed:
  - keymax,  the maximum number of entries per key file
  - datamax, the maximum size in bytes of any data file (was C<maxfilesize>)
 
-The C<dirmax> and C<dirlev> parms is available for handling big data
+The C<dirmax> and C<dirlev> parms are available for handling big data
 stores.  If C<dirmax> is set, C<dirlev> defaults to 1, but may be set
 higher.  The C<dirmax> parm will determine when a new directory is
 created to hold more data, key, or toc files.
@@ -325,81 +325,28 @@ determine when a new data file is created: when storing a record would
 cause the size of the data file to exceed that number, a new data file
 is created for it, and subsequent records are stored there.
 
-=head2 File/Directory Pseudocode
-
-This is what the code should make happen:
-
-- the mininum requirement to instantiate a data store is a uri file
-- when FlatFile::DataStore->new() is called
-  - if there is an obj file, it is evalled to construct the object
-  - otherwise, the uri file is read and parsed, and
-    - the object is constructed from the uri parms
-    - the object (less the C<dir> attribute) is dumped to an obj file
-- when a record is created, updated, or deleted
-  - if there isn't a data file yet, one is created per C<datalev>
-    - if C<datalev> is 0 (or undef), file is "dir/name.1.data"
-    - if 1, file is "dir/name.data1/name.1.data"
-    - if 2, file is "dir/name.data1/1/name.1.data"
-    - if 3, file is "dir/name.data1/1/1/name.1.data"
-    - etc.
-    - and the (new, updated, or deleted) record is stored in it
-  - otherwise, if there is a data file, the record length is checked
-    - if the record length would cause the data file to exceed C<datamax>
-      - a new data file is created per C<datalev> as above, except
-        - if C<dirmax> then
-          - for each containing directory
-            - if the new file would cause the directory to exceed C<dirmax>
-              - a new directory at the same level is created
-              - and if that new directory would increase the parent directory too much
-                - a new directory at the parent's level is created
-                - ad infinitum
-      - and the new data file is stored in its data directory
-    - and the (new, updated, or deleted) record is stored in it
-  - in any case, if the record is longer than C<datamax>, it's an error.
-  - in the case of created
-    - if the new record's entry in the key file would exceed C<keymax>
-      - a new key file is created per C<keylev> as above, including per C<dirmax>.
-    - an entry is added to the key file that is the preamble of the record.
-  - in the case of updated or deleted
-    - the current record's preamble contains:
-      - prevfilenum and prevseekpos with previous record's location
-    - the previous version of the record's preamble is modified in place:
-      - indicator is changed to oldupd or olddel
-      - nextfilenum and nextseekpos are updated with current record's location
-    - the current record's entry in the key file is updated with the current record's preamble
-  - in all cases, the toc file is updated with the transaction number
-    - if a new data file was created
-      - if a new entry in the toc file would exceed C<tocmax>
-        - a new toc file is created per C<toclev> as above, including per C<dirmax>
-      - a new entry is added to the toc file
-
-That's a jumbled mess, but it's my first pass.  All of the logic for
-when to create a new file/directory should be encapsulated by routines
-that return the desired path.  In the routine, new directories and
-files would be created as needed--probably employing integer arithmatic
-with C<dirmax>, C<keymax>, and C<tocmax>.
-
 =head2 Toc file structure
 
 The toc file will have a total line at the top and a detail line for
-each data file.
+each data file below that.
 
 The fields in these lines are as follows:
  -  1. len FN, last toc file
  -  2. len FN, last key file
  -  3. len FN, last data file
- -  4. len KN, last keynum
- -  5. len TN, last transaction number
- -  6. len TN, #created
- -  7. len TN, #oldupd
- -  8. len TN, #updated
- -  9. len TN, #olddel
- - 10. len TN, #delete
- - 11. len RS, recsep 
+ -  4. len KN, number of non-deleted records
+ -  5. len KN, last keynum
+ -  6. len TN, last transaction number
+ -  7. len TN, #created
+ -  8. len TN, #oldupd
+ -  9. len TN, #updated
+ - 10. len TN, #olddel
+ - 11. len TN, #delete
+ - 12. len RS, recsep 
 
 For example:
 
- 1 1 9 00Aj 01Bk 00AK 0027 0027 0003 0003\n
+ 1 1 9 00Aa 00Aj 01Bk 00AK 0027 0027 0003 0003\n
 
 FN is filenumlen; KN is keynumlen; TN is transnumlen; RS is recseplen.
 
@@ -412,28 +359,19 @@ On the total line, these values will be where the program looks for:
  - last data file
  - last keynum
  - last transaction number 
+ - number of records
 
-On each transaction, the module will update these.
-
-In addition, on each transaction, the module will update:
+On each transaction, the module will update these on:
  - the last line (because it has details for the current data file)
- - possibly another line (in possibly another toc file) (because the transaction may update a preamble in another data file)
- - the first line (crud totals in addition to the "last" numbers) 
+ - possibly another line (in possibly another toc file)
+   (because the transaction may update a preamble in another data file)
+ - the first line ("last" numbers and totals) 
 
 Random access by line is accommodated because we know the length of each line and
  - line 0 is the total line
  - line 1 is details for example.1.data
  - line 2 is details for example.2.data
  - etc. 
-
-Random access to a given field is likewise accommodated because we know the lengths of each field.
- - i.e., we can seek to a line and then seek to a field and just read or write that field 
-
-So that adds to the writes a transaction might do:
- - example.1.toc: 2 or 3 writes (i.e., multiple fields on 2 or 3 lines)
- - example.1.key: 2 writes (the last line and a previous line)
- - example.2.data: 2 writes (the last line and a previous line)
- - In each case the second write may be in another file 
 
 =head2 defining a data store
 
@@ -444,6 +382,162 @@ So that adds to the writes a transaction might do:
 =head2 migrating a data store
 
 =head2 interating over the data store transactions
+
+=head1 FUTURE PLANS
+
+=head2 Indexes
+
+=head3 Overview
+
+This module provides access to records two ways:
+
+ - via sequence number (keynum--zero-based, i.e., first record is keynum 0)
+ - via file number and seek position (useful mainly for history review and recovery)
+
+In order to provide access via other means, we need indexes.
+
+For example, if I implement a datastore where each record can be
+identified by a unique id number, I'll want to be able to retrieve a
+record using this id number.
+
+In addition, I'll want to be able to perform queries with keywords and
+or phrases that will return lists of records that match the queries.
+
+=head3 Keywords
+
+One plan for keyword indexes would have flat files with four fields:
+
+ - index tag
+ - keyword
+ - occurrence,position
+ - bit vector
+
+Examples of index tags might include "kw" for a general keyword index.
+"ti" for a title index, "au" for an author index, etc.  They need not
+be two-letter tags, but it's a common convention.
+
+Keywords would be any string not containing a space.  Perhaps that's
+too restrictive a definition, but it's how we do it currently.
+
+Occurrence and position would be necessary to implement ajacency
+operators in queries.  Occurrence refers to a particular occurrence
+of a field if a record's fields might have multiple occurrences.
+Position refers to the position of the keyword in the field. E.g.,
+if a record contained two author fields:
+
+ author: Baxter, Bradley MacKenzie
+ author: Frog, Kermit The
+
+the keyword index might have these entries:
+
+ au baxter 1,1 01010101
+ au bradley 1,2 01010101
+ au frog 2,1 101
+ au kermit 2,2 101
+ au mackenzie 1,3 01010101
+ au the 2,3 101
+
+("01010101" and "101" represent the bit vector field.  In reality,
+it would likely be in a compressed form.)
+
+The example above shows the keywords normalized to lowercase with
+punctuation removed.  This will usually--but not necessarily always--be
+needed.
+
+In order to be able to binary search and to browse the indexes, these
+index files would need to be in sorted order and somehow kept that way
+as records are added, updated, and deleted.
+
+(Note: BerkeleyDB::Btree would likely be an alternative.)
+
+=head3 Phrases
+
+A similar plan for phrase indexes would have flat files with three
+I<logical> fields similar to the above:
+
+ - index tag
+ - phrase (which may contain spaces)
+ - bit vector
+
+Examples of index tags might include "_kw", "_ti", "_au", using the
+convention of a leading underscore to indicate a phrase index.
+
+Phrases would be any string including spaces, e.g.,
+
+ _au baxter bradley mackenzie  01010101
+ _au frog kermit the  101
+
+Occurrence and position are not needed because the phrase is always the
+entire contents of a particular occurrence of a field.
+
+Note that there are two spaces after the phrase.  This is so the
+file may be generically sorted and correctly handle the following:
+
+ _ti row row row  10101
+ _ti row row row 1 boat  10101
+ _ti row row row your boat  10101
+
+Without the extra space, the bit string in the first line would
+conflict with the terms in the second.  Similarly, binary searches
+will return what you expect.
+
+Note: the word "phrase" in this context refers to the phrase that is
+created from the entire contents of a field.  This is different from
+the concept of a phrase that a user may enter for a keyword search.
+
+The latter is really multiple keywords with an implied ajacency
+operator between them.  This type of phrase could match anywhere
+in a field.
+
+The former is a complete entity that must match a corresponding
+complete entry in the phrase index.  This type of phrase, sometimes
+called a "bound phrase", would always match starting from the beginning
+of a field.
+
+=head3 Headings
+
+This idea is still nebulous.  It is a response to the short-comings
+of the phrase indexes.  I I<think> it may end up being a data store
+itself that is then keyword (and possibly phrase?) indexed.
+
+=head3 Facets
+
+I'll want to implement facets, but haven't started concrete ideas yet
+(other than they way we do them already, which is less than ideal).
+
+=head3 Index directories and files
+
+I'm expecting to have a separate directory for each index and a
+separate file for each subset of an index.  An example subset might be
+all the keywords that start with "a", "b", etc.  Or perhaps all the
+dates that start with "2008-01", "2008-02", etc.
+
+The motivation for breaking the index into subsets is to try to keep
+file sizes low, because I also will have a "flat file index" (as
+defined in the Perl Cookbook) for each file.  I'm expecting to read the
+ffx file into memory for binary searching and for splicing in new index
+entries.
+
+I'm expecting to write a module, perhaps FlatFile::Index::Sorted, that
+will keep a reference to the lines, in sorted order, in the ffx file,
+but allow new lines and updated lines to simply be appended to the
+index subset flat file.  The hope is that this will make update speeds
+acceptable.  This is similar to the approach used in
+FlatFile::DataStore, i.e., all updates are appended to a data file and
+pointers to the current versions are maintained in the key file(s).
+
+Example index directory tree:
+
+ indexes/id/a
+           /a.ffx
+           /b
+           /b.ffx
+           ...
+        /au/a
+           /a.ffx
+           /b
+           /b.ffx
+           ...
 
 =cut
 
