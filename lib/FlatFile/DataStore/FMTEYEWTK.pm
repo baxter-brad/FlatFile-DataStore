@@ -7,7 +7,7 @@ of FlatFile::DataStore.
 
 =head1 VERSION
 
-Discusses FlatFile::DataStore version 0.09.
+Discusses FlatFile::DataStore version 0.10.
 
 =head1 SYNOPSYS
 
@@ -375,9 +375,38 @@ Random access by line is accommodated because we know the length of each line an
 
 =head2 defining a data store
 
-=head2 designing a program to analyze a data store definition
+=head2 designing a program to analyze a data store definition (uri)
+
+Validation:
+
+ - Are the indicators five unique ascii characters
+ - Is the date field 8-yyyymmdd or 4-yymd, or similar
+ - Does user field look okay
+ - For transnum, keynum, fnums, seeks, are they reasonable
+ - For datamax, keymax, tocmax, dirmax, dirlev, are they reasonable
+
+Analysis:
+
+ - What is maximum size of each data file (datamax)
+ - What is maximum size of a record (datamax-preamble-recsep)
+ - What is maximum number of data files
+ - What is maximum number of records per keynum
+ - What is maximum number of records in various scenarios
+   - small records   many per datafile
+   - medium records  fewer per datafile
+   - large records   few per datafile
+   - user-supplied average record size
+ - What is maximum number of transactions (creates, updates, deletes)
+ - What is maximum size of each keyfile
+ - What is maximum number of keyfiles
+ - What is maximum size of each tocfile
+ - What is maximum number of tocfiles
+ - What is maximum disk usage (datamax * max datafiles + key... + toc...)
+ - How long would a migration take
 
 =head2 validating a data store
+
+ - Include average record size, biggest record, smallest record, size breakdown
 
 =head2 migrating a data store
 
@@ -402,6 +431,10 @@ record using this id number.
 
 In addition, I'll want to be able to perform queries with keywords and
 or phrases that will return lists of records that match the queries.
+
+(Note: The scheme outlined below uses flat files. BerkeleyDB::Btree
+would be a likely alternative. The basic data fields would still be
+pertinent, but they would be the keys and the bit strings, the values.)
 
 =head3 Keywords
 
@@ -445,10 +478,14 @@ punctuation removed.  This will usually--but not necessarily always--be
 needed.
 
 In order to be able to binary search and to browse the indexes, these
-index files would need to be in sorted order and somehow kept that way
-as records are added, updated, and deleted.
+index files would need to be in sorted order and kept that way as
+records are added, updated, and deleted.
 
-(Note: BerkeleyDB::Btree would likely be an alternative.)
+The current plan is to store the bit vector field in a FlatFile
+DataStore Lite data store (since they can get large), and store
+the keynum in the index flat file.  Then we should be able to
+use Tie::File to update and splice in changes, keeping the files
+sorted.  See directory structure below.
 
 =head3 Phrases
 
@@ -479,7 +516,7 @@ file may be generically sorted and correctly handle the following:
 
 Without the extra space, the bit string in the first line would
 conflict with the terms in the second.  Similarly, binary searches
-will return what you expect.
+should return what you expect.
 
 Note: the word "phrase" in this context refers to the phrase that is
 created from the entire contents of a field.  This is different from
@@ -496,13 +533,13 @@ of a field.
 
 =head3 Headings
 
-This idea is still nebulous.  It is a response to the short-comings
+This idea is still nebulous.  It is a response to the shortcomings
 of the phrase indexes.  I I<think> it may end up being a data store
 itself that is then keyword (and possibly phrase?) indexed.
 
 =head3 Facets
 
-I'll want to implement facets, but haven't started concrete ideas yet
+We want to implement facets, but haven't settled on concrete ideas yet
 (other than they way we do them already, which is less than ideal).
 
 =head3 Index directories and files
@@ -513,31 +550,18 @@ all the keywords that start with "a", "b", etc.  Or perhaps all the
 dates that start with "2008-01", "2008-02", etc.
 
 The motivation for breaking the index into subsets is to try to keep
-file sizes low, because I also will have a "flat file index" (as
-defined in the Perl Cookbook) for each file.  I'm expecting to read the
-ffx file into memory for binary searching and for splicing in new index
-entries.
+file sizes low, so that updating with Tie::File is reasonably scalable.
 
-I'm expecting to write a module, perhaps FlatFile::Index::Sorted, that
-will keep a reference to the lines, in sorted order, in the ffx file,
-but allow new lines and updated lines to simply be appended to the
-index subset flat file.  The hope is that this will make update speeds
-acceptable.  This is similar to the approach used in
-FlatFile::DataStore, i.e., all updates are appended to a data file and
-pointers to the current versions are maintained in the key file(s).
-
-Example index directory tree:
+Example index directory tree--'a', 'b', etc. are files:
 
  indexes/id/a
-           /a.ffx
            /b
-           /b.ffx
            ...
         /au/a
-           /a.ffx
            /b
-           /b.ffx
            ...
-
+        /dt/2008-01
+           /2008-02
+           ...
 =cut
 
