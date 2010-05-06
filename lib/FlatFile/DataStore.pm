@@ -69,11 +69,11 @@ Scripts supplied in the distribution perform:
 
 =head1 VERSION
 
-FlatFile::DataStore version 0.10
+FlatFile::DataStore version 0.11
 
 =cut
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 use 5.008003;
 use strict;
