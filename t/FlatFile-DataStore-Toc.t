@@ -2,13 +2,25 @@ use strict;
 use warnings;
 
 use Test::More 'no_plan';
-use File::Temp qw/ tempfile tempdir /;
 
 BEGIN { use_ok('FlatFile::DataStore::Toc') };
 
 # datastore set up
 use FlatFile::DataStore;
-my $dir  = tempdir( CLEANUP => 1, EXLOCK => 0 );
+
+sub delete_tempfiles {
+    my( $dir ) = @_;
+    for( glob "$dir/*" ) {
+        unless( -d $_ ) {
+            unlink $_ or die "Can't delete $_: $!";
+        }
+    }
+}
+
+my $dir  = "./tempdir";
+NOW:{ delete_tempfiles( $dir ); }
+END { delete_tempfiles( $dir ); }
+
 my $name = "example";
 my $desc = "Example+FlatFile::DataStore";
 my $uri  = join ";",
@@ -79,3 +91,5 @@ ok( $datastore_obj );
     is( $toc->delete,   0,  "delete()"   );
 
 }
+
+

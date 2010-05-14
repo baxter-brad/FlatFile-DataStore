@@ -2,7 +2,6 @@ use strict;
 use warnings;
 
 use Test::More 'no_plan';
-use File::Temp qw/ tempfile tempdir /;
 use Data::Dumper;
 $Data::Dumper::Terse    = 1;
 $Data::Dumper::Indent   = 0;
@@ -10,7 +9,18 @@ $Data::Dumper::Sortkeys = 1;
 
 BEGIN { use_ok('FlatFile::DataStore') };
 
-my $dir  = tempdir( CLEANUP => 1, EXLOCK => 0 );
+sub delete_tempfiles {
+    my( $dir ) = @_;
+    for( glob "$dir/*" ) {
+        unless( -d $_ ) {
+            unlink $_ or die "Can't delete $_: $!";
+        }
+    }
+}
+
+my $dir  = "./tempdir";
+NOW:{ delete_tempfiles( $dir ); }
+END { delete_tempfiles( $dir ); }
 
 my $name = "example";
 my $desc = "Example+FlatFile::DataStore";
