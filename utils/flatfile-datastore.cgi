@@ -41,6 +41,19 @@ sub load_vars_loops {
     my %required = ( %{$Info{'required'}} );
     my %optional = ( %{$Info{'optional'}} );
 
+    # note: this is a recommended -- but not at all required -- preamble order:
+    for ( qw( indicator date keynum reclen transnum
+              thisfnum thisseek prevfnum prevseek nextfnum nextseek
+              user ) ) {
+        push @{$loops->{'preamble_parameters'}}, { parm => $_ };
+    }
+    for ( qw( name recsep ) ) {
+        push @{$loops->{'required_parameters'}}, { parm => $_ };
+    }
+    for ( qw( desc datamax keymax tocmax dirmax dirlev) ) {
+        push @{$loops->{'optional_parameters'}}, { parm => $_ };
+    }
+
     my %given;
     my @errors;
 
@@ -57,6 +70,7 @@ sub load_vars_loops {
                     errors   => $errors,
                     summary  => $summary,
                     };
+                $vars->{'errors'}++ if $errors;
             }
             elsif( $required{ $name } ) {
                 my( $msg, $errors, $summary ) = analysis( required => $name, $value );
@@ -68,6 +82,7 @@ sub load_vars_loops {
                     errors   => $errors,
                     summary  => $summary,
                     };
+                $vars->{'errors'}++ if $errors;
             }
             elsif( $optional{ $name } ) {
                 my( $msg, $errors, $summary ) = analysis( optional => $name, $value );
@@ -79,12 +94,14 @@ sub load_vars_loops {
                     errors   => $errors,
                     summary  => $summary,
                     };
+                $vars->{'errors'}++ if $errors;
             }
             else {
                 push @errors, "'$name' not allowed: $name=$value";
             }
             push @errors, "'$name' given more than once: $name=$value"
                 if $given{ $name }++;
+            $vars->{'errors'} += @errors if @errors;
         }
     }
     for my $name ( grep {not $given{ $_ }} sort keys %optional ) {
@@ -96,6 +113,7 @@ sub load_vars_loops {
             errors   => $errors,
             summary  => $summary,
             };
+        $vars->{'errors'}++ if $errors;
     }
     for my $name (
         grep {not $given{ $_ }} sort keys %preamble,
@@ -109,6 +127,7 @@ sub load_vars_loops {
                 errors   => $errors,
                 summary  => $summary,
                 };
+            $vars->{'errors'}++ if $errors;
         }
         else {
             my( $msg, $errors, $summary ) = analysis( required => $name );
@@ -119,33 +138,16 @@ sub load_vars_loops {
                 errors   => $errors,
                 summary  => $summary,
                 };
+            $vars->{'errors'}++ if $errors;
         }
     }
-}
-
-#---------------------------------------------------------------------
-sub expand_template {
-    my( $page, $vars, $loops ) = @_;
-
-    1 while $page =~ s/{VAR:([^{}]+)}
-        /$vars->{ $1 }/gx;
-    1 while $page =~ s/{LOOP:([^{}]+)}(.*){END_LOOP:\1}
-        /expand_loop( $2, $loops->{ $1 } )/gexs;
-
-    return $page;
-}
-
-#---------------------------------------------------------------------
-sub expand_loop {
-    my( $text, $loops ) = @_;
-
-    my @ret;
-    for my $href ( @$loops ) {
-        my $copy = $text;
-        1 while $copy =~ s/{LVAR:([^{}]+)}/$href->{ $1 }/g;
-        push @ret, $copy;
+    for( $vars->{'errors'} ) {
+        if( defined ) {
+            if( $_ == 1 ) { $_ = "$_ error."  }
+            else          { $_ = "$_ errors." }
+        }
+        else              { $_ = "No errors." }
     }
-    return join '' => @ret;
 }
 
 #---------------------------------------------------------------------
@@ -155,20 +157,22 @@ sub analysis {
     my $escaped = uri_escape( $value );
     my $msg  = "($type) $name=$escaped";
        $msg .= " ($value)" if $value ne $escaped;
+    my $has_value = defined $value and $value ne '';
 
     my @msg = ( $msg );
     my @errors;
     if( $type eq 'required' or $type eq 'preamble' ) {
-        push @errors, "Missing: '$name' is required."
-            unless defined $value and $value ne '';
+        push @errors, "Missing: '$name' is required." unless $has_value;
     }
 
     if( $name eq 'name' ) {
-        if( $value =~ / / ) {
-            push @errors, "Name contains a space -- is this really necessary?";
-        }
-        if( $value !~ $ascii_chars ) {
-            push @errors, "Name contains non-ascii characters -- is this really necessary?";
+        if( $has_value ) {
+            if( $value =~ / / ) {
+                push @errors, "Name contains a space -- is this really necessary?";
+            }
+            if( $value !~ $ascii_chars ) {
+                push @errors, "Name contains non-ascii characters -- is this really necessary?";
+            }
         }
     }
     elsif( $name eq 'desc' ) {
@@ -177,256 +181,345 @@ sub analysis {
         }
     }
     elsif( $name eq 'indicator' ) {
-        my( $len, $chars ) = split /-/, $value, 2;
-        push @errors, qq/Length is '$len'. Only single-character indicators are supported./ if $len != 1;
-        my @c = split //, $chars;
-        my %c = map { $_ => 1 } @c;
-        my @n = keys %c;
-        push @errors, qq/Characters are '$chars'. Need five unique indicator characters./ if @n != 5 or @c != 5;
-        unless( @errors ) {
-            my $i;
-            for( qw( create oldupd update olddel delete ) ) {
-                push @msg, "$_: $c[ $i++ ]";
+        if( $has_value ) {
+            my( $len, $chars ) = split /-/, $value, 2;
+            push @errors, qq/Length is '$len'. Only single-character indicators are supported./ if $len != 1;
+            my @c = split //, $chars;
+            my %c = map { $_ => 1 } @c;
+            my @n = keys %c;
+            push @errors, qq/Characters are '$chars'. Need five unique indicator characters./ if @n != 5 or @c != 5;
+            unless( @errors ) {
+                my $i;
+                for( qw( create oldupd update olddel delete ) ) {
+                    push @msg, "$_: $c[ $i++ ]";
+                }
             }
         }
     }
     elsif( $name eq 'date' ) {
-        push @errors, "Must be either 8-yyyymmdd or 4-yymd."
-            unless $value eq '8-yyyymmdd' or $value eq '4-yymd';
+        if( $has_value ) {
+            push @errors, "Must be either 8-yyyymmdd or 4-yymd."
+                unless $value eq '8-yyyymmdd' or $value eq '4-yymd';
+        }
     }
     elsif( $name eq 'keynum' ) {
-        my( $len, $base ) = split /-/, $value;
-        my $maxnum = substr( base_chars( $base ), -1) x $len;
-        my $maxint = base2int $maxnum, $base;
-        push @errors, "Less than 100 records allowed -- is that intentional?"
-            if $maxint < 100;
-        push @msg, "Allows for up to about $maxint ($maxnum base-$base) records."
-            unless @errors;
+        if( $has_value ) {
+            my( $len, $base ) = split /-/, $value;
+            my $maxnum = substr( base_chars( $base ), -1) x $len;
+            my $maxint = base2int $maxnum, $base;
+            push @errors, "Less than 100 records allowed -- is that intentional?"
+                if $maxint < 100;
+            push @msg, "Allows for up to about ".commify( $maxint )." ($maxnum base-$base) records."
+                unless @errors;
+        }
     }
     elsif( $name eq 'reclen' ) {
-        my( $len, $base ) = split /-/, $value;
-        my $maxnum = substr( base_chars( $base ), -1) x $len;
-        my $maxint = base2int $maxnum, $base;
-        push @errors, "Records longer than 10 bytes not allowed -- is that intentional?"
-            if $maxint < 10;
-        push @msg, "Allows for records up to about $maxint ($maxnum base-$base) bytes long."
-            unless @errors;
+        if( $has_value ) {
+            my( $len, $base ) = split /-/, $value;
+            my $maxnum = substr( base_chars( $base ), -1) x $len;
+            my $maxint = base2int $maxnum, $base;
+            push @errors, "Records longer than 10 bytes not allowed -- is that intentional?"
+                if $maxint < 10;
+            push @msg, "Allows for records up to about ".commify( $maxint )." ($maxnum base-$base) bytes long."
+                unless @errors;
+        }
     }
     elsif( $name eq 'recsep' ) {
-        my $ascii_chars = qr/^[\n-~]+$/;
-        push @errors, "Doesn't match [\n-~]+ -- is that intentional?"
-            unless $value =~ $ascii_chars;
+        if( $has_value ) {
+            my $ascii_chars = qr/^[\n-~]+$/;
+            push @errors, "Doesn't match qr/^[\\n-~]+\$/ -- is that intentional?"
+                unless $value =~ $ascii_chars;
+        }
     }
     elsif( $name eq 'transnum' ) {
-        my( $len, $base ) = split /-/, $value;
-        my $maxnum = substr( base_chars( $base ), -1) x $len;
-        my $maxint = base2int $maxnum, $base;
-        push @errors, "No more than 10 transactions allowed -- is that intentional?"
-            if $maxint <= 10;
-        push @msg, "Allows up to about $maxint ($maxnum base-$base) transactions."
-            unless @errors;
+        if( $has_value ) {
+            my( $len, $base ) = split /-/, $value;
+            my $maxnum = substr( base_chars( $base ), -1) x $len;
+            my $maxint = base2int $maxnum, $base;
+            push @errors, "No more than 10 transactions allowed -- is that intentional?"
+                if $maxint <= 10;
+            push @msg, "Allows up to about ".commify( $maxint )." ($maxnum base-$base) transactions."
+                unless @errors;
+        }
     }
     elsif( $name eq 'thisfnum' ) {
-        my( $len, $base ) = split /-/, $value;
+        if( $has_value ) {
+            my( $len, $base ) = split /-/, $value;
 
-        push @errors, "Length: '$len' too small (1 min)." if $len < 1;
-        push @errors, "Base: '$base' too large (36 max)." if $base > 36;
+            push @errors, "Length: '$len' too small (1 min)." if $len < 1;
+            push @errors, "Base: '$base' too large (36 max)." if $base > 36;
 
-        my $maxnum = substr( base_chars( $base ), -1) x $len;
-        my $maxint = base2int $maxnum, $base;
-        push @msg, "Allows for up to $maxint ($maxnum base-$base) data files."
-            unless @errors;
+            my $maxnum = substr( base_chars( $base ), -1) x $len;
+            my $maxint = base2int $maxnum, $base;
+            push @msg, "Allows for up to ".commify( $maxint )." ($maxnum base-$base) data files."
+                unless @errors;
 
-        my $prevfnum = $CGI->param( 'prevfnum' );
-        my $nextfnum = $CGI->param( 'nextfnum' );
+            my $prevfnum = $CGI->param( 'prevfnum' );
+            my $nextfnum = $CGI->param( 'nextfnum' );
 
-        if( $prevfnum ) {
-            push @errors, "Does not match prevfnum ($prevfnum)."
-                unless $value eq $prevfnum;
-        }
-        else {
-            push @errors, "Parm: prevfnum is missing.";
-        }
-        if( $nextfnum ) {
-            push @errors, "Does not match nextfnum ($nextfnum)"
-                unless $value eq $nextfnum;
-        }
-        else {
-            push @errors, "Parm: nextfnum is missing.";
+            if( $prevfnum ) {
+                push @errors, "Does not match prevfnum ($prevfnum)."
+                    unless $value eq $prevfnum;
+            }
+            else {
+                push @errors, "Parm: prevfnum is missing.";
+            }
+            if( $nextfnum ) {
+                push @errors, "Does not match nextfnum ($nextfnum)"
+                    unless $value eq $nextfnum;
+            }
+            else {
+                push @errors, "Parm: nextfnum is missing.";
+            }
         }
     }
     elsif( $name eq 'thisseek' ) {
-        my $prevseek = $CGI->param( 'prevseek' );
-        my $nextseek = $CGI->param( 'nextseek' );
+        if( $has_value ) {
+            my $prevseek = $CGI->param( 'prevseek' );
+            my $nextseek = $CGI->param( 'nextseek' );
 
-        my $datamax  = $CGI->param( 'datamax' );
-        my $maxbytes = convert_datamax( $datamax );
+            my $datamax  = $CGI->param( 'datamax' );
+            my $maxbytes = convert_datamax( $datamax );
 
-        my( $len, $base ) = split /-/, $value;
-        my $maxnum = substr( base_chars( $base ), -1) x $len;
-        my $maxint = base2int $maxnum, $base;
-        push @msg, "Allows for data files up to about $maxint ($maxnum base-$base) bytes.";
+            my( $len, $base ) = split /-/, $value;
+            my $maxnum = substr( base_chars( $base ), -1) x $len;
+            my $maxint = base2int $maxnum, $base;
+            push @msg, "Allows for data files up to about ".commify( $maxint )." ($maxnum base-$base) bytes.";
 
-        push @msg, "But this is restricted to $maxbytes ($datamax) bytes by datamax."
-            if $maxbytes and $maxbytes < $maxint;
+            push @msg, "But this is restricted to ".commify( $maxbytes )." ($datamax) bytes by datamax."
+                if $maxbytes and $maxbytes < $maxint;
 
-        if( $prevseek ) {
-            push @errors, "does not match prevseek ($prevseek)"
-                unless $value eq $prevseek;
-        }
-        else {
-            push @errors, "prevseek is missing";
-        }
-        if( $nextseek ) {
-            push @errors, "does not match nextseek ($nextseek)"
-                unless $value eq $nextseek;
-        }
-        else {
-            push @errors, "nextseek is missing";
+            if( $prevseek ) {
+                push @errors, "does not match prevseek ($prevseek)"
+                    unless $value eq $prevseek;
+            }
+            else {
+                push @errors, "prevseek is missing";
+            }
+            if( $nextseek ) {
+                push @errors, "does not match nextseek ($nextseek)"
+                    unless $value eq $nextseek;
+            }
+            else {
+                push @errors, "nextseek is missing";
+            }
         }
     }
     elsif( $name eq 'prevfnum' ) {
-        my( $len, $base ) = split /-/, $value;
+        if( $has_value ) {
+            my( $len, $base ) = split /-/, $value;
 
-        push @errors, "Length: '$len' too small (1 min)." if $len < 1;
-        push @errors, "Base: '$base' too large (36 max)." if $base > 36;
+            push @errors, "Length: '$len' too small (1 min)." if $len < 1;
+            push @errors, "Base: '$base' too large (36 max)." if $base > 36;
 
-        my $maxnum = substr( base_chars( $base ), -1) x $len;
-        my $maxint = base2int $maxnum, $base;
-        push @msg, "Allows for up to $maxint ($maxnum base-$base) data files."
-            unless @errors;
+            my $maxnum = substr( base_chars( $base ), -1) x $len;
+            my $maxint = base2int $maxnum, $base;
+            push @msg, "Allows for up to ".commify( $maxint )." ($maxnum base-$base) data files."
+                unless @errors;
 
-        my $nextfnum = $CGI->param( 'nextfnum' );
-        my $thisfnum = $CGI->param( 'thisfnum' );
+            my $nextfnum = $CGI->param( 'nextfnum' );
+            my $thisfnum = $CGI->param( 'thisfnum' );
 
-        if( $nextfnum ) {
-            push @errors, "Does not match nextfnum ($nextfnum)."
-                unless $value eq $nextfnum;
-        }
-        else {
-            push @errors, "Parm: nextfnum is missing.";
-        }
-        if( $thisfnum ) {
-            push @errors, "Does not match thisfnum ($thisfnum)"
-                unless $value eq $thisfnum;
-        }
-        else {
-            push @errors, "Parm: thisfnum is missing.";
+            if( $nextfnum ) {
+                push @errors, "Does not match nextfnum ($nextfnum)."
+                    unless $value eq $nextfnum;
+            }
+            else {
+                push @errors, "Parm: nextfnum is missing.";
+            }
+            if( $thisfnum ) {
+                push @errors, "Does not match thisfnum ($thisfnum)"
+                    unless $value eq $thisfnum;
+            }
+            else {
+                push @errors, "Parm: thisfnum is missing.";
+            }
         }
     }
     elsif( $name eq 'prevseek' ) {
-        my $thisseek = $CGI->param( 'thisseek' );
-        my $nextseek = $CGI->param( 'nextseek' );
+        if( $has_value ) {
+            my $thisseek = $CGI->param( 'thisseek' );
+            my $nextseek = $CGI->param( 'nextseek' );
 
-        my $datamax  = $CGI->param( 'datamax' );
-        my $maxbytes = convert_datamax( $datamax );
+            my $datamax  = $CGI->param( 'datamax' );
+            my $maxbytes = convert_datamax( $datamax );
 
-        my( $len, $base ) = split /-/, $value;
-        my $maxnum = substr( base_chars( $base ), -1) x $len;
-        my $maxint = base2int $maxnum, $base;
-        push @msg, "Allows for data files up to about $maxint ($maxnum base-$base) bytes.";
+            my( $len, $base ) = split /-/, $value;
+            my $maxnum = substr( base_chars( $base ), -1) x $len;
+            my $maxint = base2int $maxnum, $base;
+            push @msg, "Allows for data files up to about ".commify( $maxint )." ($maxnum base-$base) bytes.";
 
-        push @msg, "But this is restricted to $maxbytes ($datamax) bytes by datamax."
-            if $maxbytes and $maxbytes < $maxint;
+            push @msg, "But this is restricted to ".commify( $maxbytes )." ($datamax) bytes by datamax."
+                if $maxbytes and $maxbytes < $maxint;
 
-        if( $thisseek ) {
-            push @errors, "does not match thisseek ($thisseek)"
-                unless $value eq $thisseek;
-        }
-        else {
-            push @errors, "thisseek is missing";
-        }
-        if( $nextseek ) {
-            push @errors, "does not match nextseek ($nextseek)"
-                unless $value eq $nextseek;
-        }
-        else {
-            push @errors, "nextseek is missing";
+            if( $thisseek ) {
+                push @errors, "does not match thisseek ($thisseek)"
+                    unless $value eq $thisseek;
+            }
+            else {
+                push @errors, "thisseek is missing";
+            }
+            if( $nextseek ) {
+                push @errors, "does not match nextseek ($nextseek)"
+                    unless $value eq $nextseek;
+            }
+            else {
+                push @errors, "nextseek is missing";
+            }
         }
     }
     elsif( $name eq 'nextfnum' ) {
-        my( $len, $base ) = split /-/, $value;
+        if( $has_value ) {
+            my( $len, $base ) = split /-/, $value;
 
-        push @errors, "Length: '$len' too small (1 min)." if $len < 1;
-        push @errors, "Base: '$base' too large (36 max)." if $base > 36;
+            push @errors, "Length: '$len' too small (1 min)." if $len < 1;
+            push @errors, "Base: '$base' too large (36 max)." if $base > 36;
 
-        my $maxnum = substr( base_chars( $base ), -1) x $len;
-        my $maxint = base2int $maxnum, $base;
-        push @msg, "Allows for up to $maxint ($maxnum base-$base) data files."
-            unless @errors;
+            my $maxnum = substr( base_chars( $base ), -1) x $len;
+            my $maxint = base2int $maxnum, $base;
+            push @msg, "Allows for up to ".commify( $maxint )." ($maxnum base-$base) data files."
+                unless @errors;
 
-        my $prevfnum = $CGI->param( 'prevfnum' );
-        my $thisfnum = $CGI->param( 'thisfnum' );
+            my $prevfnum = $CGI->param( 'prevfnum' );
+            my $thisfnum = $CGI->param( 'thisfnum' );
 
-        if( $prevfnum ) {
-            push @errors, "Does not match prevfnum ($prevfnum)."
-                unless $value eq $prevfnum;
-        }
-        else {
-            push @errors, "Parm: prevfnum is missing.";
-        }
-        if( $thisfnum ) {
-            push @errors, "Does not match thisfnum ($thisfnum)"
-                unless $value eq $thisfnum;
-        }
-        else {
-            push @errors, "Parm: thisfnum is missing.";
+            if( $prevfnum ) {
+                push @errors, "Does not match prevfnum ($prevfnum)."
+                    unless $value eq $prevfnum;
+            }
+            else {
+                push @errors, "Parm: prevfnum is missing.";
+            }
+            if( $thisfnum ) {
+                push @errors, "Does not match thisfnum ($thisfnum)"
+                    unless $value eq $thisfnum;
+            }
+            else {
+                push @errors, "Parm: thisfnum is missing.";
+            }
         }
     }
     elsif( $name eq 'nextseek' ) {
-        my $thisseek = $CGI->param( 'thisseek' );
-        my $prevseek = $CGI->param( 'prevseek' );
+        if( $has_value ) {
+            my $thisseek = $CGI->param( 'thisseek' );
+            my $prevseek = $CGI->param( 'prevseek' );
 
-        my $datamax  = $CGI->param( 'datamax' );
-        my $maxbytes = convert_datamax( $datamax );
+            my $datamax  = $CGI->param( 'datamax' );
+            my $maxbytes = convert_datamax( $datamax );
 
-        my( $len, $base ) = split /-/, $value;
-        my $maxnum = substr( base_chars( $base ), -1) x $len;
-        my $maxint = base2int $maxnum, $base;
-        push @msg, "Allows for data files up to about $maxint ($maxnum base-$base) bytes.";
+            my( $len, $base ) = split /-/, $value;
+            my $maxnum = substr( base_chars( $base ), -1) x $len;
+            my $maxint = base2int $maxnum, $base;
+            push @msg, "Allows for data files up to about ".commify( $maxint )." ($maxnum base-$base) bytes.";
 
-        push @msg, "But this is restricted to $maxbytes ($datamax) bytes by datamax."
-            if $maxbytes and $maxbytes < $maxint;
+            push @msg, "But this is restricted to ".commify( $maxbytes )." ($datamax) bytes by datamax."
+                if $maxbytes and $maxbytes < $maxint;
 
-        if( $thisseek ) {
-            push @errors, "does not match thisseek ($thisseek)"
-                unless $value eq $thisseek;
-        }
-        else {
-            push @errors, "thisseek is missing";
-        }
-        if( $prevseek ) {
-            push @errors, "does not match prevseek ($prevseek)"
-                unless $value eq $prevseek;
-        }
-        else {
-            push @errors, "prevseek is missing";
+            if( $thisseek ) {
+                push @errors, "does not match thisseek ($thisseek)"
+                    unless $value eq $thisseek;
+            }
+            else {
+                push @errors, "thisseek is missing";
+            }
+            if( $prevseek ) {
+                push @errors, "does not match prevseek ($prevseek)"
+                    unless $value eq $prevseek;
+            }
+            else {
+                push @errors, "prevseek is missing";
+            }
         }
     }
     elsif( $name eq 'datamax' ) {
-        my $datamax = convert_datamax( $value );
-        if( my $seek = $CGI->param( 'thisseek' ) ) {
-            my( $len, $base ) = split /-/, $seek;
-            my $maxnum = substr( base_chars( $base ), -1) x $len;
-            my $maxint = base2int $maxnum, $base;
-            push @errors, "datamax too large (max is $maxint - see thisseek)"
-                if $datamax > $maxint;
-            push @errors, "datamax less than 100,000 -- is that desired?"
-                if defined $value and $datamax < 100_000;
+        if( $has_value ) {
+            my $datamax = convert_datamax( $value );
+            if( my $seek = $CGI->param( 'thisseek' ) ) {
+                my( $len, $base ) = split /-/, $seek;
+                my $maxnum = substr( base_chars( $base ), -1) x $len;
+                my $maxint = base2int $maxnum, $base;
+                push @errors, "datamax too large (max is $maxint - see thisseek)"
+                    if $datamax > $maxint;
+                push @errors, "datamax less than 100,000 -- is that desired?"
+                    if defined $value and $datamax < 100_000;
+            }
+            else {
+                push @errors, "Can't analyze datamax without thisseek";
+            }
+            push @msg, "Restricts data files to $datamax ($value) bytes."
+                unless @errors;
         }
-        else {
-            push @errors, "Can't analyze datamax without thisseek";
-        }
-        push @msg, "Restricts data files to $datamax ($value) bytes."
-            unless @errors;
     }
     elsif( $name eq 'dirmax' ) {
+        if( $has_value ) {
+            push @msg, "$value files may be added to a directory before another directory is created.";
+            my $dirlev   = $CGI->param( 'dirlev' );
+               $dirlev ||= 1;
+            my $plural = $dirlev==1? 0: 1;
+            if( $plural ) {
+                push @msg, "There are $dirlev levels of directories available (see dirlev), so about ".
+                    commify($value**($dirlev+1))." files may be added in all.";
+            }
+            else {
+                push @msg, "There is $dirlev level of directories available (see dirlev), so about ".
+                    commify($value**($dirlev+1))." files may be added in all.";
+            }
+            push @msg, "This applies to data files, key files, and toc files.";
+            push @errors, "The value, $value, limits directories to less than 10 files -- is that intentional?"
+                if $value < 10;
+        }
+        else {
+            push @msg, "No value given, so directories will be added to regardless of the number of files.";
+            push @msg, "This applies to data files, key files, and toc files.";
+        }
     }
     elsif( $name eq 'dirlev' ) {
+        my $dirmax = $CGI->param( 'dirmax' );
+        if( $dirmax ) {
+            push @msg, "The parm, dirmax, says that ".commify($dirmax)." files may be added to a directory before another directory is created.";
+        }
+        my $dirlev = $has_value? $value: $dirmax? 1: '';
+        if( $dirlev ) {
+            if( $dirmax ) {
+                my $plural = $dirlev==1? 0: 1;
+                if( $plural ) {
+                    push @msg, "There are $dirlev levels of directories available, so about ".
+                        commify($dirmax**($dirlev+1))." files may be added in all.";
+                }
+                else {
+                    push @msg, "There is $dirlev level of directories available, so about ".
+                        commify($dirmax**($dirlev+1))." files may be added in all.";
+                }
+                push @msg, "This applies to data files, key files, and toc files.";
+            }
+            else {
+                push @errors, "This parm will be ignored, because there is no dirmax value.";
+            }
+        }
     }
     elsif( $name eq 'tocmax' ) {
+        if( $has_value ) {
+            push @msg,
+                "A toc file may contain no more than ".commify( $value )." lines (one line per data file).",
+                "If there are more data files than that, new toc files will be created.";
+            push @errors, "The value, $value, limits toc files to less than 10 lines -- is that intentional?"
+                if $value < 10;
+        }
+        else {
+            push @msg, "No tocmax value is given, so toc files may grow indefinitely.";
+        }
     }
     elsif( $name eq 'keymax' ) {
+        if( $has_value ) {
+            push @msg,
+                "A key file may contain no more than ".commify( $value )." lines (one line per record).",
+                "If there are more records than that, new key files will be created.";
+            push @errors, "The value, $value, limits key files to less than 10 lines -- is that intentional?"
+                if $value < 10;
+        }
+        else {
+            push @msg, "No keymax value is given, so key files may grow indefinitely.";
+        }
     }
 
     my $summary;
@@ -461,6 +554,38 @@ sub convert_datamax {
     }
 
     return 0+$max;
+}
+
+#---------------------------------------------------------------------
+sub commify {
+    local $_  = shift;
+    1 while s/^([-+]?\d+)(\d{3})/$1,$2/;
+    return $_;
+}
+
+#---------------------------------------------------------------------
+sub expand_template {
+    my( $page, $vars, $loops ) = @_;
+
+    1 while $page =~ s/{VAR:([^{}]+)}
+        /$vars->{ $1 }/gx;
+    1 while $page =~ s/{LOOP:([^{}]+)}(.*){END_LOOP:\1}
+        /expand_loop( $2, $loops->{ $1 } )/gexs;
+
+    return $page;
+}
+
+#---------------------------------------------------------------------
+sub expand_loop {
+    my( $text, $loops ) = @_;
+
+    my @ret;
+    for my $href ( @$loops ) {
+        my $copy = $text;
+        1 while $copy =~ s/{LVAR:([^{}]+)}/$href->{ $1 }/g;
+        push @ret, $copy;
+    }
+    return join '' => @ret;
 }
 
 #---------------------------------------------------------------------
@@ -581,7 +706,7 @@ Thisfnum: specs for "this" file number.  Has the form:
     length-numberbase
 
 The numberbase may range from 2 to 36, representing base-2
-(i.e., binary) to base-36.  Note 2 to 36, not 2 to 62 as
+(i.e., binary) to base-36.  Note: 2 to 36, not 2 to 62, as
 other specs allow.  Since the file numbers are used in file
 names, restricting the range to base-36 means we don't get
 file names that differ only in case (e.g., myds.A.data and
@@ -697,8 +822,15 @@ __
 
 dirlev => <<__,
 Dirlev: maximum number of directory levels.  This value is
-only needed for particularly large data stores.  It lets you
-limit how many directories may exist at each directory level.
+only needed for particularly large data stores.
+
+It lets you specify how many levels of directories to maintain.
+Combined with dirmax, this will determine the total number of
+data files that may be created.
+
+If this value is 1, then dirmax**2 data files may be
+created.  If this value is 2, then dirmax**3 data files
+may be created.  Etc.
 
 This value is ignored unless dirmax is also given.  If dirmax
 is given and this value isn't, it defaults to 1.
@@ -711,9 +843,10 @@ Tocmax: maximum number of data file entries per toc (table
 of contents) file.
 
 This value is only needed for particularly large data stores.
-There is one line per data file in the toc files.  So the
-tocmax value will limit the number of lines per toc file,
-allowing this information to span multiple toc files.
+
+A toc file contains one line per data file.  The tocmax value
+will limit the number of lines per toc file, allowing this
+information to span multiple toc files.
 
 If no tocmax value is given, there will be only one toc
 file, which will grow indefinitely.
@@ -723,14 +856,14 @@ __
 
 keymax => <<__,
 Keymax: maximum number of key entries per key file.  The
-key files are the indexes into the data files.  There is
-one line per record in the key files.  The keymax value will
-limit the number of lines, allowing theses indexes to span
-multiple key files.
+key files are the indexes into the data files.
+
+A key file contains one line per record.  The keymax value
+will limit the number of lines per file, allowing theses
+indexes to span multiple key files.
 
 If no keymax value is given, there will be only one key
 file, which will grow indefinitely.
-
 
 Example: keymax=100000  (only 100,000 records per key file)
 __
@@ -767,11 +900,13 @@ Content-Type: text/html; charset=UTF-8
 body {
     font-family: sans-serif;
 }
+code {
+    font-weight: bold;
+}
 pre {
     border: 1px solid #ccc;
     background: #eee;
     padding: .5em;
-    width: 90%;
 }
 .url {
     border: 1px solid #9999ff;
@@ -799,7 +934,7 @@ pre {
 <h2>Introduction</h2>
 <ul>
 <li>
-The purpose of this page is to display and analyze the URI that will
+The purpose of this page is to display, analyze, and help create the URI that will
 serve as the confuration for a <a href="http://search.cpan.org/dist/FlatFile-DataStore/">FlatFile::DataStore</a>.
 </li>
 <li>
@@ -814,7 +949,7 @@ To change the output on this page, simply edit the parameters in the <i>above</i
 URI and go there.
 </li>
 <li>
-To use the results, cut and paste from the URI below.
+To use the results, copy from the URI below, and paste into the [name].uri file.
 </li>
 </ul>
 
@@ -823,11 +958,31 @@ To use the results, cut and paste from the URI below.
         onfocus="this.select();" onkeyup="this.select();">
 </form>
 
+<p>{VAR:errors}</p>
+
+<h2>Parameters</h2>
+
+<h3>Preamble Parameters (required)</h3>
+
+<code>{LOOP:preamble_parameters}<a href="#{LVAR:parm}">{LVAR:parm}</a> {END_LOOP:preamble_parameters}</code>
+<p>
+Note: the order these appear in the URI determines the order they appear in the preamble.
+The above order is a good place to start, but is not required.
+</p>
+
+<h3>Non-preamble Required Parameters</h3>
+
+<code>{LOOP:required_parameters}<a href="#{LVAR:parm}">{LVAR:parm}</a> {END_LOOP:required_parameters}</code>
+
+<h3>Optional Parameters</h3>
+
+<code>{LOOP:optional_parameters}<a href="#{LVAR:parm}">{LVAR:parm}</a> {END_LOOP:optional_parameters}</code>
+
 <h2><a name="missing">Missing Required Parameters</a></h2>
 
 <dl>
 {LOOP:missing}
-<dt><pre>{LVAR:name}={LVAR:value}</pre></dt>
+<dt><a name="{LVAR:name}"><code>{LVAR:name}={LVAR:value}</code></a></dt>
 <dd><pre>Analysis:
 {LVAR:analysis}<span class="errors">{LVAR:errors}</span><span class="summary">{LVAR:summary}</span>
 ______________________________________________________________________
@@ -841,7 +996,7 @@ Information:
 
 <dl>
 {LOOP:required}
-<dt><pre>{LVAR:name}={LVAR:value}</pre></dt>
+<dt><a name="{LVAR:name}"><code>{LVAR:name}={LVAR:value}</code></a></dt>
 <dd><pre>Analysis:
 {LVAR:analysis}<span class="errors">{LVAR:errors}</span><span class="summary">{LVAR:summary}</span>
 ______________________________________________________________________
@@ -855,7 +1010,7 @@ Information:
 
 <dl>
 {LOOP:preamble}
-<dt><pre>{LVAR:name}={LVAR:value}</pre></dt>
+<dt><a name="{LVAR:name}"><code>{LVAR:name}={LVAR:value}</code></a></dt>
 <dd><pre>Analysis:
 {LVAR:analysis}<span class="errors">{LVAR:errors}</span><span class="summary">{LVAR:summary}</span>
 ______________________________________________________________________
@@ -869,7 +1024,7 @@ Information:
 
 <dl>
 {LOOP:optional}
-<dt><pre>{LVAR:name}={LVAR:value}</pre></dt>
+<dt><a name="{LVAR:name}"><code>{LVAR:name}={LVAR:value}</code></a></dt>
 <dd><pre>Analysis:
 {LVAR:analysis}<span class="errors">{LVAR:errors}</span><span class="summary">{LVAR:summary}</span>
 ______________________________________________________________________
