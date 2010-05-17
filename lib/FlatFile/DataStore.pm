@@ -115,6 +115,10 @@ my %Optional = qw(
     dirlev      1
     tocmax      1
     keymax      1
+    prevfnum    1
+    prevseek    1
+    nextfnum    1
+    nextseek    1
     );
 
 # attributes that we generate (vs. user-supplied)
@@ -213,13 +217,18 @@ sub init {
             $self->$attr( $uri_parms->{ $attr } );
         }
 
-        # check that all fnums and seeks are the same
-        croak qq/fnum parameters differ/
-            unless $self->thisfnum eq $self->prevfnum and
-                   $self->thisfnum eq $self->nextfnum;
-        croak qq/seek parameters differ/
-            unless $self->thisseek eq $self->prevseek and
-                   $self->thisseek eq $self->nextseek;
+        # check that all fnums and seeks are the same ...
+        # (note: prevfnum, prevseek, nextfnum, and nextseek are
+        # optional, but if you have one of them, you must have
+        # all four, so checking for one of them here is enough)
+        if( $self->prevfnum ) {
+            croak qq/fnum parameters differ/
+                unless $self->thisfnum eq $self->prevfnum and
+                       $self->thisfnum eq $self->nextfnum;
+            croak qq/seek parameters differ/
+                unless $self->thisseek eq $self->prevseek and
+                       $self->thisseek eq $self->nextseek;
+        }
 
         # now for some generated attributes ...
         my( $len, $base );
@@ -587,6 +596,8 @@ sub update {
     my $self = shift;
     my( $obj, $data_ref, $user_data ) = $self->normalize_parms( @_ );
 
+    my $prevnext = $self->prevfnum;  # boolean
+
     my $prevpreamble = $obj->string;
     my $keyint       = $obj->keynum;
     my $prevind      = $obj->indicator;
@@ -625,20 +636,24 @@ sub update {
     my $transint = $self->nexttransnum( $top_toc );
 
     # make new record
+    my $preamble_hash = {
+        indicator => $self->crud->{'update'},
+        date      => now( $self->dateformat ),
+        transnum  => $transint,
+        keynum    => $keyint,
+        reclen    => $reclen,
+        thisfnum  => $datafnum,
+        thisseek  => $dataseek,
+        user      => $user_data,
+        };
+    if( $prevnext ) {
+        $preamble_hash->{'prevfnum'} = $prevfnum;
+        $preamble_hash->{'prevseek'} = $prevseek;
+    }
     my $record = $self->new_record( {
         data     => $data_ref,
-        preamble => {
-            indicator => $self->crud->{'update'},
-            date      => now( $self->dateformat ),
-            transnum  => $transint,
-            keynum    => $keyint,
-            reclen    => $reclen,
-            thisfnum  => $datafnum,
-            thisseek  => $dataseek,
-            prevfnum  => $prevfnum,
-            prevseek  => $prevseek,
-            user      => $user_data,
-            } } );
+        preamble => $preamble_hash,
+        } );
 
     # write record to datafile
     my $preamble = $record->string;
@@ -649,14 +664,16 @@ sub update {
     $self->write_bytes( $keyfh, $keyseek, $preamble );
 
     # update the old preamble
-    $prevpreamble = $self->update_preamble( $prevpreamble, {
-        indicator => $self->crud->{ 'oldupd' },
-        nextfnum  => $datafnum,
-        nextseek  => $dataseek,
-        } );
-    my $prevdatafile = $self->which_datafile( $prevfnum );
-    my $prevdatafh   = $self->locked_for_write( $prevdatafile );
-    $self->write_bytes( $prevdatafh, $prevseek, $prevpreamble );
+    if( $prevnext ) {
+        $prevpreamble = $self->update_preamble( $prevpreamble, {
+            indicator => $self->crud->{ 'oldupd' },
+            nextfnum  => $datafnum,
+            nextseek  => $dataseek,
+            } );
+        my $prevdatafile = $self->which_datafile( $prevfnum );
+        my $prevdatafh   = $self->locked_for_write( $prevdatafile );
+        $self->write_bytes( $prevdatafh, $prevseek, $prevpreamble );
+    }
 
     # update table of contents (toc) file
     my $toc = $self->new_toc( { num => $datafnum } );
@@ -669,14 +686,19 @@ sub update {
     $toc->numrecs(  $toc->numrecs + 1 );
 
     # was the previous record in another data file?
-    if( $prevfnum ne $datafnum ) {
-        my $prevtoc = $self->new_toc( { num => $prevfnum } );
-        $prevtoc->oldupd(    $prevtoc->oldupd  + 1 );
-        $prevtoc->numrecs(   $prevtoc->numrecs - 1 ) if $prevind ne $delete;
-        $prevtoc->write_toc( $prevtoc->datafnum    );
+    if( $prevnext ) {
+        if( $prevfnum ne $datafnum ) {
+            my $prevtoc = $self->new_toc( { num => $prevfnum } );
+            $prevtoc->oldupd(    $prevtoc->oldupd  + 1 );
+            $prevtoc->numrecs(   $prevtoc->numrecs - 1 ) if $prevind ne $delete;
+            $prevtoc->write_toc( $prevtoc->datafnum    );
+        }
+        else {
+            $toc->oldupd(  $toc->oldupd  + 1 );
+            $toc->numrecs( $toc->numrecs - 1 ) if $prevind ne $delete;
+        }
     }
     else {
-        $toc->oldupd(  $toc->oldupd  + 1 );
         $toc->numrecs( $toc->numrecs - 1 ) if $prevind ne $delete;
     }
 
@@ -687,7 +709,7 @@ sub update {
     $top_toc->tocfnum(  $toc->tocfnum         );
     $top_toc->transnum( $toc->transnum        );
     $top_toc->update(   $top_toc->update  + 1 );
-    $top_toc->oldupd(   $top_toc->oldupd  + 1 );
+    $top_toc->oldupd(   $top_toc->oldupd  + 1 ) if $prevnext;
     $top_toc->numrecs(  $top_toc->numrecs + 1 ) if $prevind eq $delete;
 
     $top_toc->write_toc( 0 );
@@ -716,6 +738,8 @@ Returns a Flatfile::DataStore::Record object.
 sub delete {
     my $self = shift;
     my( $obj, $data_ref, $user_data ) = $self->normalize_parms( @_ );
+
+    my $prevnext = $self->prevfnum;  # boolean
 
     my $prevpreamble = $obj->string;
     my $keyint       = $obj->keynum;
@@ -754,20 +778,24 @@ sub delete {
     my $transint = $self->nexttransnum( $top_toc );
 
     # make new record
+    my $preamble_hash = {
+        indicator => $self->crud->{'delete'},
+        date      => now( $self->dateformat ),
+        transnum  => $transint,
+        keynum    => $keyint,
+        reclen    => $reclen,
+        thisfnum  => $datafnum,
+        thisseek  => $dataseek,
+        user      => $user_data,
+        };
+    if( $prevnext ) {
+        $preamble_hash->{'prevfnum'} = $prevfnum;
+        $preamble_hash->{'prevseek'} = $prevseek;
+    }
     my $record = $self->new_record( {
         data     => $data_ref,
-        preamble => {
-            indicator => $self->crud->{'delete'},
-            date      => now( $self->dateformat ),
-            transnum  => $transint,
-            keynum    => $keyint,
-            reclen    => $reclen,
-            thisfnum  => $datafnum,
-            thisseek  => $dataseek,
-            prevfnum  => $prevfnum,
-            prevseek  => $prevseek,
-            user      => $user_data,
-            } } );
+        preamble => $preamble_hash,
+        } );
 
     # write record to datafile
     my $preamble = $record->string;
@@ -778,14 +806,16 @@ sub delete {
     $self->write_bytes( $keyfh, $keyseek, $preamble );
 
     # update the old preamble
-    $prevpreamble = $self->update_preamble( $prevpreamble, {
-        indicator => $self->crud->{ 'olddel' },
-        nextfnum  => $datafnum,
-        nextseek  => $dataseek,
-        } );
-    my $prevdatafile = $self->which_datafile( $prevfnum );
-    my $prevdatafh   = $self->locked_for_write( $prevdatafile );
-    $self->write_bytes( $prevdatafh, $prevseek, $prevpreamble );
+    if( $prevnext ) {
+        $prevpreamble = $self->update_preamble( $prevpreamble, {
+            indicator => $self->crud->{ 'olddel' },
+            nextfnum  => $datafnum,
+            nextseek  => $dataseek,
+            } );
+        my $prevdatafile = $self->which_datafile( $prevfnum );
+        my $prevdatafh   = $self->locked_for_write( $prevdatafile );
+        $self->write_bytes( $prevdatafh, $prevseek, $prevpreamble );
+    }
 
     # update table of contents (toc) file
     my $toc = $self->new_toc( { num => $datafnum } );
@@ -797,14 +827,19 @@ sub delete {
     $toc->delete(   $toc->delete + 1  );
 
     # was the previous record in another data file?
-    if( $prevfnum ne $datafnum ) {
-        my $prevtoc = $self->new_toc( { num => $prevfnum } );
-        $prevtoc->olddel(    $prevtoc->olddel  + 1 );
-        $prevtoc->numrecs(   $prevtoc->numrecs - 1 );
-        $prevtoc->write_toc( $prevtoc->datafnum    );
+    if( $prevnext ) {
+        if( $prevfnum ne $datafnum ) {
+            my $prevtoc = $self->new_toc( { num => $prevfnum } );
+            $prevtoc->olddel(    $prevtoc->olddel  + 1 );
+            $prevtoc->numrecs(   $prevtoc->numrecs - 1 );
+            $prevtoc->write_toc( $prevtoc->datafnum    );
+        }
+        else {
+            $toc->olddel(  $toc->olddel  + 1 );
+            $toc->numrecs( $toc->numrecs - 1 );
+        }
     }
     else {
-        $toc->olddel(  $toc->olddel  + 1 );
         $toc->numrecs( $toc->numrecs - 1 );
     }
 
@@ -815,7 +850,7 @@ sub delete {
     $top_toc->tocfnum(  $toc->tocfnum         );
     $top_toc->transnum( $toc->transnum        );
     $top_toc->delete(   $top_toc->delete  + 1 );
-    $top_toc->olddel(   $top_toc->olddel  + 1 );
+    $top_toc->olddel(   $top_toc->olddel  + 1 ) if $prevnext;
     $top_toc->numrecs(  $top_toc->numrecs - 1 );
 
     $top_toc->write_toc( 0 );
