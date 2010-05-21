@@ -103,31 +103,28 @@ the preamble string.
 A data store will have the following files:
 
  - uri  file,  contains the uri, which defines the configuration parameters
- - obj  file,  contains dump of generic perl object constructed from uri*
+               after initialization, it contains a generic* serialized datastore object
+               * 'generic' because the object does not include the 'dir' attribute
  - toc  files, contain transaction numbers for each data file
  - key  files, contain pointers to every current record version
  - data files, contain all the versions of all the records
-
-*('generic' because the object does not include the 'dir' attribute)
 
 If the data store is small, it might have only one toc, key, and/or
 data file.
 
 If C<dirlev> (see below) is 0 or undefined, the toc, key, or data files
-will reside at the same level as the url and obj files, e.g.,
+will reside at the same level as the uri file, e.g.,
 
     - name.uri
-    - name.obj
     - name.toc     (or name.1.toc if C<tocmax> is set)
     - name.key     (or name.1.key if C<keymax> is set)
     - name.1.data  (the filenum, e.g., 1, is always present)
 
-If C<dirlev> > 0, the directory structure follows this scheme (note
-that file/dir numbers start with 1):
+If C<dirlev> is 1 or more, the directory structure follows this scheme (note
+that file/dir numbers start at 1, not at 0):
 
 - dir
     - name.uri
-    - name.obj
     - name
         - toc1
             - name.1.toc,

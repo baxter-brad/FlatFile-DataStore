@@ -267,12 +267,15 @@ sub tocfile {
             $path = $path? "$dirnum/$path": $dirnum;
             $this = $dirint;
         }
-        $path = "$name/toc$path";
+        $path = $ds->dir . "/$name/toc$path";
         mkpath( $path ) unless -d $path;
         $tocfile = "$path/$tocfile";
     }
+    else {
+        $tocfile = $ds->dir . "/$tocfile";
+    }
 
-    return $ds->dir . "/$tocfile";
+    return $tocfile;
 }
 
 #---------------------------------------------------------------------

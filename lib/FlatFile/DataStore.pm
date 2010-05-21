@@ -83,6 +83,7 @@ use File::Path;
 use Fcntl qw(:DEFAULT :flock);
 use URI;
 use URI::Escape;
+use Digest::MD5 qw(md5_hex);
 use Data::Dumper;
 use Carp;
 
@@ -182,7 +183,7 @@ sub new {
 # init(), called by new() to initialize a data store object
 #     parms: dir,  the directory where the data store lives
 #            name, the name of the data store
-#     will look for name.obj or name.uri and load those values
+#     will look for dir/name.uri and load its values
 
 sub init {
     my( $self, $parms ) = @_;
@@ -191,23 +192,53 @@ sub init {
     my $name = $parms->{'name'};
     croak qq/Need "dir" and "name"/
         unless defined $dir and defined $name;
+    croak qq/Directory "$dir" doesn't exist./
+        unless -d $dir;
 
-    my $obj_file = "$dir/$name.obj";
+    # uri file may be one line (just the uri)
+    # or four lines: uri, object, object_md5, uri_md5
+    # if one line and new_uri, new_uri can replace old one
+    # if four lines and new_uri is different, it can replace
+    # the old uri and object only if there aren't any data
+    # files.
 
-    # if database has been initialized, there's an object file
-    if( -e $obj_file ) {
-        my $obj = $self->read_file( $obj_file );
-        $self = eval $obj;  # note: *new* $self
-        croak qq/Problem with $obj_file: $@/ if $@;
-        $self->dir( $dir );  # dir not in obj_file
+    my $new_uri = $parms->{'uri'};
+
+    my $uri_file = "$dir/$name.uri";
+    my( $uri, $obj, $uri_md5, $obj_md5 );
+    if( -e $uri_file ) {
+        my @lines = $self->read_file( $uri_file ); chomp @lines;
+        if( @lines == 4 ) {
+            ( $uri, $obj, $uri_md5, $obj_md5 ) = @lines;
+            croak "URI MD5 check failed."    unless $uri_md5 eq md5_hex( $uri );
+            croak "Object MD5 check failed." unless $obj_md5 eq md5_hex( $obj );
+        }
+        elsif( @lines == 1 ) {
+            $uri = $new_uri || shift @lines;
+        }
+        else {
+            croak "Invalid URI file: '$uri_file'";
+        }
     }
 
-    # otherwise read the uri file and initialize the database
-    else {
-        my $uri_file = "$dir/$name.uri";
-        my $uri = $self->read_file( $uri_file );
-        chomp $uri;
+    # if database has been initialized, there's an object
+    if( $obj ) {
+        $self = eval $obj;  # note: *new* $self
+        croak qq/Problem with $uri_file: $@/ if $@;
+        $self->dir( $dir );  # dir not in object
 
+        # new uri ok only if no data has been added yet
+        unless( -e $self->which_datafile( 1 ) ) {
+            if( $new_uri ) {
+                $uri = $new_uri;
+                $obj = '';
+            }
+        }
+    }
+
+    # otherwise initialize the database
+    unless( $obj ) {
+        $uri ||= $new_uri || croak "No URI.";
         $self->uri( $uri );
 
         my $uri_parms = $self->burst_query;
@@ -258,7 +289,13 @@ sub init {
 
         if( $self->datamax ) {
             $self->datamax( $self->convert_datamax );
-            croak qq/datamax too large/ if $self->datamax > $maxint;
+            if( $self->datamax > $maxint ) {
+                my @msg = (
+                    "datamax (".$self->datamax.") too large: ",
+                    "thisseek is ".$self->thisseek,
+                    " so maximum datamax is $maxnum base-$base (decimal: $maxint)" );
+                croak join '' => @msg;
+            }
         }
         else {
             $self->datamax( $maxint );
@@ -280,7 +317,7 @@ sub init {
 }
 
 #---------------------------------------------------------------------
-# burst_query(), called by init() to parse the name.uri file
+# burst_query(), called by init() to parse the datastore's uri
 #     also generates values for 'spec' and 'preamblelen'
 
 sub burst_query {
@@ -1135,7 +1172,7 @@ TODO: more pod here ...
 
 #---------------------------------------------------------------------
 # initialize(), called by init() when datastore is first used
-#     creates name.obj file to bypass uri parsing from now on
+#     adds a serialized object to bypass uri parsing from now on
 
 sub initialize {
     my( $self ) = @_;
@@ -1157,8 +1194,18 @@ sub initialize {
     my $savedir = $self->dir;
     $self->dir("");
 
-    my $obj_file = "$savedir/" . $self->name . ".obj";
-    $self->write_file( $obj_file, Dumper $self );
+    my $uri_file = "$savedir/" . $self->name . ".uri";
+    my $uri = $self->uri;
+    my $obj = Dumper $self;
+    my $uri_md5 = md5_hex( $uri );
+    my $obj_md5 = md5_hex( $obj );
+    my $contents = <<_end_;
+$uri
+$obj
+$uri_md5
+$obj_md5
+_end_
+    $self->write_file( $uri_file, \$contents );
 
     # restore dir
     $self->dir( $savedir );
@@ -1231,11 +1278,13 @@ sub keyfile {
             $path = $path? "$dirnum/$path": $dirnum;
             $this = $dirint;
         }
-        $path = "$name/key$path";
+        $path = $self->dir . "/$name/key$path";
         mkpath( $path ) unless -d $path;
         $keyfile = "$path/$keyfile";
     }
-    $keyfile = $self->dir . "/$keyfile";
+    else {
+        $keyfile = $self->dir . "/$keyfile";
+    }
 
     return ( $keyfile, $keyfint ) if wantarray;
     return $keyfile;
@@ -1293,11 +1342,13 @@ sub which_datafile {
             $path = $path? "$dirnum/$path": $dirnum;
             $this = $dirint;
         }
-        $path = "$name/data$path";
+        $path = $self->dir . "/$name/data$path";
         mkpath( $path ) unless -d $path;
         $datafile = "$path/$datafile";
     }
-    $datafile = $self->dir . "/$datafile";
+    else {
+        $datafile = $self->dir . "/$datafile";
+    }
 
     return $datafile;
 
@@ -1506,8 +1557,8 @@ sub locked_for_read {
     return $open_fh if $open_fh;
 
     my $fh;
-    open $fh, '<', $file or croak "Can't open $file: $!";
-    flock $fh, LOCK_SH   or croak "Can't lock $file: $!";
+    open $fh, '<', $file or croak "Can't open for read $file: $!";
+    flock $fh, LOCK_SH   or croak "Can't lock shared $file: $!";
     binmode $fh;
 
     $Read_fh{ $self }{ $file } = $fh;
@@ -1522,9 +1573,9 @@ sub locked_for_write {
     return $open_fh if $open_fh;
 
     my $fh;
-    sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak "Can't open $file: $!";
+    sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak "Can't open for read/write $file: $!";
     my $ofh = select( $fh ); $| = 1; select ( $ofh );
-    flock $fh, LOCK_EX                    or croak "Can't lock $file: $!";
+    flock $fh, LOCK_EX                    or croak "Can't lock exclusive $file: $!";
     binmode $fh;
 
     $Write_fh{ $self }{ $file } = $fh;
@@ -1582,18 +1633,17 @@ sub write_bytes {
 }
 
 #---------------------------------------------------------------------
-# read_file(), slurp contents of file
+# read_file(), read contents from file
 
 sub read_file {
     my( $self, $file ) = @_;
 
     my $fh = $self->locked_for_read( $file );
-    local $/;
     return <$fh>;
 }
 
 #---------------------------------------------------------------------
-# write_file(), dump contents to file (opposite of slurp, sort of)
+# write_file(), dump contents to file
 
 sub write_file {
     my( $self, $file, $contents ) = @_;
