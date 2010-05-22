@@ -614,6 +614,33 @@ sub retrieve {
 
 #---------------------------------------------------------------------
 
+=head2 retrieve_preamble( $keynum )
+
+Retrieves a preamble.  The parm C<$keynum> is a key number, i.e.,
+record sequence number
+
+Returns a Flatfile::DataStore::Preamble object.
+
+=cut
+
+sub retrieve_preamble {
+    my( $self, $keynum ) = @_;
+
+    my $keyseek = $self->keyseek( $keynum );
+    my $keyfile = $self->keyfile( $keynum );
+    my $keyfh   = $self->locked_for_read( $keyfile );
+
+    my $trynum  = $self->lastkeynum;
+    croak qq/Record doesn't exist: "$keynum"/ if $keynum > $trynum;
+
+    my $keystring = $self->read_preamble( $keyfh, $keyseek );
+    my $preamble  = $self->new_preamble( { string => $keystring } );
+
+    return $preamble;
+}
+
+#---------------------------------------------------------------------
+
 =head2 update( $object_or_string[, $record_data][, $user_data] )
 
 Updates a record.  The parm $object_or_string may be one of:

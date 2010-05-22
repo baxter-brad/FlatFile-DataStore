@@ -38,12 +38,13 @@ Nothing is exported by default.  The following may be exported
 individually; all three may be exported using the C<:all> tag:
 
  - migrate
+ - migrate_no_history
  - validate
  - compare
 
 Examples:
 
- use FlatFile::DataStore::Utils qw( migrate validate compare );
+ use FlatFile::DataStore::Utils qw( migrate migrate_no_history validate compare );
  use FlatFile::DataStore::Utils qw( :all );
 
 =cut
@@ -55,6 +56,7 @@ BEGIN {
     @ISA       = qw( Exporter );
     @EXPORT_OK = qw(
         migrate
+        migrate_no_history
         validate
         compare
         );
@@ -65,7 +67,7 @@ BEGIN {
 
 =head1 SYNOPSIS
 
-    use FlatFile::DataStore::Utils qw( migrate validate compare );
+    use FlatFile::DataStore::Utils qw( migrate migrate_no_history validate compare );
 
     my $from_dir  = '/from/dir'; my $from_name = 'ds1';
     my $to_dir    = '/to/dir';   my $to_name   = 'ds2';
@@ -74,7 +76,18 @@ BEGIN {
     migrate ( $from_dir, $from_name, $to_dir, $to_name );
     validate(                        $to_dir, $to_name );
     compare ( $from_dir, $from_name, $to_dir, $to_name );
+
+    # optionally, migrate_no_history() will not copy any history
+    # or deleted records:
     
+    validate(            $from_dir, $from_name                    );
+    migrate_no_history ( $from_dir, $from_name, $to_dir, $to_name );
+    validate(                                   $to_dir, $to_name );
+    compare (            $from_dir, $from_name, $to_dir, $to_name );
+
+    # in this case, compare() will probably report that the data
+    # stores are *not* equivalent after the migrate
+
 =cut
 
 #---------------------------------------------------------------------
@@ -91,7 +104,11 @@ creating history and transaction files for comparison purposes.
 
   - The data has outgrown the data store as originally configured
   - You want a better configuration than originally conceived
-  - You want to extract the current records without any history
+
+- migrate_no_history(), to migrate a data store to a new data store
+without any update history and without any deleted records.  This is
+normally discouraged (since the spirit of the module is to retain
+all history of activity), but it has its uses.
 
 - compare(), to compare the files that validate() creates for
 one data store to the files that validate() creates for a second
@@ -111,7 +128,7 @@ differently configured).
 Descriptions and parameters for the exportable subroutines are
 detailed below.
 
-=head2 validate( $dir, $name, $seen_href )
+=head2 validate( $dir, $name )
 
 =head3 Parameters:
 
@@ -123,36 +140,13 @@ The directory of the data store.
 
 The name of the data store.
 
-=head4 $seen_href
-
-This optional parameter allows you to provide your own hash reference
-(perhaps tied) for the "seen" hash.  If not provided, the module will
-create a hash that is tied to the SDBM_File implementation.  This would
-limit the data store to preambles less than 1024 characters long.
-
-So if you happen to have a data store with preambles longer than 1024
-characters (probably rare), you would need to pass a plain old hash
-reference (assuming having all the preambles in memory wouldn't overtax
-your server), or you would need to tie a hash to a DBM implementation
-that can handle longer keys (values are always short) and pass a
-reference to that hash.
-
 =cut
 
 #---------------------------------------------------------------------
 sub validate {
-    my( $dir, $name, $seen ) = @_;
+    my( $dir, $name ) = @_;
 
     my $ds = FlatFile::DataStore->new( { dir => $dir, name => $name } );
-
-    my $seenfile;
-    unless( $seen ) {
-        $seenfile = "$dir/$name.seen";
-        my %seen;  # only reference is used
-        tie( %seen, "SDBM_File", $seenfile, O_RDWR|O_CREAT, 0666 )
-            or die qq/Couldn't tie file $seenfile: $!/;
-        $seen = \%seen;
-    }
 
     # status is a reverse crud hash for writing to
     # history and transactions files
@@ -173,10 +167,6 @@ sub validate {
             my $user      = $rec->user;
             my $reclen    = $rec->reclen;
             my $md5       = md5_hex( ${$rec->data} );
-            my $string    = $rec->preamble->string;
-
-            # shouldn't have been seen yet
-            die qq/Seen $string too many times/ if $seen->{ $string }++;
 
             print $histfh "$transnum $keynum $status $user $reclen $md5\n";
         }
@@ -214,14 +204,10 @@ sub validate {
             my $rec       = $ds->read_record( $datafh, $seekpos );
             my $transnum  = $rec->transnum;
             my $keynum    = $rec->keynum;
-            my $reclen    = $rec->reclen;
-            my $user      = $rec->user;
             my $status    = $status{ $rec->indicator };
+            my $user      = $rec->user;
+            my $reclen    = $rec->reclen;
             my $md5       = md5_hex( ${$rec->data} );
-            my $string    = $rec->preamble->string;
-
-            # should have been seen only once before in the history
-            die qq/Seen "$string" too many times/ if $seen->{ $string }++ > 1;
 
             print $transfh "$transnum $keynum $status $user $reclen $md5\n";
 
@@ -254,16 +240,6 @@ sub validate {
     close $transfh;
     close $md5fh;
 
-    while( my( $string, $count ) = each %$seen ) {
-        die qq/Seen "$string" $count times (should be seen exactly twice)/
-            if $seen->{ $string } != 2;
-    }
-
-    if( $seenfile ) {
-        for( "$seenfile.dir", "$seenfile.pag" ) {
-            unlink or die qq/Can't delete $_: $!/;
-        }
-    }
 }
 
 #---------------------------------------------------------------------
@@ -295,6 +271,7 @@ assumed that the new data store has already been initialized.
 
 =cut
 
+#---------------------------------------------------------------------
 sub migrate {
     my( $from_dir, $from_name, $to_dir, $to_name, $to_uri ) = @_;
 
@@ -350,7 +327,7 @@ sub migrate {
             my $from_data_ref  = $from_rec->data;
             my $from_user_data = $from_rec->user;
 
-            # cases:                               
+            # cases:
             # indicator:  keynum:     pending_delete:  action:              because:
             # ----------  ----------  ---------------  -------------------  ----------
             # create  +   always new                   create               is current
@@ -416,24 +393,107 @@ sub migrate {
 }
 
 #---------------------------------------------------------------------
-# it goes like this:
-#
-# 1. validate from_ds
-# 2. migrate from from_ds to to_ds
-# 3. validate to_ds
-# 4. compare from_ds history/transactions/md5 to to_ds
-#    i.e, compare only works right after validate/migrate/validate
+=head2 migrate_no_history( $from_dir, $from_name, $to_dir, $to_name, $to_uri )
 
-# my $histfile = "$name.hist";
-# my $transfile = "$name.tran";
-# my $md5file = "$name.md5";
+=head3 Parameters:
 
+=head4 $from_dir
+
+The directory of the data store we're migrating from.
+
+=head4 $from_name
+
+The name of the data store we're migrating from.
+
+=head4 $to_dir
+
+The directory of the data store we're migrating to.
+
+=head4 $to_name
+
+The name of the data store we're migrating to.
+
+=head4 $to_uri
+
+The uri of the data store we're migrating to.  If given, a new data
+store will be initialized.  If this parameter is not given, it is
+assumed that the new data store has already been initialized.
+
+=cut
+
+#---------------------------------------------------------------------
+sub migrate_no_history {
+    my( $from_dir, $from_name, $to_dir, $to_name, $to_uri ) = @_;
+
+    my $from_ds = FlatFile::DataStore->new( {
+        dir  => $from_dir,
+        name => $from_name,
+        } );
+    my $to_ds   = FlatFile::DataStore->new( {
+        dir  => $to_dir,
+        name => $to_name,
+        uri  => $to_uri,
+        } );
+
+    # check some fundamental constraints
+
+    my $from_count = $from_ds->howmany;  # should *not* be zero
+    die qq/Can't migrate: "$from_name" datastore empty?/ unless $from_count;
+
+    my $to_count = $to_ds->howmany;  # *should* be zero
+    die qq/Can't migrate: "$to_name" datastore not empty?/ if $to_count;
+
+    my $try = $to_ds->which_datafile( 1 );  # first datafile
+    die qq/Can't migrate: "$to_name" has a data file, e.g., "$try"/ if -e $try;
+
+    my $delete = quotemeta $from_ds->crud->{'delete'};
+
+    for my $keynum ( 0 .. $from_ds->lastkeynum ) {
+
+        my $from_rec       = $from_ds->retrieve( $keynum );
+        my $from_data_ref  = $from_rec->data;
+        my $from_user_data = $from_rec->user;
+
+        # cases: (here we're always retrieving current records)
+        # indicator:  action:
+        # ----------  -------
+        # create  +   create
+        # update  =   create
+        # delete  -   skip
+
+        $to_ds->create( $from_data_ref, $from_user_data )
+            if $from_rec->indicator =~ /$delete/;
+    }
+}
+
+#---------------------------------------------------------------------
 sub compare {
     my( $from_dir, $from_name, $to_dir, $to_name ) = @_;
-    my $maxdiff = 10;
+
+    my $from_ds = FlatFile::DataStore->new( {
+        dir  => $from_dir,
+        name => $from_name,
+        } );
+    my $to_ds   = FlatFile::DataStore->new( {
+        dir  => $to_dir,
+        name => $to_name,
+        } );
 
     my @report;
+    push @report, "Comparing: TOC files\n";
+    my $from_top_toc = $from_ds->new_toc( { int => 0 } );
+    my $to_top_toc   = $to_ds->new_toc(   { int => 0 } );
+    for( qw(    
+        datafnum keyfnum tocfnum numrecs keynum transnum
+        create oldupd update olddel delete ) ) {
+        my $from_val = $from_top_toc->$_();
+        my $to_val   = $to_top_toc->$_();
+        push @report, "$_: differs ($from_val $to_val)\n"
+            if $from_val ne $to_val;
+    }
 
+
+    my $maxdiff = 10;
     for ( qw( hist tran md5 ) ) {
         my $from_file = "$from_dir/$from_name.$_";
         my $to_file   = "$to_dir/$to_name.$_";
@@ -441,7 +501,7 @@ sub compare {
         if( -e $from_file and -e $to_file ) {
             if( -s $from_file == -s $to_file ) {
                 my @diff = `diff -U 1 $from_file $to_file`;
-                if( @diff ) {
+                if( $diff[0] !~ "No diff" ) {
                     push @report, "Files differ:\n";
                     push @report, @diff[ 0 .. $maxdiff ];
                     push @report, '...' if @diff > $maxdiff
@@ -459,6 +519,7 @@ sub compare {
         }
 
     }
+    return  @report if wantarray;
     return \@report;
 }
 
