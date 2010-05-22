@@ -84,7 +84,7 @@ my $desc = "Example+FlatFile::DataStore";
     is( $ds->translen,    2,            "translen()"    );
     is( $ds->transbase,   "10",         "transbase()"   );
     is( Dumper($ds->crud),
-        "{'create' => '+','delete' => '-','olddel' => '*','oldupd' => '#','update' => '='}",
+        "{'#' => 'oldupd','*' => 'olddel','+' => 'create','-' => 'delete','=' => 'update','create' => '+','delete' => '-','olddel' => '*','oldupd' => '#','update' => '='}",
         "crud()" );
     is( Dumper($ds->regx),
         "qr/(?-xism:([\\+\\#\\=\\*\\-])([0-9]{8})([-0-9]{2})([-0-9]{2})([-0-9]{2})([-0-9])([-0-9]{4})([-0-9])([-0-9]{4})([-0-9])([-0-9]{4})([ -~]{10}))/",

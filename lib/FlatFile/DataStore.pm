@@ -413,6 +413,7 @@ sub make_crud {
 
     my %crud;
     @crud{ qw( create oldupd update olddel delete ) } = @c;
+    @crud{ @c } = qw( create oldupd update olddel delete );
     return \%crud;
 }
 

@@ -66,6 +66,14 @@ BEGIN {
 =head1 SYNOPSIS
 
     use FlatFile::DataStore::Utils qw( migrate validate compare );
+
+    my $from_dir  = '/from/dir'; my $from_name = 'ds1';
+    my $to_dir    = '/to/dir';   my $to_name   = 'ds2';
+
+    validate( $from_dir, $from_name                    );
+    migrate ( $from_dir, $from_name, $to_dir, $to_name );
+    validate(                        $to_dir, $to_name );
+    compare ( $from_dir, $from_name, $to_dir, $to_name );
     
 =cut
 
@@ -73,10 +81,26 @@ BEGIN {
 
 =head1 DESCRIPTION
 
-This module provides routines for validating a data store (checking
-that it can be traversed, and that its past record data has not
-changed) and for migrating a data store to a new set of (probably
-differently configured) files.
+This module provides
+
+- validate(), to validate a data store, checking that it can be
+traversed and that its past record data has not changed, and 
+creating history and transaction files for comparison purposes.
+
+- migrate(), to migrate a data store to a new data store. Use cases:
+
+  - The data has outgrown the data store as originally configured
+  - You want a better configuration than originally conceived
+  - You want to extract the current records without any history
+
+- compare(), to compare the files that validate() creates for
+one data store to the files that validate() creates for a second
+data store (following a migrate(), most likely).  If these files
+(history, transaction, md5) are exactly equal, then the two data
+stores are equivalent, i.e., they both contain exactly the same
+records (even though their data files, etc., may be very
+differently configured).
+
 
 =cut
 
@@ -102,52 +126,31 @@ The name of the data store.
 =head4 $seen_href
 
 This optional parameter allows you to provide your own hash reference
-(perhaps tied) for the "seen" hash
+(perhaps tied) for the "seen" hash.  If not provided, the module will
+create a hash that is tied to the SDBM_File implementation.  This would
+limit the data store to preambles less than 1024 characters long.
 
+So if you happen to have a data store with preambles longer than 1024
+characters (probably rare), you would need to pass a plain old hash
+reference (assuming having all the preambles in memory wouldn't overtax
+your server), or you would need to tie a hash to a DBM implementation
+that can handle longer keys (values are always short) and pass a
+reference to that hash.
 
 =cut
 
 #---------------------------------------------------------------------
-
-=for comment
-
- 1. - for each keynum in name.key file (each current record)
-      - get the history
-      - for each preamble in the history
-        - seen{ preamble }++ (name.tmp.seen dbm file)
-        - write to name.tmp.history
-          - transnum keynum status [date reclen user]?
- 2. - for each record in name.n.dat files (each transaction)
-      - die "seen too many times" if seen{ preamble }++ > 1
-      - write to name.tmp.transactions
-        - transnum keynum status [date reclen user]?
-      - if read line from name.md5
-        - compare transnum keynum user md5--die if not equal
-      - else write to name.md5
-        - transnum keynum user md5 (of record data) [date reclen]?
-
- result:
-     name.tmp.seen dbm file(s)       - of no use after step 2.
-     name.tmp.history flat file      - can compare to new after migrate
-                                           of no use after that
-     name.tmp.transactions flat file - can compare to new after migrate
-                                           of no use after that
-     name.md5 [sha]?                 - can compare to new after migrate
-                                           keep around for next validation
-
-=cut
-
-{ my %seenfile;
 sub validate {
     my( $dir, $name, $seen ) = @_;
 
     my $ds = FlatFile::DataStore->new( { dir => $dir, name => $name } );
 
+    my $seenfile;
     unless( $seen ) {
-        $seenfile{ $name } = "$dir/$name.tmp.seen";
+        $seenfile = "$dir/$name.seen";
         my %seen;  # only reference is used
-        tie( %seen, "SDBM_File", $seenfile{ $name }, O_RDWR|O_CREAT, 0666 )
-            or die qq/Couldn't tie file $seenfile{ $name }: $!/;
+        tie( %seen, "SDBM_File", $seenfile, O_RDWR|O_CREAT, 0666 )
+            or die qq/Couldn't tie file $seenfile: $!/;
         $seen = \%seen;
     }
 
@@ -157,23 +160,25 @@ sub validate {
     my %status = reverse %$crud;
 
     # build history file for comparing after migrate
-    my $histfile = "$dir/$name.tmp.history";
+    my $histfile = "$dir/$name.hist";
     my $histfh   = locked_for_write( $histfile );
 
     for my $keynum ( 0 .. $ds->lastkeynum ) {
 
         for my $rec ( $ds->history( $keynum ) ) {
 
-            my $string = $rec->preamble->string;
+            my $transnum  = $rec->transnum;
+            my $keynum    = $rec->keynum;
+            my $status    = $status{ $rec->indicator };
+            my $user      = $rec->user;
+            my $reclen    = $rec->reclen;
+            my $md5       = md5_hex( ${$rec->data} );
+            my $string    = $rec->preamble->string;
 
             # shouldn't have been seen yet
             die qq/Seen $string too many times/ if $seen->{ $string }++;
 
-            my $transnum  = $rec->transnum;
-            my $keynum    = $rec->keynum;
-            my $status    = $status{ $rec->indicator };
-            my $md5       = md5_hex( ${$rec->data} );
-            print $histfh "$transnum $keynum $status $md5\n";
+            print $histfh "$transnum $keynum $status $user $reclen $md5\n";
         }
 
     }
@@ -187,7 +192,7 @@ sub validate {
     my $recseplen   = length( $recsep );
     my $preamblelen = $ds->preamblelen;
 
-    my $transfile = "$dir/$name.tmp.transactions";
+    my $transfile = "$dir/$name.tran";
     my $transfh   = locked_for_write( $transfile );
 
     # our position in md5file will tell us if we have to
@@ -210,19 +215,19 @@ sub validate {
             my $transnum  = $rec->transnum;
             my $keynum    = $rec->keynum;
             my $reclen    = $rec->reclen;
-            my $data_ref  = $rec->data;
+            my $user      = $rec->user;
             my $status    = $status{ $rec->indicator };
+            my $md5       = md5_hex( ${$rec->data} );
             my $string    = $rec->preamble->string;
 
             # should have been seen only once before in the history
             die qq/Seen "$string" too many times/ if $seen->{ $string }++ > 1;
 
-            my $md5 = md5_hex( $$data_ref );
-            print $transfh "$transnum $keynum $status $md5\n";
+            print $transfh "$transnum $keynum $status $user $reclen $md5\n";
 
             # add this md5 or compare this md5 to an older one?
 
-            my $md5out = "$transnum $keynum $reclen $md5\n";
+            my $md5out = "$transnum $keynum $user $reclen $md5\n";
             my $outlen = length( $md5out );
 
             if( $md5pos < $md5size ) {
@@ -248,36 +253,60 @@ sub validate {
     }
     close $transfh;
     close $md5fh;
-}
 
-END {
-    for my $name ( keys %seenfile ) {
-        for( "$seenfile{ $name }.dir", "$seenfile{ $name }.pag" ) {
+    while( my( $string, $count ) = each %$seen ) {
+        die qq/Seen "$string" $count times (should be seen exactly twice)/
+            if $seen->{ $string } != 2;
+    }
+
+    if( $seenfile ) {
+        for( "$seenfile.dir", "$seenfile.pag" ) {
             unlink or die qq/Can't delete $_: $!/;
         }
     }
-}}
+}
 
 #---------------------------------------------------------------------
+=head2 migrate( $from_dir, $from_name, $to_dir, $to_name, $to_uri )
 
-=for comment
+=head3 Parameters:
 
-    data scanning procedure:
+=head4 $from_dir
 
-    read each data record in from_ds
-      read first preamble
-        get reclen, read record, skip recsep
-        read next preamble
-        repeat until end of file
-    repeat for every datafile
+The directory of the data store we're migrating from.
+
+=head4 $from_name
+
+The name of the data store we're migrating from.
+
+=head4 $to_dir
+
+The directory of the data store we're migrating to.
+
+=head4 $to_name
+
+The name of the data store we're migrating to.
+
+=head4 $to_uri
+
+The uri of the data store we're migrating to.  If given, a new data
+store will be initialized.  If this parameter is not given, it is
+assumed that the new data store has already been initialized.
 
 =cut
 
 sub migrate {
-    my( $from_dir, $from_name, $to_dir, $to_name ) = @_;
+    my( $from_dir, $from_name, $to_dir, $to_name, $to_uri ) = @_;
 
-    my $from_ds = FlatFile::DataStore->new( { dir => $from_dir, name => $from_name } );
-    my $to_ds   = FlatFile::DataStore->new( { dir => $to_dir,   name => $to_name   } );
+    my $from_ds = FlatFile::DataStore->new( {
+        dir  => $from_dir,
+        name => $from_name,
+        } );
+    my $to_ds   = FlatFile::DataStore->new( {
+        dir  => $to_dir,
+        name => $to_name,
+        uri  => $to_uri,
+        } );
 
     # check some fundamental constraints
 
@@ -297,11 +326,11 @@ sub migrate {
     my $from_preamblelen = $from_ds->preamblelen;
 
     my $from_crud = $from_ds->crud;
-    my $create    = $from_crud->{'create'};  # these are single ascii chars
-    my $oldupd    = $from_crud->{'oldupd'};
-    my $update    = $from_crud->{'update'};
-    my $olddel    = $from_crud->{'olddel'};
-    my $delete    = $from_crud->{'delete'};
+    my $create    = quotemeta $from_crud->{'create'};  # these are single ascii chars
+    my $oldupd    = quotemeta $from_crud->{'oldupd'};
+    my $update    = quotemeta $from_crud->{'update'};
+    my $olddel    = quotemeta $from_crud->{'olddel'};
+    my $delete    = quotemeta $from_crud->{'delete'};
 
     my $last_keynum = -1;  # to be less than 0
 
@@ -336,39 +365,39 @@ sub migrate {
             my $new_keynum = $keynum > $last_keynum;
 
             for( $from_rec->indicator ) {
-                /[$create]/ && do { $to_ds->create( $from_data_ref, $from_user_data );
-                                    last };
-                /[$oldupd]/ && $new_keynum
-                            && do { $to_ds->create( $from_data_ref, $from_user_data );
-                                    last };
-                /[$oldupd]/ && $pending_deletes{ $keynum }
-                            && do { my $to_rec =
-                                    $to_ds->retrieve( $keynum );
-                                    $to_ds->delete( $to_rec, $from_data_ref, $from_user_data );
-                                    delete $pending_deletes{ $keynum };
-                                    last };
-                /[$oldupd]/ && do { my $to_rec =
-                                    $to_ds->retrieve( $keynum );
-                                    $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
-                                    last };
-                /[$update]/ && do { my $to_rec =
-                                    $to_ds->retrieve( $keynum );
-                                    $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
-                                    last };
-                /[$olddel]/ && $new_keynum
-                            && do { $to_ds->create( $from_data_ref, $from_user_data );
-                                    ++$pending_deletes{ $keynum };
-                                    last };
-                /[$olddel]/ && do { my $to_rec =
-                                    $to_ds->retrieve( $keynum );
-                                    $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
-                                    ++$pending_deletes{ $keynum };
-                                    last };
-                /[$delete]/ && do { my $to_rec =
-                                    $to_ds->retrieve( $keynum );
-                                    $to_ds->delete( $to_rec, $from_data_ref, $from_user_data );
-                                    delete $pending_deletes{ $keynum };
-                                    last };
+                /$create/ && do { $to_ds->create( $from_data_ref, $from_user_data );
+                                  last };
+                /$oldupd/ && $new_keynum
+                          && do { $to_ds->create( $from_data_ref, $from_user_data );
+                                  last };
+                /$oldupd/ && $pending_deletes{ $keynum }
+                          && do { my $to_rec =
+                                  $to_ds->retrieve( $keynum );
+                                  $to_ds->delete( $to_rec, $from_data_ref, $from_user_data );
+                                  delete $pending_deletes{ $keynum };
+                                  last };
+                /$oldupd/ && do { my $to_rec =
+                                  $to_ds->retrieve( $keynum );
+                                  $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
+                                  last };
+                /$update/ && do { my $to_rec =
+                                  $to_ds->retrieve( $keynum );
+                                  $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
+                                  last };
+                /$olddel/ && $new_keynum
+                          && do { $to_ds->create( $from_data_ref, $from_user_data );
+                                  ++$pending_deletes{ $keynum };
+                                  last };
+                /$olddel/ && do { my $to_rec =
+                                  $to_ds->retrieve( $keynum );
+                                  $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
+                                  ++$pending_deletes{ $keynum };
+                                  last };
+                /$delete/ && do { my $to_rec =
+                                  $to_ds->retrieve( $keynum );
+                                  $to_ds->delete( $to_rec, $from_data_ref, $from_user_data );
+                                  delete $pending_deletes{ $keynum };
+                                  last };
             }
 
             $last_keynum = $keynum if $new_keynum;
@@ -395,8 +424,8 @@ sub migrate {
 # 4. compare from_ds history/transactions/md5 to to_ds
 #    i.e, compare only works right after validate/migrate/validate
 
-# my $histfile = "$name.tmp.history";
-# my $transfile = "$name.tmp.transactions";
+# my $histfile = "$name.hist";
+# my $transfile = "$name.tran";
 # my $md5file = "$name.md5";
 
 sub compare {
@@ -405,7 +434,7 @@ sub compare {
 
     my @report;
 
-    for ( qw( tmp.history tmp.transactions md5 ) ) {
+    for ( qw( hist tran md5 ) ) {
         my $from_file = "$from_dir/$from_name.$_";
         my $to_file   = "$to_dir/$to_name.$_";
         push @report, "Comparing: $from_file $to_file\n";
