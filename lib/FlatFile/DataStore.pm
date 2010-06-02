@@ -97,18 +97,19 @@ use Data::Omap qw( :ALL );
 # globals:
 
 my %Preamble = qw(
-    user        1
     indicator   1
+    transind    1
     date        1
+    transnum    1
     keynum      1
     reclen      1
-    transnum    1
     thisfnum    1
     thisseek    1
     prevfnum    1
     prevseek    1
     nextfnum    1
     nextseek    1
+    user        1
     );
 
 my %Optional = qw(
@@ -306,7 +307,7 @@ sub init {
         }
 
         for my $attr ( keys %Attrs ) {
-            croak qq/Uninitialized attribute: "$_"/
+            croak qq/Uninitialized attribute: "$attr"/
                 if not defined $self->$attr and not $Optional{ $attr };
         }
 
@@ -367,7 +368,7 @@ sub make_preamble_regx {
         my( $pos, $len, $parm ) = @$aref;
 
         for( $key ) {
-            if( /indicator/ ) {
+            if( /indicator/ or /transind/ ) {
                 $regx .= ($len == 1 ? "([\Q$parm\E])" : "([\Q$parm\E]{$len})");
             }
             elsif( /user/ ) {  # should only allow $Ascii_chars
@@ -514,6 +515,7 @@ sub create {
         data     => $data_ref,
         preamble => {
             indicator => $self->crud->{'create'},
+            transind  => $self->crud->{'create'},
             date      => now( $self->dateformat ),
             transnum  => $transint,
             keynum    => $keyint,
@@ -703,6 +705,7 @@ sub update {
     # make new record
     my $preamble_hash = {
         indicator => $self->crud->{'update'},
+        transind  => $self->crud->{'update'},
         date      => now( $self->dateformat ),
         transnum  => $transint,
         keynum    => $keyint,
@@ -845,6 +848,7 @@ sub delete {
     # make new record
     my $preamble_hash = {
         indicator => $self->crud->{'delete'},
+        transind  => $self->crud->{'delete'},
         date      => now( $self->dateformat ),
         transnum  => $transint,
         keynum    => $keyint,
@@ -1075,6 +1079,7 @@ The following methods set and return their respective attribute values
 if C<$value> is given.  Otherwise, they just return the value.
 
  $ds->indicator( [$value] ); # from uri (length-characters)
+ $ds->transind(  [$value] ); # from uri (length-characters)
  $ds->date(      [$value] ); # from uri (length-format)
  $ds->transnum(  [$value] ); # from uri (length-base)
  $ds->keynum(    [$value] ); # from uri (length-base)
@@ -1137,6 +1142,7 @@ indefinitely.
 =cut
 
 sub indicator {for($_[0]->{indicator} ){$_=$_[1]if@_>1;return$_}}
+sub transind  {for($_[0]->{transind}  ){$_=$_[1]if@_>1;return$_}}
 sub date      {for($_[0]->{date}      ){$_=$_[1]if@_>1;return$_}}
 sub transnum  {for($_[0]->{transnum}  ){$_=$_[1]if@_>1;return$_}}
 sub keynum    {for($_[0]->{keynum}    ){$_=$_[1]if@_>1;return$_}}
@@ -1492,7 +1498,7 @@ sub burst_preamble {
         my( $pos, $len, $parm ) = @$aref;
         my $field = $fields[ $i++ ];
         for( $key ) {
-            if( /indicator|date/ ) {
+            if( /indicator|transind|date/ ) {
                 $parms{ $key } = $field;
             }
             elsif( /user/ ) {
@@ -1527,7 +1533,7 @@ sub update_preamble {
         my( $pos, $len, $parm ) = @{omap_get_values( $omap, $_ )};
 
         my $try;
-        if( /indicator|date|user/ ) {
+        if( /indicator|transind|date|user/ ) {
             $try = sprintf "%-${len}s", $value;
             croak qq/Invalid value for "$_" ($try)/
                 unless $try =~ $Ascii_chars;

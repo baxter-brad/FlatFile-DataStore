@@ -13,6 +13,7 @@ file data store preamble class.
 
  my $preamble = FlatFile::DataStore::Preamble->new( {
      indicator => $indicator,  # single-character crud flag
+     transind  => $transind,   # single-character crud flag
      date      => $date,       # pre-formatted date
      transnum  => $transint,   # transaction number (integer)
      keynum    => $keynum,     # record sequence number (integer)
@@ -68,6 +69,7 @@ my %Generated = qw(
 
 my %Attrs = ( %Generated, qw(
     indicator 1
+    transind  1
     date      1
     keynum    1
     reclen    1
@@ -126,8 +128,10 @@ sub init {
     my $olddel = $crud->{'olddel'};
 
     my $indicator = $parms->{'indicator'} || croak "Missing indicator";
-
     $self->indicator( $indicator );
+
+    my $transind = $parms->{'transind'} || croak "Missing transind";
+    $self->transind( $transind );
 
     my $string = "";
     for my $href ( $datastore->specs() ) {  # each field is href of aref
@@ -136,7 +140,7 @@ sub init {
         my $value               = $parms->{ $field };
 
         for( $field ) {
-            if( /indicator/ ) {
+            if( /indicator/ or /transind/ ) {
                 croak qq'Missing value for "$_"' unless defined $value;
                 croak qq'Invalid value for "$_" ($value)' unless length $value == $len;
 
@@ -199,6 +203,7 @@ if C<$value> is given.  Otherwise, they just return the value.
 
  $preamble->string(    [$value] ); # full preamble string
  $preamble->indicator( [$value] ); # single-character crud indicator
+ $preamble->transind(  [$value] ); # single-character crud indicator
  $preamble->date(      [$value] ); # date as YYYY-MM-DD
  $preamble->keynum(    [$value] ); # record sequence number (integer)
  $preamble->reclen(    [$value] ); # record length (integer)
@@ -224,6 +229,7 @@ only use them for reading.
 
 sub string    {for($_[0]->{string}    ){$_=$_[1]if@_>1;return$_}}
 sub indicator {for($_[0]->{indicator} ){$_=$_[1]if@_>1;return$_}}
+sub transind  {for($_[0]->{transind}  ){$_=$_[1]if@_>1;return$_}}
 sub date      {for($_[0]->{date}      ){$_=$_[1]if@_>1;return$_}}
 sub user      {for($_[0]->{user}      ){$_=$_[1]if@_>1;return$_}}
 

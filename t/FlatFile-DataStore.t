@@ -34,6 +34,7 @@ my $desc = "Example+FlatFile::DataStore";
             datamax=9_000
             recsep=%0A
             indicator=1-%2B%23%3D%2A%2D
+            transind=1-%2B%23%3D%2A%2D
             date=8-yyyymmdd
             transnum=2-10
             keynum=2-10
@@ -65,6 +66,7 @@ my $desc = "Example+FlatFile::DataStore";
     is( $ds->datamax,     9_000,        "datamax()"     );
     is( $ds->recsep,      "\x0A",       "recseip()"     );
     is( $ds->indicator,   "1-+#=*-",    "indicator()"   );
+    is( $ds->transind,    "1-+#=*-",    "transind()"    );
     is( $ds->date,        "8-yyyymmdd", "date()"        );
     is( $ds->transnum,    "2-10",       "transnum()"    );
     is( $ds->keynum,      "2-10",       "keynum()"      );
@@ -80,17 +82,17 @@ my $desc = "Example+FlatFile::DataStore";
     is( $ds->fnumbase,    "10",         "fnumbase()"    );
     is( $ds->fnumlen,     1,            "fnumlen()"     );
     is( $ds->uri,         $uri,         "uri()"         );
-    is( $ds->preamblelen, 40,           "preamblelen()" );
+    is( $ds->preamblelen, 41,           "preamblelen()" );
     is( $ds->translen,    2,            "translen()"    );
     is( $ds->transbase,   "10",         "transbase()"   );
     is( Dumper($ds->crud),
         "{'#' => 'oldupd','*' => 'olddel','+' => 'create','-' => 'delete','=' => 'update','create' => '+','delete' => '-','olddel' => '*','oldupd' => '#','update' => '='}",
         "crud()" );
     is( Dumper($ds->regx),
-        "qr/(?-xism:([\\+\\#\\=\\*\\-])([0-9]{8})([-0-9]{2})([-0-9]{2})([-0-9]{2})([-0-9])([-0-9]{4})([-0-9])([-0-9]{4})([-0-9])([-0-9]{4})([ -~]{10}))/",
+        "qr/(?-xism:([\\+\\#\\=\\*\\-])([\\+\\#\\=\\*\\-])([0-9]{8})([-0-9]{2})([-0-9]{2})([-0-9]{2})([-0-9])([-0-9]{4})([-0-9])([-0-9]{4})([-0-9])([-0-9]{4})([ -~]{10}))/",
         "regx()" );
     is( Dumper($ds->specs),
-        "{'indicator' => [0,1,'+#=*-']}{'date' => [1,8,'yyyymmdd']}{'transnum' => [9,2,'10']}{'keynum' => [11,2,'10']}{'reclen' => [13,2,'10']}{'thisfnum' => [15,1,'10']}{'thisseek' => [16,4,'10']}{'prevfnum' => [20,1,'10']}{'prevseek' => [21,4,'10']}{'nextfnum' => [25,1,'10']}{'nextseek' => [26,4,'10']}{'user' => [30,10,' -~']}",
+        "{'indicator' => [0,1,'+#=*-']}{'transind' => [1,1,'+#=*-']}{'date' => [2,8,'yyyymmdd']}{'transnum' => [10,2,'10']}{'keynum' => [12,2,'10']}{'reclen' => [14,2,'10']}{'thisfnum' => [16,1,'10']}{'thisseek' => [17,4,'10']}{'prevfnum' => [21,1,'10']}{'prevseek' => [22,4,'10']}{'nextfnum' => [26,1,'10']}{'nextseek' => [27,4,'10']}{'user' => [31,10,' -~']}",
         "specs()" );
 }
 
@@ -113,7 +115,7 @@ my $desc = "Example+FlatFile::DataStore";
 
     my $record = $ds->create( $record_data, $user_data );
     is( Dumper($record),
-        qq/bless( {'data' => \\'This is testing record1.','preamble' => bless( {'date' => '$yyyy_mm_dd','indicator' => '+','keynum' => 0,'reclen' => 24,'string' => '+${yyyymmdd}01002410000----------Testing1  ','thisfnum' => '1','thisseek' => 0,'transnum' => 1,'user' => 'Testing1'}, 'FlatFile::DataStore::Preamble' )}, 'FlatFile::DataStore::Record' )/,
+        qq/bless( {'data' => \\'This is testing record1.','preamble' => bless( {'date' => '$yyyy_mm_dd','indicator' => '+','keynum' => 0,'reclen' => 24,'string' => '++${yyyymmdd}01002410000----------Testing1  ','thisfnum' => '1','thisseek' => 0,'transind' => '+','transnum' => 1,'user' => 'Testing1'}, 'FlatFile::DataStore::Preamble' )}, 'FlatFile::DataStore::Record' )/,
         "create()" );
 
     my $data = $record->data();
@@ -126,10 +128,13 @@ my $desc = "Example+FlatFile::DataStore";
     is( $user, "Testing1", "user()" );
 
     my $string = $record->string();
-    is( $string, "+${yyyymmdd}01002410000----------Testing1  ", "string()" );
+    is( $string, "++${yyyymmdd}01002410000----------Testing1  ", "string()" );
 
     my $indicator = $record->indicator();
     is( $indicator, "+", "indicator()" );
+
+    my $transind = $record->transind();
+    is( $transind, "+", "transind()" );
 
     my $date = $record->date();
     is( $date, $yyyy_mm_dd, "date()" );

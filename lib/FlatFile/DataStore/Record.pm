@@ -15,6 +15,7 @@ file data store record class.
 
  my $preamble = FlatFile::DataStore::Preamble->new( {
      indicator => $indicator,  # single-character crud flag
+     transind  => $transind,   # single-character crud flag
      date      => $date,       # pre-formatted date
      transnum  => $transint,   # transaction number (integer)
      keynum    => $keynum,     # record sequence number (integer)
@@ -141,6 +142,7 @@ The values all come from the record's contained preamble object.
  $record->user()
  $record->string()
  $record->indicator()
+ $record->transind()
  $record->date()
  $record->keynum()
  $record->reclen()
@@ -158,6 +160,7 @@ sub user {for($_[0]->preamble()){defined&&return$_->user()}}
 
 sub string    {$_[0]->preamble()->string()   }
 sub indicator {$_[0]->preamble()->indicator()}
+sub transind  {$_[0]->preamble()->transind() }
 sub date      {$_[0]->preamble()->date()     }
 sub keynum    {$_[0]->preamble()->keynum()   }
 sub reclen    {$_[0]->preamble()->reclen()   }

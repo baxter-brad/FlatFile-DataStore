@@ -30,6 +30,7 @@ my $uri  = join ";",
         datamax=9_000
         recsep=%0A
         indicator=1-%2B%23%3D%2A%2D
+        transind=1-%2B%23%3D%2A%2D
         date=8-yyyymmdd
         transnum=2-36
         keynum=2-36

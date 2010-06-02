@@ -74,13 +74,14 @@ have a pointer to a "next" version, because there isn't one.
 Each record is stored with a I<preamble>, which is a fixed-length
 string of fields containing:
 
- - crud indicator       (flag for created, updated, deleted, etc.)
- - transaction number   (incremented when a record is touched)
- - date                 (of the "transaction")
- - key number           (record sequence number)
- - record length        (in bytes)
- - user data            (for out-of-band* user-defined data)
- - "this" file number   (linked list pointers ...)
+ - crud indicator        (flag for created, updated, deleted, etc.)
+ - transaction indicator (flag for created, updated, deleted, etc.)
+ - transaction number    (incremented when a record is touched)
+ - date                  (of the "transaction")
+ - key number            (record sequence number)
+ - record length         (in bytes)
+ - user data             (for out-of-band* user-defined data)
+ - "this" file number    (linked list pointers ...)
  - "this" seek position
  - "prev" file number
  - "prev" seek position
