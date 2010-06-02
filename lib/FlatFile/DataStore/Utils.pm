@@ -161,12 +161,12 @@ sub validate {
 
         for my $rec ( $ds->history( $keynum ) ) {
 
-            my $transnum  = $rec->transnum;
-            my $keynum    = $rec->keynum;
-            my $status    = $status{ $rec->indicator };
-            my $user      = $rec->user;
-            my $reclen    = $rec->reclen;
-            my $md5       = md5_hex( ${$rec->data} );
+            my $transnum = $rec->transnum;
+            my $keynum   = $rec->keynum;
+            my $status   = $status{ $rec->indicator };
+            my $user     = $rec->user;
+            my $reclen   = $rec->reclen;
+            my $md5      = md5_hex( ${$rec->data} );
 
             print $histfh "$transnum $keynum $status $user $reclen $md5\n";
         }
@@ -201,13 +201,13 @@ sub validate {
 
         RECORD: while( $seekpos < $filesize ) {
 
-            my $rec       = $ds->read_record( $datafh, $seekpos );
-            my $transnum  = $rec->transnum;
-            my $keynum    = $rec->keynum;
-            my $status    = $status{ $rec->indicator };
-            my $user      = $rec->user;
-            my $reclen    = $rec->reclen;
-            my $md5       = md5_hex( ${$rec->data} );
+            my $rec      = $ds->read_record( $datafh, $seekpos );
+            my $transnum = $rec->transnum;
+            my $keynum   = $rec->keynum;
+            my $status   = $status{ $rec->indicator };
+            my $user     = $rec->user;
+            my $reclen   = $rec->reclen;
+            my $md5      = md5_hex( ${$rec->data} );
 
             print $transfh "$transnum $keynum $status $user $reclen $md5\n";
 
@@ -303,11 +303,11 @@ sub migrate {
     my $from_preamblelen = $from_ds->preamblelen;
 
     my $from_crud = $from_ds->crud;
-    my $create    = quotemeta $from_crud->{'create'};  # these are single ascii chars
-    my $oldupd    = quotemeta $from_crud->{'oldupd'};
-    my $update    = quotemeta $from_crud->{'update'};
-    my $olddel    = quotemeta $from_crud->{'olddel'};
-    my $delete    = quotemeta $from_crud->{'delete'};
+    my $create    = quotemeta $from_crud->{'create'};  # +
+    my $oldupd    = quotemeta $from_crud->{'oldupd'};  # #
+    my $update    = quotemeta $from_crud->{'update'};  # =
+    my $olddel    = quotemeta $from_crud->{'olddel'};  # *
+    my $delete    = quotemeta $from_crud->{'delete'};  # -
 
     my $last_keynum = -1;  # to be less than 0
 
@@ -326,54 +326,72 @@ sub migrate {
             my $reclen         = $from_rec->reclen;
             my $from_data_ref  = $from_rec->data;
             my $from_user_data = $from_rec->user;
+            my $indicator      = $from_rec->indicator;
+            my $transind       = $from_rec->transind;
 
             # cases:
-            # indicator:  keynum:     pending_delete:  action:              because:
-            # ----------  ----------  ---------------  -------------------  ----------
-            # create  +   always new                   create               is current
-            # oldupd  #   new                          create               was +
-            # oldupd  #   old         if on, turn off  retrieve and delete  was -
-            # oldupd  #   old                          retrieve and update  was =
-            # update  =   always old                   retrieve and update  is current
-            # olddel  *   new         turn on          create               was +
-            # olddel  *   old         turn on          retrieve and update  was =
-            # delete  -   always old  turn off         retrieve and delete  is current
+            # indicator:  keynum:     pending_delete:  action:             it  because:
+            # ----------  ----------  ---------------  ------------------- --  ----------
+            # create  +   always new                   create              ++  is current
+            # oldupd  #   new                          create              #+  was +
+            # oldupd  #   old         if on, turn off  retrieve and delete #-  was -
+            # oldupd  #   old                          retrieve and update #=  was =
+            # update  =   always old                   retrieve and update ==  is current
+            # olddel  *   new         turn on          create              *+  was +
+            # olddel  *   old         turn on          retrieve and update *=  was =
+            # delete  -   always old  turn off         retrieve and delete --  is current
 
             my $new_keynum = $keynum > $last_keynum;
 
-            for( $from_rec->indicator ) {
+            for( $indicator ) {
                 /$create/ && do { $to_ds->create( $from_data_ref, $from_user_data );
+                                  die "Bad transind: $transind"
+                                      unless $transind =~ /$create/;  # assertions
                                   last };
                 /$oldupd/ && $new_keynum
                           && do { $to_ds->create( $from_data_ref, $from_user_data );
+                                  die "Bad transind: $transind"
+                                      unless $transind =~ /$create/;
                                   last };
                 /$oldupd/ && $pending_deletes{ $keynum }
                           && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
                                   $to_ds->delete( $to_rec, $from_data_ref, $from_user_data );
                                   delete $pending_deletes{ $keynum };
+                                  die "Bad transind: $transind"
+                                      unless $transind =~ /$delete/;
                                   last };
                 /$oldupd/ && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
                                   $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
+                                  die "Bad transind: $transind"
+                                      unless $transind =~ /$update/;
                                   last };
                 /$update/ && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
                                   $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
+                                  die "Bad transind: $transind"
+                                      unless $transind =~ /$update/;
                                   last };
                 /$olddel/ && $new_keynum
                           && do { $to_ds->create( $from_data_ref, $from_user_data );
                                   ++$pending_deletes{ $keynum };
+                                  die "Bad transind: $transind"
+                                      unless $transind =~ /$create/;
                                   last };
                 /$olddel/ && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
                                   $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
                                   ++$pending_deletes{ $keynum };
+                                  die "Bad transind: $transind"
+                                      unless $transind =~ /$update/;
                                   last };
                 /$delete/ && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
                                   $to_ds->delete( $to_rec, $from_data_ref, $from_user_data );
                                   delete $pending_deletes{ $keynum };
+                                  die "Bad transind: $transind"
+                                      unless $transind =~ /$delete/;
                                   last };
             }
 
