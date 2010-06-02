@@ -92,7 +92,7 @@ my $Ascii_chars = qr/^[ -~]+$/;
 Constructs a new FlatFile::DataStore::Preamble object.
 
 The parm C<$parms> is a hash reference containing key/value pairs to
-populate the preamble string.  If there is a C<$parms->{'string'}>
+populate the preamble string.  If there is a C<< $parms->{'string'} >>
 value, it will be parsed into fields and the resulting key/value pairs
 will replace the C<$parms> hash reference.
 

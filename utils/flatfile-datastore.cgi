@@ -162,7 +162,7 @@ sub analysis {
     my @msg = ( $msg );
     my @errors;
     if( $type eq 'required' or $type eq 'preamble' ) {
-        push @errors, { name => $name, msg => "Missing: '$name' is required." unless $has_value };
+        push @errors, { name => $name, msg => "Missing: '$name' is required." } unless $has_value;
     }
 
     if( $name eq 'name' ) {
@@ -246,8 +246,8 @@ sub analysis {
         if( $has_value ) {
             my( $len, $base ) = split /-/, $value;
 
-            push @errors, { name => $name, msg => "Length: '$len' too small (1 min)." if $len < 1 };
-            push @errors, { name => $name, msg => "Base: '$base' too large (36 max)." if $base > 36 };
+            push @errors, { name => $name, msg => "Length: '$len' too small (1 min)." } if $len < 1;
+            push @errors, { name => $name, msg => "Base: '$base' too large (36 max)." } if $base > 36;
 
             my $maxnum = substr( base_chars( $base ), -1) x $len;
             my $maxint = base2int $maxnum, $base;
@@ -523,15 +523,21 @@ sub analysis {
     }
 
     my $summary;
+    my @err;
     if( @errors ) {
         push @msg, "ERRORS:\n";
+        for( @errors ) {
+            my $name = $_->{'name'};
+            my $msg  = $_->{'msg'};
+            push @err, qq'<a name="$name">$msg</a>';
+        }
     }
     else {
         $summary = "\nLooks good."
     }
     return
         join( "\n" => @msg ),
-        join( "\n" => @errors ),
+        join( "\n" => @err ),
         $summary;
 }
 

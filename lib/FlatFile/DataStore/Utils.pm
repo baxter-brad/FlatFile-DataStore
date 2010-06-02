@@ -28,7 +28,7 @@ VERSION: 0.11
 
 =cut
 
-our $VERSION = '0.11'; $VERSION = eval $VERSION;
+our $VERSION = '0.11';
 
 #---------------------------------------------------------------------
 
@@ -115,8 +115,8 @@ one data store to the files that validate() creates for a second
 data store (following a migrate(), most likely).  If these files
 (history, transaction, md5) are exactly equal, then the two data
 stores are equivalent, i.e., they both contain exactly the same
-records (even though their data files, etc., may be very
-differently configured).
+records, even though their data files, etc., may be very
+differently configured.
 
 
 =cut
@@ -243,6 +243,7 @@ sub validate {
 }
 
 #---------------------------------------------------------------------
+
 =head2 migrate( $from_dir, $from_name, $to_dir, $to_name, $to_uri )
 
 =head3 Parameters:
@@ -271,7 +272,6 @@ assumed that the new data store has already been initialized.
 
 =cut
 
-#---------------------------------------------------------------------
 sub migrate {
     my( $from_dir, $from_name, $to_dir, $to_name, $to_uri ) = @_;
 
@@ -393,6 +393,7 @@ sub migrate {
 }
 
 #---------------------------------------------------------------------
+
 =head2 migrate_no_history( $from_dir, $from_name, $to_dir, $to_name, $to_uri )
 
 =head3 Parameters:
@@ -421,7 +422,6 @@ assumed that the new data store has already been initialized.
 
 =cut
 
-#---------------------------------------------------------------------
 sub migrate_no_history {
     my( $from_dir, $from_name, $to_dir, $to_name, $to_uri ) = @_;
 
@@ -491,7 +491,6 @@ sub compare {
         push @report, "$_: differs ($from_val $to_val)\n"
             if $from_val ne $to_val;
     }
-
 
     my $maxdiff = 10;
     for ( qw( hist tran md5 ) ) {
