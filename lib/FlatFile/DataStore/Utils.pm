@@ -38,13 +38,13 @@ Nothing is exported by default.  The following may be exported
 individually; all three may be exported using the C<:all> tag:
 
  - migrate
- - migrate_no_history
+ - migrate_nohist
  - validate
  - compare
 
 Examples:
 
- use FlatFile::DataStore::Utils qw( migrate migrate_no_history validate compare );
+ use FlatFile::DataStore::Utils qw( migrate migrate_nohist validate compare );
  use FlatFile::DataStore::Utils qw( :all );
 
 =cut
@@ -56,7 +56,7 @@ BEGIN {
     @ISA       = qw( Exporter );
     @EXPORT_OK = qw(
         migrate
-        migrate_no_history
+        migrate_nohist
         validate
         compare
         );
@@ -67,7 +67,7 @@ BEGIN {
 
 =head1 SYNOPSIS
 
-    use FlatFile::DataStore::Utils qw( migrate migrate_no_history validate compare );
+    use FlatFile::DataStore::Utils qw( migrate migrate_nohist validate compare );
 
     my $from_dir  = '/from/dir'; my $from_name = 'ds1';
     my $to_dir    = '/to/dir';   my $to_name   = 'ds2';
@@ -77,13 +77,13 @@ BEGIN {
     validate(                        $to_dir, $to_name );
     compare ( $from_dir, $from_name, $to_dir, $to_name );
 
-    # optionally, migrate_no_history() will not copy any history
+    # optionally, migrate_nohist() will not copy any history
     # or deleted records:
     
-    validate(            $from_dir, $from_name                    );
-    migrate_no_history ( $from_dir, $from_name, $to_dir, $to_name );
-    validate(                                   $to_dir, $to_name );
-    compare (            $from_dir, $from_name, $to_dir, $to_name );
+    validate(        $from_dir, $from_name                    );
+    migrate_nohist ( $from_dir, $from_name, $to_dir, $to_name );
+    validate(                               $to_dir, $to_name );
+    compare (        $from_dir, $from_name, $to_dir, $to_name );
 
     # in this case, compare() will probably report that the data
     # stores are *not* equivalent after the migrate
@@ -105,7 +105,7 @@ creating history and transaction files for comparison purposes.
   - The data has outgrown the data store as originally configured
   - You want a better configuration than originally conceived
 
-- migrate_no_history(), to migrate a data store to a new data store
+- migrate_nohist(), to migrate a data store to a new data store
 without any update history and without any deleted records.  This is
 normally discouraged (since the spirit of the module is to retain
 all history of activity), but it has its uses.
@@ -412,7 +412,7 @@ sub migrate {
 
 #---------------------------------------------------------------------
 
-=head2 migrate_no_history( $from_dir, $from_name, $to_dir, $to_name, $to_uri )
+=head2 migrate_nohist( $from_dir, $from_name, $to_dir, $to_name, $to_uri )
 
 =head3 Parameters:
 
@@ -440,7 +440,7 @@ assumed that the new data store has already been initialized.
 
 =cut
 
-sub migrate_no_history {
+sub migrate_nohist {
     my( $from_dir, $from_name, $to_dir, $to_name, $to_uri ) = @_;
 
     my $from_ds = FlatFile::DataStore->new( {
@@ -480,7 +480,7 @@ sub migrate_no_history {
         # delete  -   skip
 
         $to_ds->create( $from_data_ref, $from_user_data )
-            if $from_rec->indicator =~ /$delete/;
+            unless $from_rec->indicator =~ /$delete/;
     }
 }
 
@@ -538,6 +538,24 @@ sub compare {
     }
     return  @report if wantarray;
     return \@report;
+}
+
+#---------------------------------------------------------------------
+# sub all_datafiles(), called in migrate_validate utility script
+
+sub all_datafiles {
+    my( $self ) = @_;
+
+    my $fnumlen  = $self->fnumlen;
+    my $fnumbase = $self->fnumbase;
+    my $top_toc  = $self->new_toc( { int => 0 } );
+    my $datafint = $top_toc->datafnum;
+    my @files;
+    for( 1 .. $datafint ) {
+        my $datafnum = int2base $_, $fnumbase, $fnumlen;
+        push @files, $self->which_datafile( $datafnum );
+    }
+    return @files;
 }
 
 #---------------------------------------------------------------------

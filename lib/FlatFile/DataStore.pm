@@ -81,8 +81,6 @@ use warnings;
 
 use File::Path;
 use Fcntl qw(:DEFAULT :flock);
-use URI;
-use URI::Escape;
 use Digest::MD5 qw(md5_hex);
 use Data::Dumper;
 use Carp;
@@ -242,7 +240,9 @@ sub init {
         $uri ||= $new_uri || croak "No URI.";
         $self->uri( $uri );
 
-        my $uri_parms = $self->burst_query;
+        require FlatFile::DataStore::Initialize;
+
+        my $uri_parms = $self->burst_query( \%Preamble );
         for my $attr ( keys %$uri_parms ) {
             croak qq/Unrecognized parameter: "$attr"/ unless $Attrs{ $attr };
             # (using $attr as method name:)
@@ -288,8 +288,8 @@ sub init {
         my $maxnum = substr( base_chars( $base ), -1) x $len;
         my $maxint = base2int $maxnum, $base;
 
-        if( $self->datamax ) {
-            $self->datamax( $self->convert_datamax );
+        if( my $max = $self->datamax ) {
+            $self->datamax( convert_max( $max ) );
             if( $self->datamax > $maxint ) {
                 my @msg = (
                     "datamax (".$self->datamax.") too large: ",
@@ -302,8 +302,17 @@ sub init {
             $self->datamax( $maxint );
         }
 
-        if( $self->dirmax ) {
+        if( my $max = $self->dirmax ) {
+            $self->dirmax( convert_max( $max ) );
             $self->dirlev( 1 ) unless $self->dirlev;
+        }
+
+        if( my $max = $self->keymax ) {
+            $self->keymax( convert_max( $max ) );
+        }
+
+        if( my $max = $self->tocmax ) {
+            $self->tocmax( convert_max( $max ) );
         }
 
         for my $attr ( keys %Attrs ) {
@@ -315,128 +324,6 @@ sub init {
     }
 
     return $self;  # this is either the same self or a new self
-}
-
-#---------------------------------------------------------------------
-# burst_query(), called by init() to parse the datastore's uri
-#     also generates values for 'spec' and 'preamblelen'
-
-sub burst_query {
-    my( $self ) = @_;
-
-    my $uri   = $self->uri;
-    my $query = URI->new( $uri )->query();
-
-    my @pairs = split /[;&]/, $query;
-    my $omap  = [];  # psuedo-new(), ordered hash
-    my $pos   = 0;
-    my %parms;
-    for( @pairs ) {
-        my( $name, $val ) = split /=/, $_, 2;
-
-        $name = uri_unescape( $name );
-        $val  = uri_unescape( $val );
-
-        croak qq/"$name" duplicated in uri/ if $parms{ $name };
-
-        $parms{ $name } = $val;
-        if( $Preamble{ $name } ) {
-            my( $len, $parm ) = split /-/, $val, 2;
-            omap_add( $omap, $name => [ $pos, 0+$len, $parm ] );
-            $pos += $len;
-        }
-    }
-
-    # some attributes are generated here:
-    $parms{'specs'}       = $omap;
-    $parms{'preamblelen'} = $pos;
-
-    return \%parms;
-}
-
-#---------------------------------------------------------------------
-# make_preamble_regx(), called by init() to construct a regular
-#     expression that should match any record's preamble
-#     this regx should capture each fields value
-
-sub make_preamble_regx {
-    my( $self ) = @_;
-
-    my $regx = "";
-    for( $self->specs ) {  # specs() returns an array of hashrefs
-        my( $key, $aref )       = %$_;
-        my( $pos, $len, $parm ) = @$aref;
-
-        for( $key ) {
-            if( /indicator/ or /transind/ ) {
-                $regx .= ($len == 1 ? "([\Q$parm\E])" : "([\Q$parm\E]{$len})");
-            }
-            elsif( /user/ ) {  # should only allow $Ascii_chars
-                $regx .= ($len == 1 ? "([$parm])" : "([$parm]{$len})");
-            }
-            elsif( /date/ ) {
-                $regx .= ($len == 8 ? "([0-9]{8})" : "([0-9A-Za-z]{4})");
-            }
-            else {
-                my $chars = base_chars( $parm );
-                $chars =~ s/([0-9])[0-9]+([0-9])/$1-$2/;  # compress
-                $chars =~ s/([A-Z])[A-Z]+([A-Z])/$1-$2/;
-                $chars =~ s/([a-z])[a-z]+([a-z])/$1-$2/;
-                # '-' is 'null' character:
-                $regx .= ($len == 1 ? "([-$chars])" : "([-$chars]{$len})");
-            }
-        }
-    }
-    return qr/$regx/;
-}
-
-#---------------------------------------------------------------------
-# make_crud(), called by init() to construct a hash of indicators
-#     CRUD indicators: Create, Retrieve, Update, Delete
-#     the following are suggested, but configurable in uri
-#         + Create
-#         # Old Update (old record flagged as updated)
-#         = Update
-#         * Old Delete (old record flagged as deleted)
-#         - Delete
-#     (no indicator for Retrieve, n/a--but didn't want to say CUD)
-
-sub make_crud {
-    my( $self ) = @_;
-
-    my( $len, $chars ) = split /-/, $self->indicator, 2;
-    croak qq/Only single-character indicators supported./ if $len != 1;
-
-    my @c = split //, $chars;
-    my %c = map { $_ => 1 } @c;
-    my @n = keys %c;
-    croak qq/Need five unique indicator characters/ if @n != 5 or @c != 5;
-
-    my %crud;
-    @crud{ qw( create oldupd update olddel delete ) } = @c;
-    @crud{ @c } = qw( create oldupd update olddel delete );
-    return \%crud;
-}
-
-#---------------------------------------------------------------------
-# convert_datamax(), called by init() to convert user-supplied
-#     datamax value into an integer: one can say, "500_000_000",
-#     "500M", or ".5G" to mean 500,000,000 bytes
-
-sub convert_datamax {
-    my( $self ) = @_;
-
-    # ignoring M/G ambiguities and using round numbers:
-    my %sizes = ( M => 10**6, G => 10**9 );
-
-    my $max = $self->datamax;
-    $max =~ s/_//g;
-    if( $max =~ /^([.0-9]+)([MG])/ ) {
-        my( $n, $s ) = ( $1, $2 );
-        $max = $n * $sizes{ $s };
-    }
-
-    return 0+$max;
 }
 
 #---------------------------------------------------------------------
@@ -1149,7 +1036,13 @@ sub keynum    {for($_[0]->{keynum}    ){$_=$_[1]if@_>1;return$_}}
 sub reclen    {for($_[0]->{reclen}    ){$_=$_[1]if@_>1;return$_}}
 sub thisfnum  {for($_[0]->{thisfnum}  ){$_=$_[1]if@_>1;return$_}}
 sub thisseek  {for($_[0]->{thisseek}  ){$_=$_[1]if@_>1;return$_}}
-sub prevfnum  {for($_[0]->{prevfnum}  ){$_=$_[1]if@_>1;return$_}}
+
+sub prevfnum {
+    my $self = shift;
+    return $self->{prevfnum} = $_[0] if @_;
+    return $self->{prevfnum} if exists $self->{prevfnum};
+}
+
 sub prevseek  {for($_[0]->{prevseek}  ){$_=$_[1]if@_>1;return$_}}
 sub nextfnum  {for($_[0]->{nextfnum}  ){$_=$_[1]if@_>1;return$_}}
 sub nextseek  {for($_[0]->{nextseek}  ){$_=$_[1]if@_>1;return$_}}
@@ -1203,48 +1096,6 @@ sub keymax {
 TODO: more pod here ...
 
 =cut
-
-#---------------------------------------------------------------------
-# initialize(), called by init() when datastore is first used
-#     adds a serialized object to bypass uri parsing from now on
-
-sub initialize {
-    my( $self ) = @_;
-
-    # can't initialize after data has been added
-    my $fnum     = int2base 1, $self->fnumbase, $self->fnumlen;
-    my $datafile = $self->which_datafile( $fnum );
-    croak qq/Can't initialize database: data files exist (e.g., $datafile)./
-        if -e $datafile;
-
-    # make object a one-liner
-    local $Data::Dumper::Quotekeys = 0;
-    local $Data::Dumper::Pair      = '=>';
-    local $Data::Dumper::Useqq     = 1;
-    local $Data::Dumper::Terse     = 1;
-    local $Data::Dumper::Indent    = 0;
-
-    # delete dir, don't want it in obj file
-    my $savedir = $self->dir;
-    $self->dir("");
-
-    my $uri_file = "$savedir/" . $self->name . ".uri";
-    my $uri = $self->uri;
-    my $obj = Dumper $self;
-    my $uri_md5 = md5_hex( $uri );
-    my $obj_md5 = md5_hex( $obj );
-    my $contents = <<_end_;
-$uri
-$obj
-$uri_md5
-$obj_md5
-_end_
-    $self->write_file( $uri_file, \$contents );
-
-    # restore dir
-    $self->dir( $savedir );
-
-}
 
 #---------------------------------------------------------------------
 # new_toc()
@@ -1464,24 +1315,6 @@ sub nexttransnum {
 }
 
 #---------------------------------------------------------------------
-# sub all_datafiles(), called in migrate_validate utility script
-
-sub all_datafiles {
-    my( $self ) = @_;
-
-    my $fnumlen  = $self->fnumlen;
-    my $fnumbase = $self->fnumbase;
-    my $top_toc  = $self->new_toc( { int => 0 } );
-    my $datafint = $top_toc->datafnum;
-    my @files;
-    for( 1 .. $datafint ) {
-        my $datafnum = int2base $_, $fnumbase, $fnumlen;
-        push @files, $self->which_datafile( $datafnum );
-    }
-    return @files;
-}
-
-#---------------------------------------------------------------------
 # burst_pramble(), called various places to parse preamble string
 
 sub burst_preamble {
@@ -1693,7 +1526,7 @@ sub write_file {
 }
 
 #---------------------------------------------------------------------
-# new(), expects yyyymmdd or yymd (or mmddyyyy, mdyy, etc.)
+# now(), expects yyyymmdd or yymd (or mmddyyyy, mdyy, etc.)
 #        returns current date formatted as requested
 # called by create(), update(), delete()
 

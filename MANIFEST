@@ -3,11 +3,16 @@ Makefile.PL
 MANIFEST
 README
 utils/migrate_validate
+utils/flatfile-datastore.cgi
 t/FlatFile-DataStore.t
 t/FlatFile-DataStore-Preamble.t
 t/FlatFile-DataStore-Record.t
 t/FlatFile-DataStore-Toc.t
 lib/FlatFile/DataStore.pm
+lib/FlatFile/DataStore/Tutorial.pm
 lib/FlatFile/DataStore/Preamble.pm
 lib/FlatFile/DataStore/Record.pm
 lib/FlatFile/DataStore/Toc.pm
+lib/FlatFile/DataStore/Utils.pm
+lib/FlatFile/DataStore/FMTEYEWTK.pm
+lib/FlatFile/DataStore/Initialize.pm
