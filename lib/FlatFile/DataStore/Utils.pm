@@ -466,6 +466,10 @@ sub migrate_nohist {
 
     my $delete = quotemeta $from_ds->crud->{'delete'};
 
+    my $nohistfile = "$to_dir/$to_name.nohist";
+    my $nohistfh   = locked_for_write( $nohistfile );
+    my $to_keynum = 0;
+
     for my $keynum ( 0 .. $from_ds->lastkeynum ) {
 
         my $from_rec       = $from_ds->retrieve( $keynum );
@@ -479,8 +483,12 @@ sub migrate_nohist {
         # update  =   create
         # delete  -   skip
 
-        $to_ds->create( $from_data_ref, $from_user_data )
-            unless $from_rec->indicator =~ /$delete/;
+        unless( $from_rec->indicator =~ /$delete/ ) {
+            $to_ds->create( $from_data_ref, $from_user_data )
+                unless $from_rec->indicator =~ /$delete/;
+            print {$nohistfh} "$keynum $to_keynum\n";
+            $to_keynum++;
+        }
     }
 }
 
@@ -501,9 +509,9 @@ sub compare {
     push @report, "Comparing: TOC files\n";
     my $from_top_toc = $from_ds->new_toc( { int => 0 } );
     my $to_top_toc   = $to_ds->new_toc(   { int => 0 } );
-    for( qw(    
-        datafnum keyfnum tocfnum numrecs keynum transnum
-        create oldupd update olddel delete ) ) {
+    for( qw(
+        numrecs keynum transnum create
+        oldupd update olddel delete ) ) {
         my $from_val = $from_top_toc->$_();
         my $to_val   = $to_top_toc->$_();
         push @report, "$_: differs ($from_val $to_val)\n"
@@ -538,24 +546,6 @@ sub compare {
     }
     return  @report if wantarray;
     return \@report;
-}
-
-#---------------------------------------------------------------------
-# sub all_datafiles(), called in migrate_validate utility script
-
-sub all_datafiles {
-    my( $self ) = @_;
-
-    my $fnumlen  = $self->fnumlen;
-    my $fnumbase = $self->fnumbase;
-    my $top_toc  = $self->new_toc( { int => 0 } );
-    my $datafint = $top_toc->datafnum;
-    my @files;
-    for( 1 .. $datafint ) {
-        my $datafnum = int2base $_, $fnumbase, $fnumlen;
-        push @files, $self->which_datafile( $datafnum );
-    }
-    return @files;
 }
 
 #---------------------------------------------------------------------

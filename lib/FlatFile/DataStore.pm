@@ -12,7 +12,7 @@ FlatFile::DataStore - Perl module that implements a flat file data store.
 
  # new datastore object
 
- my $dir  = "/my/datastore/area";
+ my $dir  = "/my/datastore/directory";
  my $name = "dsname";
  my $ds   = FlatFile::DataStore->new( { dir => $dir, name => $name } );
 
@@ -62,10 +62,13 @@ Methods support the following actions:
  - delete
  - history
 
-Scripts supplied in the distribution perform:
+Additionally, FlatFile::DataStore::Utils provides the
+methods
 
- - validation
- - migration
+ - validate
+ - migrate
+
+and others.
 
 =head1 VERSION
 
@@ -147,7 +150,7 @@ my %Attrs = ( %Preamble, %Optional, %Generated, qw(
     recsep      1
     ) );
 
-my $Ascii_chars = qr/^[ -~]+$/;
+my $Ascii_chars = qr/^[ -~]+$/;  # i.e., printables
 my( %Read_fh, %Write_fh );  # inside-outish object attributes
 
 #---------------------------------------------------------------------
@@ -180,9 +183,10 @@ sub new {
 
 #---------------------------------------------------------------------
 # init(), called by new() to initialize a data store object
-#     parms: dir,  the directory where the data store lives
-#            name, the name of the data store
-#     will look for dir/name.uri and load its values
+#     parms (from hash ref):
+#       dir  ... the directory where the data store lives
+#       name ... the name of the data store
+#     init() will look for dir/name.uri and load its values
 
 sub init {
     my( $self, $parms ) = @_;
@@ -194,12 +198,15 @@ sub init {
     croak qq/Directory "$dir" doesn't exist./
         unless -d $dir;
 
-    # uri file may be one line (just the uri)
-    # or four lines: uri, object, object_md5, uri_md5
-    # if one line and new_uri, new_uri can replace old one
-    # if four lines and new_uri is different, it can replace
-    # the old uri and object only if there aren't any data
-    # files.
+    # uri file may be
+    # - one line: just the uri, or
+    # - four lines: uri, object, object_md5, uri_md5
+    #
+    # if new_uri and uri file has
+    # - one line ... new_uri can replace old one
+    # - four lines (and new_uri is different) ...
+    #   new_uri can replace the old uri (and object)
+    #   but only if there aren't any data files yet
 
     my $new_uri = $parms->{'uri'};
 
@@ -227,11 +234,9 @@ sub init {
         $self->dir( $dir );  # dir not in object
 
         # new uri ok only if no data has been added yet
-        unless( -e $self->which_datafile( 1 ) ) {
-            if( $new_uri ) {
+        if( $new_uri and not -e $self->which_datafile( 1 ) ) {
                 $uri = $new_uri;
-                $obj = '';
-            }
+                $obj = '';  # we want a new one
         }
     }
 
@@ -240,19 +245,26 @@ sub init {
         $uri ||= $new_uri || croak "No URI.";
         $self->uri( $uri );
 
+        # Note: 'require', not 'use'.  This isn't
+        # a "true" module--we're just bringing in
+        # some more FlatFile::DataStore methods.
+
         require FlatFile::DataStore::Initialize;
 
         my $uri_parms = $self->burst_query( \%Preamble );
         for my $attr ( keys %$uri_parms ) {
             croak qq/Unrecognized parameter: "$attr"/ unless $Attrs{ $attr };
-            # (using $attr as method name:)
+
+            # (note: using $attr as method name here)
             $self->$attr( $uri_parms->{ $attr } );
         }
 
         # check that all fnums and seeks are the same ...
+        #
         # (note: prevfnum, prevseek, nextfnum, and nextseek are
         # optional, but if you have one of them, you must have
         # all four, so checking for one of them here is enough)
+
         if( $self->prevfnum ) {
             croak qq/fnum parameters differ/
                 unless $self->thisfnum eq $self->prevfnum and
@@ -264,7 +276,8 @@ sub init {
 
         # now for some generated attributes ...
         my( $len, $base );
-        ( $len, $base ) = split /-/, $self->thisfnum;  # fnums are equal
+        # (we can use thisfnum because all fnums are the same)
+        ( $len, $base ) = split /-/, $self->thisfnum;
         $self->fnumlen(    $len                        );
         $self->fnumbase(   $base                       );
         ( $len, $base ) = split /-/, $self->transnum;
@@ -278,24 +291,25 @@ sub init {
         $self->crud(       $self->make_crud            );
         $self->dir(        $dir                        );  # dir not in uri
 
-        $self->toclen( 10          +  # blanks
+        $self->toclen( 10          +  # blanks between parts
             3 *    $self->fnumlen  +  # datafnum, tocfnum, keyfnum
             2 *    $self->keylen   +  # numrecs keynum
             6 *    $self->translen +  # transnum and cruds
             length $self->recsep );
 
-        ( $len, $base ) = split /-/, $self->thisseek;  # seeks are equal
+        # (we can use thisseek because all seeks are the same)
+        ( $len, $base ) = split /-/, $self->thisseek;
         my $maxnum = substr( base_chars( $base ), -1) x $len;
         my $maxint = base2int $maxnum, $base;
 
         if( my $max = $self->datamax ) {
             $self->datamax( convert_max( $max ) );
             if( $self->datamax > $maxint ) {
-                my @msg = (
-                    "datamax (".$self->datamax.") too large: ",
-                    "thisseek is ".$self->thisseek,
-                    " so maximum datamax is $maxnum base-$base (decimal: $maxint)" );
-                croak join '' => @msg;
+                croak join '' =>
+                    "datamax (", $self->datamax, ") too large: ",
+                    "thisseek is ", $self->thisseek,
+                    " so maximum datamax is $maxnum base-$base ",
+                    "(decimal: $maxint)";
             }
         }
         else {
@@ -317,7 +331,7 @@ sub init {
 
         for my $attr ( keys %Attrs ) {
             croak qq/Uninitialized attribute: "$attr"/
-                if not defined $self->$attr and not $Optional{ $attr };
+                if not $Optional{ $attr } and not defined $self->$attr;
         }
 
         $self->initialize;
@@ -350,14 +364,16 @@ create() is allowed to be a scalar reference.
 
 =cut
 
+# XXX: can user data be optional?
+
 sub create {
     my( $self, $record_data, $user_data ) = @_;
 
     my $data_ref;
     if( defined $record_data ) {
         my $reftype = ref $record_data;
-        unless( $reftype ) {  # string
-            $data_ref = \$record_data; }
+        unless( $reftype ) {
+            $data_ref = \$record_data; }  # string
         elsif( $reftype eq "SCALAR" ) {
             $data_ref = $record_data; }
         elsif( $reftype =~ /Record/ ) {
@@ -369,6 +385,9 @@ sub create {
     croak qq/No record data./ unless $data_ref;
 
     # get next keynum
+    #   (we don't call nextkeynum(), because we need the
+    #   $top_toc object for other things, too)
+
     my $top_toc = $self->new_toc( { int => 0 } );
     my $keyint  = $top_toc->keynum + 1;
     my $keylen  = $self->keylen;
@@ -378,8 +397,9 @@ sub create {
         if length $keynum > $keylen;
 
     # get keyfile
-    # need to lock files before getting seek positions
-    # want to lock keyfile before datafile
+    #   need to lock files before getting seek positions
+    #   want to lock keyfile before datafile
+
     my( $keyfile, $keyfint ) = $self->keyfile( $keyint );
     my $keyfh                = $self->locked_for_write( $keyfile );
     my $keyseek              = -s $keyfile;  # seekpos into keyfile
@@ -413,7 +433,7 @@ sub create {
             } } );
 
     # write record to datafile
-    my $preamble = $record->string;
+    my $preamble = $record->preamble_string;
     my $dataline = $preamble . $$data_ref . $self->recsep;
     $self->write_bytes( $datafh, $dataseek, $dataline );
 
@@ -423,7 +443,7 @@ sub create {
     # update table of contents (toc) file
     my $toc = $self->new_toc( { num => $datafnum } );
 
-    # note: datafnum and tocfnum are set in toc->new
+    # (note: datafnum and tocfnum are set in toc->new)
     $toc->keyfnum(   $keyfint          );
     $toc->keynum(    $keyint           );
     $toc->transnum(  $transint         );
@@ -494,7 +514,7 @@ sub retrieve {
     my $record   = $self->read_record( $datafh, $seekpos );
 
     if( $keystring ) {
-        my $string = $record->string;
+        my $string = $record->preamble_string;
         croak qq/Mismatch "$string" vs. "$keystring"/ if $string ne $keystring;
     }
 
@@ -611,7 +631,7 @@ sub update {
         } );
 
     # write record to datafile
-    my $preamble = $record->string;
+    my $preamble = $record->preamble_string;
     my $dataline = $preamble . $$data_ref . $self->recsep;
     $self->write_bytes( $datafh, $dataseek, $dataline );
 
@@ -754,7 +774,7 @@ sub delete {
         } );
 
     # write record to datafile
-    my $preamble = $record->string;
+    my $preamble = $record->preamble_string;
     my $dataline = $preamble . $$data_ref . $self->recsep;
     $self->write_bytes( $datafh, $dataseek, $dataline );
 
@@ -1240,6 +1260,24 @@ sub which_datafile {
 }
 
 #---------------------------------------------------------------------
+# sub all_datafiles(), called by validate utility
+
+sub all_datafiles {
+    my( $self ) = @_;
+
+    my $fnumlen  = $self->fnumlen;
+    my $fnumbase = $self->fnumbase;
+    my $top_toc  = $self->new_toc( { int => 0 } );
+    my $datafint = $top_toc->datafnum;
+    my @files;
+    for( 1 .. $datafint ) {
+        my $datafnum = int2base $_, $fnumbase, $fnumlen;
+        push @files, $self->which_datafile( $datafnum );
+    }
+    return @files;
+}
+
+#---------------------------------------------------------------------
 
 =head2 howmany( [$regx] )
 
@@ -1286,6 +1324,7 @@ sub keyseek {
 
 #---------------------------------------------------------------------
 # lastkeynum(), called by retrieve to check if requested number exists
+# note that lastkeynum() and nextkeynum() return integers
 
 sub lastkeynum {
     my( $self ) = @_;
@@ -1295,6 +1334,7 @@ sub lastkeynum {
 
     return $keyint;
 }
+sub nextkeynum { $_[0]->lastkeynum + 1 }
 
 #---------------------------------------------------------------------
 # nexttransnum, get next transaction number
@@ -1394,6 +1434,7 @@ sub update_preamble {
 #---------------------------------------------------------------------
 
 #---------------------------------------------------------------------
+# DESTROY() supports tied and untied objects
 sub DESTROY {
     my $self = shift;
     $self->close_files;
@@ -1550,30 +1591,151 @@ sub now {
 }
 
 #---------------------------------------------------------------------
-# then(), translates stored date to YYYY-MM-DD
-# called by FF::DD::Preamble::init()
+# TIEHASH() supports tied hash access
 
-sub then {
-    my( $self, $date, $format ) = @_;
-    my( $y, $m, $d );
-    my $ret;
-    for( $format ) {
-        if( /yyyy/ ) {  # decimal year/month/day
-            $y = substr $date, index( $format, 'yyyy' ), 4;
-            $m = substr $date, index( $format, 'mm'   ), 2;
-            $d = substr $date, index( $format, 'dd'   ), 2;
-        }
-        else {  # assume base62 year/month/day
-            $y = substr $date, index( $format, 'yy' ), 2;
-            $m = substr $date, index( $format, 'm'  ), 1;
-            $d = substr $date, index( $format, 'd'  ), 1;
-            $y = sprintf "%04d", base2int( $y, 62 );
-            $m = sprintf "%02d", base2int( $m, 62 );
-            $d = sprintf "%02d", base2int( $d, 62 );
-        }
-    }
-    return "$y-$m-$d";
+sub TIEHASH {
+    my $class = shift;
+    $class->new( @_ );
 }
+
+#---------------------------------------------------------------------
+# FETCH() supports tied hash access
+
+# This returns a record object.
+
+sub FETCH {
+    my( $self, $key ) = @_;
+    return if $key !~ /^[0-9]+$/;
+    return if $key > $self->lastkeynum;
+    $self->retrieve( $key );
+}
+
+#---------------------------------------------------------------------
+# STORE() supports tied hash access
+
+# If $key is new, it has to be nextkeynum, i.e., you can't leave
+# gaps in the sequence of keys
+# e.g., $h{ keys %h                } = [ "New", "record" ];
+# or    $h{ tied( %h )->nextkeynum } = [ "New", "record" ];
+# ('keys %h' is fairly light-weight, but nextkeynum() is more so)
+
+sub STORE {
+    my( $self, $key, $record ) = @_;
+
+    my $nextkeynum = $self->nextkeynum;
+
+    croak "Unacceptable key: $key"
+        unless $key =~ /^[0-9]+$/ and $key <= $nextkeynum;
+
+    if( $key < $nextkeynum ) {
+        my $keynum = $record->keynum;
+        croak "Record key number ($keynum) doesn't match key ($key)"
+            unless $key == $keynum;
+        return $self->update( $record );
+    }
+    else {
+        if( ref $record eq 'ARRAY' ) {  # i.e., ['recdata','userdata']
+            return $self->create( $record->[0], $record->[1] );
+        }
+        return $self->create( $record );
+    }
+}
+
+#---------------------------------------------------------------------
+# DELETE() supports tied hash access
+
+# If you want the "delete record" to contain anything more than the
+# record being deleted, you have to call tied( %h )->delete() instead.
+#
+# Otherwise, we have to have a record to delete one, so we fetch it
+# first.
+
+sub DELETE {
+    my( $self, $key ) = @_;
+    return if $key !~ /^[0-9]+$/;
+    return if $key > $self->lastkeynum;
+    my $record = $self->retrieve( $key );
+    $self->delete( $record );
+}
+
+#---------------------------------------------------------------------
+# CLEAR() supports tied hash access, except we don't support CLEAR,
+# because it would be very destructive and it would be a pain to
+# recover from an accidental %h = ();
+
+sub CLEAR {
+    my $self = shift;
+    croak "Clearing the entire data store is not supported";
+}
+
+#---------------------------------------------------------------------
+# FIRSTKEY() supports tied hash access
+
+# The keys in a data store are always 0 .. lastkeynum.
+# Before the first record is added, nextkeynum() returns 0.
+# In that case, the sub below would return undef.
+
+sub FIRSTKEY {
+    my $self = shift;
+    return 0 if $self->nextkeynum > 0;
+}
+
+#---------------------------------------------------------------------
+# NEXTKEY() supports tied hash access
+
+# Because FIRSTKEY/NEXTKEY are functions of integers and require
+# reading only a single line from a file (lastkeynum() reads the first
+# line of the first toc file), the 'keys %h' operation is
+# comparatively light-weight ('values %h' and 'each %h' are a
+# different story.)
+
+sub NEXTKEY {
+    my( $self, $prevkey ) = @_; 
+    return if $prevkey >= $self->lastkeynum;
+    $prevkey + 1;
+}
+
+#---------------------------------------------------------------------
+# SCALAR() supports tied hash access
+
+# The howmany() routine returns the number of records in the data
+# store by default.  This number includes deleted records (exists()
+# also returns true for a deleted record).
+
+sub SCALAR {
+    my $self = shift;
+    $self->howmany;
+}
+
+#---------------------------------------------------------------------
+# EXISTS() supports tied hash access
+
+# This routine will return a true value for created, updated, *and*
+# deleted records.  This true value is in fact a preamble object, so
+# if needed, you can check the status of the record (deleted or not).
+# e.g.,
+# if( my $preamble = exists( $key ) ) {
+#    print "Deleted." if $preamble->is_deleted();
+#    print "Created." if $preamble->is_created();
+#    print "Updated." if $preamble->is_updated();
+# }
+
+sub EXISTS {
+    my( $self, $key ) = @_;
+    return if $key !~ /^[0-9]+$/;
+    return if $key > $self->lastkeynum;
+    $self->retrieve_preamble( $key );
+}
+
+#---------------------------------------------------------------------
+# UNTIE() supports tied hash access
+# (see perldoc perltie, The "untie" Gotcha)
+
+sub UNTIE {
+    my( $self, $count ) = @_;
+    carp "untie attempted while $count inner references still exist" if $count;
+}
+
 
 1;  # returned
 
@@ -1600,7 +1762,7 @@ Brad Baxter, E<lt>bbaxter@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2009 by Brad Baxter
+Copyright (C) 2010 by Brad Baxter
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,

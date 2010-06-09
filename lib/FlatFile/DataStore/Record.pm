@@ -131,7 +131,15 @@ the value.
 
 =cut
 
-sub data     {for($_[0]->{data}    ){$_=$_[1]if@_>1;return$_}}
+sub data     {
+    my( $self, $data ) = @_;
+    return $self->{data} unless $data;
+    for( $data ) {
+        if( ref eq 'SCALAR' ) { $self->{data} = $_  }
+        else                  { $self->{data} = \$_ }
+    }
+}
+
 sub preamble {for($_[0]->{preamble}){$_=$_[1]if@_>1;return$_}}
 
 =pod
@@ -140,7 +148,7 @@ The following read-only methods just return their respective values.
 The values all come from the record's contained preamble object.
 
  $record->user()
- $record->string()
+ $record->preamble_string()
  $record->indicator()
  $record->transind()
  $record->date()
@@ -158,7 +166,8 @@ The values all come from the record's contained preamble object.
 
 sub user {for($_[0]->preamble()){defined&&return$_->user()}}
 
-sub string    {$_[0]->preamble()->string()   }
+sub preamble_string {$_[0]->preamble()->string()}
+
 sub indicator {$_[0]->preamble()->indicator()}
 sub transind  {$_[0]->preamble()->transind() }
 sub date      {$_[0]->preamble()->date()     }

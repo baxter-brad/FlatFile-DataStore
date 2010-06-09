@@ -121,6 +121,8 @@ sub init {
     }
 
     my $crud   = $datastore->crud();
+    $self->crud( $crud );
+
     my $create = $crud->{'create'};
     my $update = $crud->{'update'};
     my $delete = $crud->{'delete'};
@@ -151,7 +153,7 @@ sub init {
                 croak qq'Missing value for "$_"' unless defined $value;
                 croak qq'Invalid value for "$_" ($value)' unless length $value == $len;
 
-                $self->{ $_ } = $datastore->then( $value, $parm );
+                $self->{ $_ } = then( $value, $parm );
                 $string      .= $value;
             }
             elsif( /user/ ) {
@@ -230,6 +232,7 @@ only use them for reading.
 sub string    {for($_[0]->{string}    ){$_=$_[1]if@_>1;return$_}}
 sub indicator {for($_[0]->{indicator} ){$_=$_[1]if@_>1;return$_}}
 sub transind  {for($_[0]->{transind}  ){$_=$_[1]if@_>1;return$_}}
+sub crud      {for($_[0]->{crud}      ){$_=$_[1]if@_>1;return$_}}
 sub date      {for($_[0]->{date}      ){$_=$_[1]if@_>1;return$_}}
 sub user      {for($_[0]->{user}      ){$_=$_[1]if@_>1;return$_}}
 
@@ -242,6 +245,45 @@ sub prevfnum  {for($_[0]->{prevfnum}  ){$_=  $_[1]if@_>1;return$_}}
 sub prevseek  {for($_[0]->{prevseek}  ){$_=0+$_[1]if@_>1;return$_}}
 sub nextfnum  {for($_[0]->{nextfnum}  ){$_=  $_[1]if@_>1;return$_}}
 sub nextseek  {for($_[0]->{nextseek}  ){$_=0+$_[1]if@_>1;return$_}}
+
+#---------------------------------------------------------------------
+sub is_created {
+    my( $self, $indicator ) = @_;
+    $indicator eq $self->crud->{'create'};
+}
+sub is_updated {
+    my( $self, $indicator ) = @_;
+    $indicator eq $self->crud->{'update'};
+}
+sub is_deleted {
+    my( $self, $indicator ) = @_;
+    $indicator eq $self->crud->{'delete'};
+}
+
+#---------------------------------------------------------------------
+# then(), translates stored date to YYYY-MM-DD
+
+sub then {
+    my( $date, $format ) = @_;
+    my( $y, $m, $d );
+    my $ret;
+    for( $format ) {
+        if( /yyyy/ ) {  # decimal year/month/day
+            $y = substr $date, index( $format, 'yyyy' ), 4;
+            $m = substr $date, index( $format, 'mm'   ), 2;
+            $d = substr $date, index( $format, 'dd'   ), 2;
+        }
+        else {  # assume base62 year/month/day
+            $y = substr $date, index( $format, 'yy' ), 2;
+            $m = substr $date, index( $format, 'm'  ), 1;
+            $d = substr $date, index( $format, 'd'  ), 1;
+            $y = sprintf "%04d", base2int( $y, 62 );
+            $m = sprintf "%02d", base2int( $m, 62 );
+            $d = sprintf "%02d", base2int( $d, 62 );
+        }
+    }
+    return "$y-$m-$d";
+}
 
 __END__
 

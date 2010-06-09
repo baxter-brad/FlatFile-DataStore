@@ -115,7 +115,8 @@ my $desc = "Example+FlatFile::DataStore";
 
     my $record = $ds->create( $record_data, $user_data );
     is( Dumper($record),
-        qq/bless( {'data' => \\'This is testing record1.','preamble' => bless( {'date' => '$yyyy_mm_dd','indicator' => '+','keynum' => 0,'reclen' => 24,'string' => '++${yyyymmdd}01002410000----------Testing1  ','thisfnum' => '1','thisseek' => 0,'transind' => '+','transnum' => 1,'user' => 'Testing1'}, 'FlatFile::DataStore::Preamble' )}, 'FlatFile::DataStore::Record' )/,
+
+        qq/bless( {'data' => \\'This is testing record1.','preamble' => bless( {'crud' => {'#' => 'oldupd','*' => 'olddel','+' => 'create','-' => 'delete','=' => 'update','create' => '+','delete' => '-','olddel' => '*','oldupd' => '#','update' => '='},'date' => '$yyyy_mm_dd','indicator' => '+','keynum' => 0,'reclen' => 24,'string' => '++${yyyymmdd}01002410000----------Testing1  ','thisfnum' => '1','thisseek' => 0,'transind' => '+','transnum' => 1,'user' => 'Testing1'}, 'FlatFile::DataStore::Preamble' )}, 'FlatFile::DataStore::Record' )/,
         "create()" );
 
     my $data = $record->data();
@@ -127,7 +128,7 @@ my $desc = "Example+FlatFile::DataStore";
     my $user = $record->user();
     is( $user, "Testing1", "user()" );
 
-    my $string = $record->string();
+    my $string = $record->preamble_string();
     is( $string, "++${yyyymmdd}01002410000----------Testing1  ", "string()" );
 
     my $indicator = $record->indicator();
