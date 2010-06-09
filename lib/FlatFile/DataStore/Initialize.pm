@@ -333,6 +333,29 @@ _end_
 
 }
 
+#---------------------------------------------------------------------
+# write_file(), dump contents to file
+#     Takes a file name and some "contents", locks it for writing,
+#     and writes the contents to the file.  The $contents parameter
+#     is expected to be a string, a scalar reference, or an array 
+#     reference.  The lines in this array should already end with
+#     newline, if they're expected to be that way in the file.
+#
+# Private method.
+
+sub write_file {
+    my( $self, $file, $contents ) = @_;
+
+    my $fh = $self->locked_for_write( $file );
+    my $type = ref $contents;
+    if( $type ) {
+        if   ( $type eq 'SCALAR' ) { print $fh $$contents           }
+        elsif( $type eq 'ARRAY'  ) { print $fh join "", @$contents  }
+        else                       { croak "Unrecognized type: $type" }
+    }
+    else { print $fh $contents }
+}
+
 1;  # returned
 
 __END__
