@@ -435,10 +435,10 @@ sub create {
     # write record to datafile
     my $preamble = $record->preamble_string;
     my $dataline = $preamble . $$data_ref . $self->recsep;
-    $self->write_bytes( $datafh, $dataseek, $dataline );
+    $self->write_bytes( $datafh, $dataseek, \$dataline );
 
     # write preamble to keyfile
-    $self->write_bytes( $keyfh, $keyseek, $preamble . $self->recsep );
+    $self->write_bytes( $keyfh, $keyseek, \($preamble . $self->recsep) );
     
     # update table of contents (toc) file
     my $toc = $self->new_toc( { num => $datafnum } );
@@ -513,6 +513,7 @@ sub retrieve {
     my $datafh   = $self->locked_for_read( $datafile );
     my $record   = $self->read_record( $datafh, $seekpos );
 
+    # if we got the record via key file, check that preambles match
     if( $keystring ) {
         my $string = $record->preamble_string;
         croak qq/Mismatch "$string" vs. "$keystring"/ if $string ne $keystring;
@@ -529,6 +530,10 @@ Retrieves a preamble.  The parm C<$keynum> is a key number, i.e.,
 record sequence number
 
 Returns a Flatfile::DataStore::Preamble object.
+
+This method allows getting information about the record, e.g., if
+it's deleted, what's in the user data, etc., without the overhead of
+retrieving the full record data.
 
 =cut
 
@@ -587,8 +592,9 @@ sub update {
         unless $prevind =~ /[\Q$create$update$delete\E]/;
 
     # get keyfile
-    # need to lock files before getting seek positions
-    # want to lock keyfile before datafile
+    #   need to lock files before getting seek positions
+    #   want to lock keyfile before datafile
+
     my( $keyfile, $keyfint ) = $self->keyfile( $keyint );
     my $keyfh                = $self->locked_for_write( $keyfile );
     my $keyseek              = $self->keyseek( $keyint );
@@ -611,8 +617,8 @@ sub update {
 
     # make new record
     my $preamble_hash = {
-        indicator => $self->crud->{'update'},
-        transind  => $self->crud->{'update'},
+        indicator => $update,
+        transind  => $update,
         date      => now( $self->dateformat ),
         transnum  => $transint,
         keynum    => $keyint,
@@ -633,10 +639,10 @@ sub update {
     # write record to datafile
     my $preamble = $record->preamble_string;
     my $dataline = $preamble . $$data_ref . $self->recsep;
-    $self->write_bytes( $datafh, $dataseek, $dataline );
+    $self->write_bytes( $datafh, $dataseek, \$dataline );
 
     # write preamble to keyfile (recsep there already)
-    $self->write_bytes( $keyfh, $keyseek, $preamble );
+    $self->write_bytes( $keyfh, $keyseek, \$preamble );
 
     # update the old preamble
     if( $prevnext ) {
@@ -647,7 +653,7 @@ sub update {
             } );
         my $prevdatafile = $self->which_datafile( $prevfnum );
         my $prevdatafh   = $self->locked_for_write( $prevdatafile );
-        $self->write_bytes( $prevdatafh, $prevseek, $prevpreamble );
+        $self->write_bytes( $prevdatafh, $prevseek, \$prevpreamble );
     }
 
     # update table of contents (toc) file
@@ -776,10 +782,10 @@ sub delete {
     # write record to datafile
     my $preamble = $record->preamble_string;
     my $dataline = $preamble . $$data_ref . $self->recsep;
-    $self->write_bytes( $datafh, $dataseek, $dataline );
+    $self->write_bytes( $datafh, $dataseek, \$dataline );
 
     # write preamble to keyfile (recsep there already)
-    $self->write_bytes( $keyfh, $keyseek, $preamble );
+    $self->write_bytes( $keyfh, $keyseek, \$preamble );
 
     # update the old preamble
     if( $prevnext ) {
@@ -790,7 +796,7 @@ sub delete {
             } );
         my $prevdatafile = $self->which_datafile( $prevfnum );
         my $prevdatafh   = $self->locked_for_write( $prevdatafile );
-        $self->write_bytes( $prevdatafh, $prevseek, $prevpreamble );
+        $self->write_bytes( $prevdatafh, $prevseek, \$prevpreamble );
     }
 
     # update table of contents (toc) file
@@ -1494,9 +1500,10 @@ sub locked_for_write {
 sub read_record {
     my( $self, $fh, $seekpos ) = @_;
 
-    my $len      = $self->preamblelen;
-    my $string   = $self->read_bytes( $fh, $seekpos, $len );
-    my $preamble = $self->new_preamble( { string => $string } );
+    # we don't call read_preamble() because we need len anyway
+    my $len  = $self->preamblelen;
+    my $sref = $self->read_bytes( $fh, $seekpos, $len ); 
+    my $preamble = $self->new_preamble( { string => $$sref } );
 
     $seekpos    += $len;
     $len         = $preamble->reclen;
@@ -1504,7 +1511,7 @@ sub read_record {
 
     my $record = $self->new_record( {
         preamble => $preamble,
-        data     => \$recdata,
+        data     => $recdata,  # scalar ref
         } );
 
     return $record;
@@ -1514,9 +1521,10 @@ sub read_record {
 sub read_preamble {
     my( $self, $fh, $seekpos ) = @_;
 
-    my $len = $self->preamblelen;
+    my $len  = $self->preamblelen;
+    my $sref = $self->read_bytes( $fh, $seekpos, $len ); 
 
-    return $self->read_bytes( $fh, $seekpos, $len ); 
+    return $$sref;  # want the string, not the ref
 }
 
 #---------------------------------------------------------------------
@@ -1528,15 +1536,15 @@ sub read_bytes {
     my $rc = sysread $fh, $string, $len;
     croak "Can't read: $!" unless defined $rc;
 
-    return $string;
+    return \$string;
 }
 
 #---------------------------------------------------------------------
 sub write_bytes {
-    my( $self, $fh, $seekpos, $string ) = @_;
+    my( $self, $fh, $seekpos, $sref ) = @_;
 
     sysseek  $fh, $seekpos, 0 or croak "Can't seek: $!";
-    syswrite $fh, $string     or croak "Can't write: $!";
+    syswrite $fh, $$sref      or croak "Can't write: $!";
 
 }
 

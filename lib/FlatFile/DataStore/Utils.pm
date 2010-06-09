@@ -217,11 +217,12 @@ sub validate {
             my $outlen = length( $md5out );
 
             if( $md5pos < $md5size ) {
-                my $md5line = $ds->read_bytes( $md5fh, $md5pos, $outlen );
-                die qq/Mismatched md5 lines/ unless $md5line eq $md5out;
+                my $sref = $ds->read_bytes( $md5fh, $md5pos, $outlen );
+                my $md5line = $sref? $$sref: '';
+                die qq/Mismatched md5 lines/ unless $$md5line eq $md5out;
             }
             else {
-                $ds->write_bytes( $md5fh, $md5pos, $md5out );
+                $ds->write_bytes( $md5fh, $md5pos, \$md5out );
             }
 
             $md5pos += $outlen;
@@ -230,7 +231,8 @@ sub validate {
             $seekpos += $preamblelen + $reclen;
 
             # use recsep as a sentinel for probably okay progress so far
-            my $sentinel = $ds->read_bytes( $datafh, $seekpos, $recseplen );
+            my $sref = $ds->read_bytes( $datafh, $seekpos, $recseplen );
+            my $sentinel = $sref? $$sref: '';
             die qq/Expected a recsep but got: "$sentinel" (at byte "$seekpos" in "$datafile")/
                 unless $sentinel eq $recsep;
 
@@ -401,7 +403,8 @@ sub migrate {
             $seekpos += $from_preamblelen + $reclen;
 
             # use recsep as a sentinel for probably okay progress so far
-            my $sentinel = $from_ds->read_bytes( $datafh, $seekpos, $from_recseplen );
+            my $sref = $from_ds->read_bytes( $datafh, $seekpos, $from_recseplen );
+            my $sentinel = $sref? $$sref: '';
             die qq/Expected a recsep but got: "$sentinel" (at byte "$seekpos" in "$datafile")/
                 unless $sentinel eq $from_recsep;
 

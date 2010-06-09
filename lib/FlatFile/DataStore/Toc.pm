@@ -106,9 +106,9 @@ sub init {
     else {
         croak qq/Missing parms 'int' or 'num'./; }
 
-    my $string = $self->read_toc( $datafint );
+    my $sref = $self->read_toc( $datafint );
 
-    unless( $string ) {
+    unless( $sref ) {
         $self->datafnum( $datafint );
         $self->tocfnum( $self->toc_getfnum( $datafint ) );
         $self->keynum(   $datafint == 0? -1: 0 );
@@ -116,6 +116,8 @@ sub init {
             for qw( keyfnum numrecs transnum create oldupd update olddel delete );
         return $self;
     }
+
+    my $string = $$sref;
 
     my $fnumbase  = $ds->fnumbase;
     my $keybase   = $ds->keybase;
@@ -217,7 +219,7 @@ sub write_toc {
     else {
         $seekpos = $toclen * $fint; }
 
-    return $ds->write_bytes( $tocfh, $seekpos, $self->to_string );
+    return $ds->write_bytes( $tocfh, $seekpos, \($self->to_string) );
 }
 
 #---------------------------------------------------------------------
