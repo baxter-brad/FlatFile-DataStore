@@ -12,6 +12,7 @@ file data store preamble class.
  use FlatFile::DataStore::Preamble;
 
  my $preamble = FlatFile::DataStore::Preamble->new( {
+     datastore => $ds,         # FlatFile::DataStore object
      indicator => $indicator,  # single-character crud flag
      transind  => $transind,   # single-character crud flag
      date      => $date,       # pre-formatted date
@@ -27,18 +28,18 @@ file data store preamble class.
      user      => $user_data,  # pre-formatted user-defined data
      } );
 
- my $string = $preamble->string(); # e.g.,
+ my $string = $preamble->string();
 
- # new preamble from existing preamble string
- # e.g., something like "#WP2L000I000F00Tw1001XN1001Ha100228Test      "
-
- my $clone = FlatFile::DataStore::Preamble->new( { string => $string } );
+ my $clone = FlatFile::DataStore::Preamble->new( {
+     datastore => $ds,
+     string    => $string
+     } );
 
 =head1 DESCRIPTION
 
 FlatFile::DataStore::Preamble - Perl module that implements a flat file
 data store preamble class.  This class defines objects used by
-FlatFile::DataStore::Record and FlatFile::DataStore.  So you will
+FlatFile::DataStore::Record and FlatFile::DataStore.  You will
 probably not ever call new() yourself, but you might call some of the
 accessors either directly or via a FF::DS::Record object;
 
@@ -120,7 +121,7 @@ sub init {
         $parms = $datastore->burst_preamble( $string );
     }
 
-    my $crud   = $datastore->crud();
+    my $crud = $datastore->crud();
     $self->crud( $crud );
 
     my $create = $crud->{'create'};
@@ -158,10 +159,12 @@ sub init {
             }
             elsif( /user/ ) {
                 croak qq'Missing value for "$_"' unless defined $value;
-                croak qq'Invalid value for "$_" ($value)' unless $value =~ $Ascii_chars;
 
                 my $try = sprintf "%-${len}s", $value;  # pads with blanks
                 croak qq'Value of "$_" ($try) too long' if length $try > $len;
+
+                my $user_regx = qr/^[$parm]+ *$/;  # $parm chars already escaped as needed
+                croak qq'Invalid value for "$_" ($value)' unless $try =~ $user_regx;
 
                 $self->{ $_ } = $value;
                 $string      .= $try;
@@ -247,21 +250,39 @@ sub nextfnum  {for($_[0]->{nextfnum}  ){$_=  $_[1]if@_>1;return$_}}
 sub nextseek  {for($_[0]->{nextseek}  ){$_=0+$_[1]if@_>1;return$_}}
 
 #---------------------------------------------------------------------
+
+=head2 Convenience methods
+
+=head3 is_created(), is_updated(), is_deleted();
+
+These methods and return true if the indicator
+matches the value implied by the method name, e.g.,
+
+ print "Deleted!" if $preamble->is_deleted();
+
+=cut
+
 sub is_created {
-    my( $self, $indicator ) = @_;
-    $indicator eq $self->crud->{'create'};
+    my $self = shift;
+    $self->indicator eq $self->crud->{'create'};
 }
 sub is_updated {
-    my( $self, $indicator ) = @_;
-    $indicator eq $self->crud->{'update'};
+    my $self = shift;
+    $self->indicator eq $self->crud->{'update'};
 }
 sub is_deleted {
-    my( $self, $indicator ) = @_;
-    $indicator eq $self->crud->{'delete'};
+    my $self = shift;
+    $self->indicator eq $self->crud->{'delete'};
 }
 
 #---------------------------------------------------------------------
 # then(), translates stored date to YYYY-MM-DD
+#     Takes a date and a format and returns the date as yyyy-mm-dd.
+#     If the format contains 'yyyy' it is assumed to have decimal
+#     values for month, day, year.  Otherwise, it is assumed to have
+#     base62 values for them.
+#
+# Private method.
 
 sub then {
     my( $date, $format ) = @_;
@@ -293,7 +314,7 @@ Brad Baxter, E<lt>bbaxter@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2009 by Brad Baxter
+Copyright (C) 2010 by Brad Baxter
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,

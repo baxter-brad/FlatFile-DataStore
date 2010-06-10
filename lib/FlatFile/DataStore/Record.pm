@@ -79,12 +79,9 @@ populate the record string.  Two keys are recognized:
  - preamble, i.e., a FlatFile::DataStore::Preamble object
  - data,     the actual record data
 
-The record data is stored as a scalar reference.
+The record data is stored in the object as a scalar reference.
 
 =cut
-
-# XXX allow new() to accept the parms for FF::DS::Preamble->new()
-# XXX analyze situations where storing the scalar reference is a problem
 
 sub new {
     my( $class, $parms ) = @_;
@@ -120,13 +117,13 @@ sub init {
 
 #---------------------------------------------------------------------
 
-=head1 OBJECT METHODS: ACCESSORS
+=head1 OBJECT METHODS: Accessors
 
 The following read/write methods set and return their respective
 attribute values if C<$value> is given.  Otherwise, they just return
 the value.
 
- $record->data(     [$value] ); # actual record data
+ $record->data(     [$value] ); # actual record data as a scalar ref
  $record->preamble( [$value] ); # FlatFile::DataStore::Preamble object
 
 =cut
@@ -148,7 +145,7 @@ The following read-only methods just return their respective values.
 The values all come from the record's contained preamble object.
 
  $record->user()
- $record->preamble_string()
+ $record->preamble_string()  # the 'string' attr of the preamble
  $record->indicator()
  $record->transind()
  $record->date()
@@ -161,6 +158,10 @@ The values all come from the record's contained preamble object.
  $record->prevseek()
  $record->nextfnum()
  $record->nextseek()
+
+ $record->is_created()
+ $record->is_updated()
+ $record->is_deleted()
 
 =cut
 
@@ -180,6 +181,10 @@ sub prevfnum  {$_[0]->preamble()->prevfnum() }
 sub prevseek  {$_[0]->preamble()->prevseek() }
 sub nextfnum  {$_[0]->preamble()->nextfnum() }
 sub nextseek  {$_[0]->preamble()->nextseek() }
+
+sub is_created {$_[0]->preamble()->is_created() }
+sub is_updated {$_[0]->preamble()->is_updated() }
+sub is_deleted {$_[0]->preamble()->is_deleted() }
 
 __END__
 

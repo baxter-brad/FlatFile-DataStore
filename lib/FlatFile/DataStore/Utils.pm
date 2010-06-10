@@ -83,10 +83,8 @@ BEGIN {
     validate(        $from_dir, $from_name                    );
     migrate_nohist ( $from_dir, $from_name, $to_dir, $to_name );
     validate(                               $to_dir, $to_name );
-    compare (        $from_dir, $from_name, $to_dir, $to_name );
 
-    # in this case, compare() will probably report that the data
-    # stores are *not* equivalent after the migrate
+    # can't compare anything (yet) after a nohist migrate
 
 =cut
 
@@ -274,6 +272,7 @@ assumed that the new data store has already been initialized.
 
 =cut
 
+#---------------------------------------------------------------------
 sub migrate {
     my( $from_dir, $from_name, $to_dir, $to_name, $to_uri ) = @_;
 
@@ -281,6 +280,7 @@ sub migrate {
         dir  => $from_dir,
         name => $from_name,
         } );
+
     my $to_ds   = FlatFile::DataStore->new( {
         dir  => $to_dir,
         name => $to_name,
@@ -441,8 +441,19 @@ The uri of the data store we're migrating to.  If given, a new data
 store will be initialized.  If this parameter is not given, it is
 assumed that the new data store has already been initialized.
 
+This routine will not keep any record history and will not migrate
+deleted records.
+
+Intended for post-migration comparisons, this routine writes a
+"$dir/$name.nohist" data file where each line contains two integers.
+The first integer is the record sequence number from the C<from_ds>,
+and the second is from the C<to_ds>.  Using these, it should be
+possible to compare the user data and record data md5 signature from
+both data stores to verify that the data was migrated completely.
+
 =cut
 
+#---------------------------------------------------------------------
 sub migrate_nohist {
     my( $from_dir, $from_name, $to_dir, $to_name, $to_uri ) = @_;
 
@@ -494,6 +505,35 @@ sub migrate_nohist {
         }
     }
 }
+
+#---------------------------------------------------------------------
+
+=head2 compare( $from_dir, $from_name, $to_dir, $to_name )
+
+This routine compares the files written by validate() for
+each of the data stores to verify that after migration, the
+second data store contains exactly the same information as
+the first.
+
+=head3 Parameters:
+
+=head4 $from_dir
+
+The directory of the data store we migrated from.
+
+=head4 $from_name
+
+The name of the data store we migrated from.
+
+=head4 $to_dir
+
+The directory of the data store we migrated to.
+
+=head4 $to_name
+
+The name of the data store we migrated to.
+
+=cut
 
 #---------------------------------------------------------------------
 sub compare {
@@ -552,6 +592,12 @@ sub compare {
 }
 
 #---------------------------------------------------------------------
+# locked_for_read()
+#     Takes a file name, opens it for input, locks it, and returns the
+#     open file handle.
+#
+# Private method.
+
 sub locked_for_read {
     my( $file ) = @_;
 
@@ -564,6 +610,12 @@ sub locked_for_read {
 }
 
 #---------------------------------------------------------------------
+# locked_for_read()
+#     Takes a file name, opens it for output, locks it, and returns the
+#     open file handle.
+#
+# Private method.
+
 sub locked_for_write {
     my( $file ) = @_;
 
@@ -577,6 +629,12 @@ sub locked_for_write {
 }
 
 #---------------------------------------------------------------------
+# locked_for_readwrite()
+#     Takes a file name, opens it for read/write, locks it, and
+#     returns the open file handle.
+#
+# Private method.
+
 sub locked_for_readwrite {
     my( $file ) = @_;
 

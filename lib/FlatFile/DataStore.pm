@@ -1856,13 +1856,13 @@ sub NEXTKEY {
 #---------------------------------------------------------------------
 # SCALAR() supports tied hash access
 
-# The howmany() routine returns the number of records in the data
-# store by default.  This number includes deleted records (exists()
-# also returns true for a deleted record).
+# nextkeynum() returns 0 before any records are added.  A non-zero
+# value indicates there are records -- created, updated, and/or
+# deleted.  Note that exists() returns true for a deleted record.
 
 sub SCALAR {
     my $self = shift;
-    $self->howmany;
+    $self->nextkeynum;
 }
 
 #---------------------------------------------------------------------

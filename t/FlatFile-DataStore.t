@@ -18,9 +18,10 @@ sub delete_tempfiles {
     }
 }
 
-my $dir  = "./tempdir";
-NOW:{ delete_tempfiles( $dir ) }
-END { delete_tempfiles( $dir ) }
+my $dir;
+BEGIN { $dir  = "./tempdir"      }
+NOW:  { delete_tempfiles( $dir ) }
+END   { delete_tempfiles( $dir ) }
 
 my $name = "example";
 my $desc = "Example+FlatFile::DataStore";
@@ -58,7 +59,7 @@ my $desc = "Example+FlatFile::DataStore";
         name => $name,
     } );
 
-    ok( $ds );
+    ok( $ds, "new()" );
 
     is( $ds->dir,         $dir,         "dir()"         );
     is( $ds->name,        $name,        "name()"        );
@@ -107,7 +108,7 @@ my $desc = "Example+FlatFile::DataStore";
         name => $name,
     } );
 
-    ok( $ds );
+    ok( $ds, "new()" );
 
     my $user_data   = "Testing1";
     #                  ----+----1----+----2---- (reclen:24)

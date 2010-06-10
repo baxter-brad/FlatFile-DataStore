@@ -11,17 +11,14 @@ only when initializing a data store
 
  require FlatFile::DataStore::Initialize;
 
- # new datastore object
- # XXX add uri here
-
- my $dir  = "/my/datastore/area";
- my $name = "dsname";
- my $ds   = FlatFile::DataStore->new( { dir => $dir, name => $name } );
+(But this is done only in FlatFile/DataStore.pm)
 
 =head1 DESCRIPTION
 
 FlatFile::DataStore::Initialize provides the routines that
-are used only when a data store is initialized.
+are used only when a data store is initialized.  It isn't a
+"true" module; it's intended for loading more methods for the
+FlatFile::DataStore class.
 
 =head1 VERSION
 
@@ -46,7 +43,13 @@ use Data::Omap qw( :ALL );
 
 #---------------------------------------------------------------------
 # burst_query(), called by init() to parse the datastore's uri
-#     also generates values for 'spec' and 'preamblelen'
+#     Takes a hash ref to the %Preamble attribute hash, so it can
+#     know which parts of the uri belong in the preamble.
+#     Then it gets the uri from the data store object and parses it.
+#     It loads all of the values it gets (and generates) in to a
+#     hash ref which it returns.
+#
+# Private method.
 
 sub burst_query {
     my( $self, $Preamble ) = @_;
@@ -89,6 +92,19 @@ sub burst_query {
 }
 
 #---------------------------------------------------------------------
+# get_defaults()
+#     This routine provides some default values for the data store
+#     configuration uri.  It takes the default you want, one of
+#     xsmall  xsmall_nohist
+#      small   small_nohist
+#     medium  medium_nohist
+#      large   large_nohist
+#     xlarge  xlarge_nohist
+#     and it returns the default values as an array of key/value
+#     strings, ready to include in a uri.  These are not uri_escaped.
+#
+# Private method.
+
 sub get_defaults {
     my( $want ) = @_;
 
@@ -209,8 +225,10 @@ sub get_defaults {
 
 #---------------------------------------------------------------------
 # make_preamble_regx(), called by init() to construct a regular
-#     expression that should match any record's preamble
-#     this regx should capture each fields value
+#     expression that should match any record's preamble.
+#     This regx should capture each fields value.
+#
+# Private method.
 
 sub make_preamble_regx {
     my( $self ) = @_;
@@ -225,6 +243,7 @@ sub make_preamble_regx {
                 $regx .= ($len == 1 ? "([\Q$parm\E])" : "([\Q$parm\E]{$len})");
             }
             elsif( /user/ ) {  # should only allow $Ascii_chars
+                # (metachars in $parm should already be escaped as needed)
                 $regx .= ($len == 1 ? "([$parm])" : "([$parm]{$len})");
             }
             elsif( /date/ ) {
@@ -244,8 +263,8 @@ sub make_preamble_regx {
 }
 
 #---------------------------------------------------------------------
-# make_crud(), called by init() to construct a hash of indicators
-#     CRUD indicators: Create, Retrieve, Update, Delete
+# make_crud(), called by init() to construct a hash of CRUD indicators
+#     (CRUD: Create, Retrieve, Update, Delete)
 #     the following are suggested, but configurable in uri
 #         + Create
 #         # Old Update (old record flagged as updated)
@@ -253,6 +272,10 @@ sub make_preamble_regx {
 #         * Old Delete (old record flagged as deleted)
 #         - Delete
 #     (no indicator for Retrieve, n/a--but didn't want to say CUD)
+#     Note that a reverse set is included, e.g., '+' => 'create' as
+#     well as create => '+'.
+#
+# Private method.
 
 sub make_crud {
     my( $self ) = @_;
@@ -272,9 +295,12 @@ sub make_crud {
 }
 
 #---------------------------------------------------------------------
-# convert_datamax(), called by init() to convert user-supplied
-#     datamax value into an integer: one can say, "500_000_000",
-#     "500M", or ".5G" to mean 500,000,000 bytes
+# convert_max(), called by init() to convert user-supplied max values
+#     (datamax, keymax, etc.) into an integer.
+#     One can say, "500_000_000", "500M", or ".5G" to mean
+#     500,000,000 bytes
+#
+# Private method.
 
 sub convert_max {
     my( $max ) = @_;
@@ -294,11 +320,14 @@ sub convert_max {
 #---------------------------------------------------------------------
 # initialize(), called by init() when datastore is first used
 #     adds a serialized object to bypass uri parsing from now on
+#
+# Private method.
 
 sub initialize {
     my( $self ) = @_;
 
     # can't initialize after data has been added
+
     my $fnum     = int2base 1, $self->fnumbase, $self->fnumlen;
     my $datafile = $self->which_datafile( $fnum );
     croak qq/Can't initialize database: data files exist (e.g., $datafile)./
@@ -366,7 +395,7 @@ Brad Baxter, E<lt>bbaxter@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2009 by Brad Baxter
+Copyright (C) 2010 by Brad Baxter
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,
