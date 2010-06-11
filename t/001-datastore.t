@@ -8,10 +8,13 @@ $Data::Dumper::Terse    = 1;
 $Data::Dumper::Indent   = 0;
 $Data::Dumper::Sortkeys = 1;
 
-BEGIN { use_ok('FlatFile::DataStore') };
+#---------------------------------------------------------------------
+# tempfiles cleanup
 
 sub delete_tempfiles {
     my( $dir ) = @_;
+    return unless $dir;
+
     for( glob "$dir/*" ) {
         if( -d $_ ) { rmtree( $_ ) }
         else        { unlink $_ or die "Can't delete $_: $!" }
@@ -23,12 +26,15 @@ BEGIN { $dir  = "./tempdir"      }
 NOW:  { delete_tempfiles( $dir ) }
 END   { delete_tempfiles( $dir ) }
 
+#---------------------------------------------------------------------
+BEGIN { use_ok('FlatFile::DataStore') };
+
 my $name = "example";
 my $desc = "Example+FlatFile::DataStore";
 
 {  # accessors
 
-    my $uri = join ";",
+    my $uri = join( ';' =>
         qq'http://example.com?name=$name',
         qq'desc=$desc',
         qw(
@@ -47,17 +53,14 @@ my $desc = "Example+FlatFile::DataStore";
             nextfnum=1-10
             nextseek=4-10
             user=10-%20-%7E
-        );
+        )
+    );
 
-    my $urifile = "$dir/$name.uri";
-    open my $fh, '>', $urifile or die qq/Can't open $urifile: $!/;
-    print $fh $uri;
-    close $fh;
-
-    my $ds = FlatFile::DataStore->new( {
-        dir  => $dir,
-        name => $name,
-    } );
+    my $ds = FlatFile::DataStore->new(
+        { dir  => $dir,
+          name => $name,
+          uri  => $uri,
+        } );
 
     ok( $ds, "new()" );
 
@@ -157,15 +160,37 @@ my $desc = "Example+FlatFile::DataStore";
     my $recdump1 = Dumper $record;
     my $recdump2 = Dumper $record2;
     is( $recdump1, $recdump2, "retrieve()" );
+    ok( $record->is_created, "is_created()" );
+    ok( $record2->is_created, "is_created()" );
 
     my $updrec = $ds->update( $record, "Updated Record", "Updated1" );
 
     my $rec_data = $updrec->data;
     is( $$rec_data,    "Updated Record", "rec->data()" );
     is( $updrec->user, "Updated1",       "rec->user()" );
+    ok( $updrec->is_updated, "is_updated()" );
 
     my $delrec = $ds->delete( $updrec );
     is( $delrec->indicator, $ds->crud()->{'delete'}, "deleted indicator()" );
+    ok( $delrec->is_deleted, "is_deleted()" );
+
+    $ds->userdata( "testing" );
+    $record = $ds->create( "Another test." );
+    is( $record->user, "testing", "userdata()" );
+
+    $record->data( "Yet another test." );
+    $record = $ds->create( $record );
+    $record2 = $ds->retrieve( $record->keynum );
+    my $recdata  = $record->data;
+    my $recdata2 = $record2->data;
+    is( $$recdata, $$recdata2, "create( record )" );
+
+    $record2 = $ds->create( $record, 'other user' );
+    is( $record2->user, 'other user', "create( record, user data )" );
+
+    $record = $ds->create( \"Apple", 'fruit' );
+    is( ${$record->data}, 'Apple', "create( scalar-ref, user data )" );
+    is( $record->user, 'fruit', "create( scalar-ref, user data )" );
 
 }
 

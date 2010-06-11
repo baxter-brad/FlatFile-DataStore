@@ -209,6 +209,8 @@ sub new {
 #       name ... the name of the data store
 #       uri  ... a uri to be used to configure the data store
 #     init() will look for dir/name.uri and load its values
+#
+# Private method.
 
 sub init {
     my( $self, $parms ) = @_;
@@ -359,6 +361,10 @@ sub init {
         $self->initialize;
     }
 
+    for( $parms->{'userdata'} ) {
+        $self->userdata( $_ ) if defined; 
+    }
+
     return $self;  # this is either the same self or a new self
 }
 
@@ -385,8 +391,6 @@ where the record data may be very large.  Likewise, the first parm to
 create() is allowed to be a scalar reference.
 
 =cut
-
-# XXX: can user data be optional?
 
 sub create {
     my( $self, $record_data, $user_data ) = @_;
@@ -591,6 +595,11 @@ record and user data will be gotten from it.
 
 Returns a Flatfile::DataStore::Record object.
 
+Note: the record data (but not user data) is stored in the FF::DS::Record
+object as a scalar reference.  This is done for efficiency in the cases
+where the record data may be very large.  Likewise, the first parm to
+create() is allowed to be a scalar reference.
+
 =cut
 
 sub update {
@@ -735,6 +744,11 @@ C<$object_or_string> is a FF::DS::Record object, in which case the
 record and user data will be gotten from it.
 
 Returns a Flatfile::DataStore::Record object.
+
+Note: the record data (but not user data) is stored in the FF::DS::Record
+object as a scalar reference.  This is done for efficiency in the cases
+where the record data may be very large.  Likewise, the first parm to
+create() is allowed to be a scalar reference.
 
 =cut
 
@@ -1151,17 +1165,19 @@ sub keymax {
     return $self->{keymax} if exists $self->{keymax};
 }
 
+# default to a space
+sub userdata {
+    my $self = shift;
+    return $self->{userdata} = $_[0] if @_;
+    return ' ' unless exists $self->{userdata};
+    return $self->{userdata};
+}
+
 #---------------------------------------------------------------------
-
-=head1 OBJECT METHODS, Utilitarian
-
-=head2 new_toc( \%parms )
-
-This method is a wrapper for FlatFile::DataStore::Toc->new().
-
-(It's not clear yet if this should be a private method.)
-
-=cut
+# new_toc( \%parms )
+#     This method is a wrapper for FlatFile::DataStore::Toc->new().
+#
+# Private method.
 
 sub new_toc {
     my( $self, $parms ) = @_;
@@ -1170,14 +1186,11 @@ sub new_toc {
 }
 
 #---------------------------------------------------------------------
-
-=head2 new_preamble( \%parms )
-
-This method is a wrapper for FlatFile::DataStore::Preamble->new().
-
-(It's not clear yet if this should be a private method.)
-
-=cut
+# new_preamble( \%parms )
+#     This method is a wrapper for
+#     FlatFile::DataStore::Preamble->new().
+#
+# Private method.
 
 sub new_preamble {
     my( $self, $parms ) = @_;
@@ -1186,14 +1199,10 @@ sub new_preamble {
 }
 
 #---------------------------------------------------------------------
-
-=head2 new_record( \%parms )
-
-This method is a wrapper for FlatFile::DataStore::Record->new().
-
-(It's not clear yet if this should be a private method.)
-
-=cut
+# new_record( \%parms )
+#     This method is a wrapper for FlatFile::DataStore::Record->new().
+#
+# Private method.
 
 sub new_record {
     my( $self, $parms ) = @_;
@@ -1208,7 +1217,8 @@ sub new_record {
 # keyfile()
 #    takes an integer that is the record sequence number and returns
 #    the path to the keyfile where that record's preamble is
-#    (probably a private method)
+#
+# Private method.
 
 sub keyfile {
     my( $self, $keyint ) = @_;
@@ -1270,7 +1280,8 @@ sub keyfile {
 #     number is longer than the max length for file numbers.  In
 #     either case, a new data store must be configured to handle the
 #     extra data, and the old data store must be migrated to it.
-#     (probably a private method)
+#
+# Private method.
 
 sub datafile {
     my( $self, $fnum, $reclen ) = @_;
@@ -1303,7 +1314,8 @@ sub datafile {
 #     Takes a file number and returns the path to that datafile.
 #     Takes into account dirlev and dirmax, if set, and will create
 #     new directories as needed.
-#     (probably a private method)
+#
+# Private method.
 
 sub which_datafile {
     my( $self, $datafnum ) = @_;
@@ -1339,7 +1351,8 @@ sub which_datafile {
 # sub all_datafiles(), called by validate utility
 #     Returns an array of paths for all of the data files in the data
 #     store.
-#     (probably a private method)
+#
+# Private method.
 
 sub all_datafiles {
     my( $self ) = @_;
@@ -1358,15 +1371,18 @@ sub all_datafiles {
 
 #---------------------------------------------------------------------
 
+=head1 OBJECT METHODS, Other
+
 =head2 howmany( [$regx] )
 
 Returns count of records whose indicators match regx, e.g.,
 
- $self->howmany( qr/create|update/ );
- $self->howmany( qr/delete/ );
- $self->howmany( qr/oldupd|olddel/ );
+    $self->howmany( qr/create|update/ );
+    $self->howmany( qr/delete/ );
+    $self->howmany( qr/oldupd|olddel/ );
 
-If no regx, howmany() returns numrecs from the toc file.
+If no regx, howmany() returns numrecs from the toc file, which
+should give the same number as qw/create|update/.
 
 =cut
 
@@ -1384,13 +1400,43 @@ sub howmany {
 }
 
 #---------------------------------------------------------------------
+
+=head2 lastkeynum()
+
+Returns the last key number used, i.e., the sequence number of the
+last record added to the data store, as an integer.
+
+=cut
+
+sub lastkeynum {
+    my( $self ) = @_;
+
+    my $top_toc = $self->new_toc( { int => 0 } );
+    my $keyint  = $top_toc->keynum;
+
+    return $keyint;
+}
+
+=head2 nextkeynum()
+
+Returns lastkeynum()+1 (a convenience method).  This would be useful
+for adding a new record to a hash tied to a data store, e.g.,
+
+    $h{ $ds->nextkeynum } = "New record data.";
+
+=cut
+
+sub nextkeynum { $_[0]->lastkeynum + 1 }
+
+#---------------------------------------------------------------------
 # keyseek(), seek to a particular line in the key file
 #     Takes the record sequence number as an integer and returns
 #     the seek position needed to retrieve the record's preamble from
 #     the pertinent keyfile.  Interestingly, this seek position is
 #     only a function of the keyint and keymax values, so this
 #     routine doesn't need to know which keyfile we're seeking into.
-#     (probably a private method)
+#
+# Private method.
             
 sub keyseek {
     my( $self, $keyint ) = @_;
@@ -1408,27 +1454,6 @@ sub keyseek {
 }
 
 #---------------------------------------------------------------------
-# lastkeynum()
-#     Returns the last key number used.  Called by retrieve() and
-#     retrieve_preamble() to check if requested number exists, and
-#     called by some of the tied hash methods
-# nextkeynum()
-#     Returns lastkeynum()+1, as a convenience method
-#
-# note that lastkeynum() and nextkeynum() return integers
-# (probably private methods)
-
-sub lastkeynum {
-    my( $self ) = @_;
-
-    my $top_toc = $self->new_toc( { int => 0 } );
-    my $keyint  = $top_toc->keynum;
-
-    return $keyint;
-}
-sub nextkeynum { $_[0]->lastkeynum + 1 }
-
-#---------------------------------------------------------------------
 # nexttransnum(), get next transaction number
 #     Takes a FF::DS::Toc (table of contents) object, which should be
 #     "top" Toc that has many of the key values for the data store.
@@ -1437,7 +1462,8 @@ sub nextkeynum { $_[0]->lastkeynum + 1 }
 #     configuration.  In that case, a new datastore that allows for
 #     more transactions must be configured and the old data store
 #     migrated to it.
-#     (probably a private method)
+#
+# Private method.
 
 sub nexttransnum {
     my( $self, $top_toc ) = @_;
@@ -1461,7 +1487,8 @@ sub nexttransnum {
 #     these values.  Called by FF::DS::Preamble->new() to create an
 #     object from a string, and by retrieve() to get the file number
 #     and seek pos for reading a record.
-#     (probably a private method)
+#
+# Private method.
 
 sub burst_preamble {
     my( $self, $string ) = @_;
@@ -1503,7 +1530,8 @@ sub burst_preamble {
 #     Take a preamble string and a hash ref of values to change, and
 #     returns a new preamble string with those values changed.  Will
 #     croak if the new preamble does match the regx attribute
-#     (probably a private method)
+#
+# Private method.
 
 sub update_preamble {
     my( $self, $preamble, $parms ) = @_;
@@ -1545,19 +1573,26 @@ sub update_preamble {
 
 #---------------------------------------------------------------------
 # DESTROY() supports tied and untied objects
+
 sub DESTROY {
     my $self = shift;
     $self->close_files;
 }
 
 #---------------------------------------------------------------------
-# close_files()
-#     This routine will close all open files associated with the
-#     object.  This is used in DESTROY(), but could conceivably be
-#     called by the application if it detects too many open files.
-#
-#     The intention is that close_files() could be called any time --
-#     new files would be opened again as needed.
+
+=head2 close_files()
+
+This routine will close all open files associated with the data store
+object.  This is used in DESTROY(), but could conceivably be called by
+the application if it detects too many open files.
+
+ $ds->close_files();
+
+The intention is that close_files() can be called any time -- new files
+would be opened again as needed.
+
+=cut
 
 sub close_files {
     my $self = shift;
@@ -1609,17 +1644,21 @@ sub locked_for_read {
 #
 # Private method.
 
-# XXX: do we need to check %Read_fh and remove the fh if it's there?
-
 sub locked_for_write {
     my( $self, $file ) = @_;
 
     my $open_fh = $Write_fh{ $self }{ $file };
     return $open_fh if $open_fh;
 
+    # remove possible shared lock on file
+    if( exists $Read_fh{ $self }{ $file } ) {
+        close  $Read_fh{ $self }{ $file };
+        delete $Read_fh{ $self }{ $file };
+    }
+
     my $fh;
     sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak "Can't open for read/write $file: $!";
-    my $ofh = select( $fh ); $| = 1; select ( $ofh );
+    my $ofh = select( $fh ); $| = 1; select ( $ofh );  # flush buffers
     flock $fh, LOCK_EX                    or croak "Can't lock exclusive $file: $!";
     binmode $fh;
 
@@ -1725,9 +1764,10 @@ sub read_file {
 }
 
 #---------------------------------------------------------------------
-# now(), expects yyyymmdd or yymd (or mmddyyyy, mdyy, etc.)
-#        returns current date formatted as requested
-# called by create(), update(), delete()
+# now(), expects 'yyyymmdd' or 'yymd' (or 'mmddyyyy', 'mdyy', etc.)
+#     Returns current date formatted as requested.
+#
+# Private method.
 
 sub now {
     my( $format ) = @_;
@@ -1750,6 +1790,7 @@ sub now {
 
 #---------------------------------------------------------------------
 # TIEHASH() supports tied hash access
+#     Returns data store object
 
 sub TIEHASH {
     my $class = shift;
@@ -1758,8 +1799,7 @@ sub TIEHASH {
 
 #---------------------------------------------------------------------
 # FETCH() supports tied hash access
-
-# This returns a record object.
+#     Returns a record object.
 
 sub FETCH {
     my( $self, $key ) = @_;
@@ -1770,12 +1810,12 @@ sub FETCH {
 
 #---------------------------------------------------------------------
 # STORE() supports tied hash access
-
-# If $key is new, it has to be nextkeynum, i.e., you can't leave
-# gaps in the sequence of keys
-# e.g., $h{ keys %h                } = [ "New", "record" ];
-# or    $h{ tied( %h )->nextkeynum } = [ "New", "record" ];
-# ('keys %h' is fairly light-weight, but nextkeynum() is more so)
+#     Keys are limited to 0 .. lastkeynum (integers)
+#     If $key is new, it has to be nextkeynum, i.e., you can't leave
+#     gaps in the sequence of keys
+#     e.g., $h{ keys %h                } = [ "New", "record" ];
+#     or    $h{ tied( %h )->nextkeynum } = [ "New", "record" ];
+#     ('keys %h' is fairly light-weight, but nextkeynum() is more so)
 
 sub STORE {
     my( $self, $key, $record ) = @_;
@@ -1801,12 +1841,12 @@ sub STORE {
 
 #---------------------------------------------------------------------
 # DELETE() supports tied hash access
-
-# If you want the "delete record" to contain anything more than the
-# record being deleted, you have to call tied( %h )->delete() instead.
+#     If you want the "delete record" to contain anything more than
+#     the record being deleted, you have to call tied( %h )->delete()
+#     instead.
 #
-# Otherwise, we have to have a record to delete one, so we fetch it
-# first.
+#     Otherwise, we have to have a record to delete one, so we fetch
+#     it first.
 
 sub DELETE {
     my( $self, $key ) = @_;
@@ -1817,9 +1857,10 @@ sub DELETE {
 }
 
 #---------------------------------------------------------------------
-# CLEAR() supports tied hash access, except we don't support CLEAR,
-# because it would be very destructive and it would be a pain to
-# recover from an accidental %h = ();
+# CLEAR() supports tied hash access
+#     except we don't support CLEAR, because it would be very
+#     destructive and it would be a pain to recover from an
+#     accidental %h = ();
 
 sub CLEAR {
     my $self = shift;
@@ -1828,10 +1869,9 @@ sub CLEAR {
 
 #---------------------------------------------------------------------
 # FIRSTKEY() supports tied hash access
-
-# The keys in a data store are always 0 .. lastkeynum.
-# Before the first record is added, nextkeynum() returns 0.
-# In that case, the sub below would return undef.
+#     The keys in a data store are always 0 .. lastkeynum (integers).
+#     Before the first record is added, nextkeynum() returns 0.
+#     In that case, the sub below would return undef.
 
 sub FIRSTKEY {
     my $self = shift;
@@ -1840,12 +1880,10 @@ sub FIRSTKEY {
 
 #---------------------------------------------------------------------
 # NEXTKEY() supports tied hash access
-
-# Because FIRSTKEY/NEXTKEY are functions of integers and require
-# reading only a single line from a file (lastkeynum() reads the first
-# line of the first toc file), the 'keys %h' operation is
-# comparatively light-weight ('values %h' and 'each %h' are a
-# different story.)
+#     Because FIRSTKEY/NEXTKEY are functions of integers and require
+#     reading only a single line from a file (lastkeynum() reads the
+#     first line of the first toc file), the 'keys %h' operation is
+#     comparatively light-weight ('values %h' is a different story.)
 
 sub NEXTKEY {
     my( $self, $prevkey ) = @_; 
@@ -1855,10 +1893,9 @@ sub NEXTKEY {
 
 #---------------------------------------------------------------------
 # SCALAR() supports tied hash access
-
-# nextkeynum() returns 0 before any records are added.  A non-zero
-# value indicates there are records -- created, updated, and/or
-# deleted.  Note that exists() returns true for a deleted record.
+#     nextkeynum() returns 0 before any records are added.  A non-zero
+#     value indicates there are records -- created, updated, and/or
+#     deleted.  Note that exists() returns true for a deleted record.
 
 sub SCALAR {
     my $self = shift;
@@ -1867,16 +1904,16 @@ sub SCALAR {
 
 #---------------------------------------------------------------------
 # EXISTS() supports tied hash access
-
-# This routine will return a true value for created, updated, *and*
-# deleted records.  This true value is in fact a preamble object, so
-# if needed, you can check the status of the record (deleted or not).
-# e.g.,
-# if( my $preamble = exists( $key ) ) {
-#    print "Deleted." if $preamble->is_deleted();
-#    print "Created." if $preamble->is_created();
-#    print "Updated." if $preamble->is_updated();
-# }
+#     This routine will return a true value for created, updated,
+#     *and* deleted records.  This true value is in fact a preamble
+#     object, so if needed, you can check the status of the record
+#     (deleted or not), e.g.,
+#
+#     if( my $preamble = exists( $key ) ) {
+#        print "Deleted." if $preamble->is_deleted();
+#        print "Created." if $preamble->is_created();
+#        print "Updated." if $preamble->is_updated();
+#     }
 
 sub EXISTS {
     my( $self, $key ) = @_;
@@ -1887,7 +1924,7 @@ sub EXISTS {
 
 #---------------------------------------------------------------------
 # UNTIE() supports tied hash access
-# (see perldoc perltie, The "untie" Gotcha)
+#     (see perldoc perltie, The "untie" Gotcha)
 
 sub UNTIE {
     my( $self, $count ) = @_;

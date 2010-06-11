@@ -17,7 +17,7 @@ only when initializing a data store
 
 FlatFile::DataStore::Initialize provides the routines that
 are used only when a data store is initialized.  It isn't a
-"true" module; it's intended for loading more methods for the
+"true" module; it's intended for loading more methods in the
 FlatFile::DataStore class.
 
 =head1 VERSION
@@ -226,7 +226,7 @@ sub get_defaults {
 #---------------------------------------------------------------------
 # make_preamble_regx(), called by init() to construct a regular
 #     expression that should match any record's preamble.
-#     This regx should capture each fields value.
+#     This regx should capture each field's value.
 #
 # Private method.
 
@@ -265,7 +265,7 @@ sub make_preamble_regx {
 #---------------------------------------------------------------------
 # make_crud(), called by init() to construct a hash of CRUD indicators
 #     (CRUD: Create, Retrieve, Update, Delete)
-#     the following are suggested, but configurable in uri
+#     the following are suggested, but configurable in the uri
 #         + Create
 #         # Old Update (old record flagged as updated)
 #         = Update
@@ -319,7 +319,8 @@ sub convert_max {
 
 #---------------------------------------------------------------------
 # initialize(), called by init() when datastore is first used
-#     adds a serialized object to bypass uri parsing from now on
+#     adds a serialized object to the uri file to bypass uri
+#     parsing from then on
 #
 # Private method.
 

@@ -72,9 +72,9 @@ my %Attrs = ( %Generated, qw(
     indicator 1
     transind  1
     date      1
+    transnum  1
     keynum    1
     reclen    1
-    transnum  1
     thisfnum  1
     thisseek  1
     prevfnum  1
@@ -158,7 +158,10 @@ sub init {
                 $string      .= $value;
             }
             elsif( /user/ ) {
-                croak qq'Missing value for "$_"' unless defined $value;
+                unless( defined $value ) {
+                    $value = $datastore->userdata;
+                    croak qq'Missing value for "$_"' unless defined $value;
+                }
 
                 my $try = sprintf "%-${len}s", $value;  # pads with blanks
                 croak qq'Value of "$_" ($try) too long' if length $try > $len;
@@ -206,20 +209,21 @@ sub init {
 The following methods set and return their respective attribute values
 if C<$value> is given.  Otherwise, they just return the value.
 
- $preamble->string(    [$value] ); # full preamble string
- $preamble->indicator( [$value] ); # single-character crud indicator
- $preamble->transind(  [$value] ); # single-character crud indicator
- $preamble->date(      [$value] ); # date as YYYY-MM-DD
- $preamble->keynum(    [$value] ); # record sequence number (integer)
- $preamble->reclen(    [$value] ); # record length (integer)
- $preamble->transnum(  [$value] ); # transaction number (integer)
- $preamble->thisfnum(  [$value] ); # file number (in base format)
- $preamble->thisseek(  [$value] ); # seek position (integer)
- $preamble->prevfnum(  [$value] ); # ditto these ...
- $preamble->prevseek(  [$value] ); # 
- $preamble->nextfnum(  [$value] ); # 
- $preamble->nextseek(  [$value] ); # 
- $preamble->user(      [$value] ); # pre-formatted user-defined data
+ $preamble->string(    $value ); # full preamble string
+ $preamble->indicator( $value ); # single-character crud indicator
+ $preamble->transind(  $value ); # single-character crud indicator
+ $preamble->date(      $value ); # date as YYYY-MM-DD
+ $preamble->transnum(  $value ); # transaction number (integer)
+ $preamble->keynum(    $value ); # record sequence number (integer)
+ $preamble->reclen(    $value ); # record length (integer)
+ $preamble->thisfnum(  $value ); # file number (in base format)
+ $preamble->thisseek(  $value ); # seek position (integer)
+ $preamble->prevfnum(  $value ); # ditto these ...
+ $preamble->prevseek(  $value ); # 
+ $preamble->nextfnum(  $value ); # 
+ $preamble->nextseek(  $value ); # 
+ $preamble->user(      $value ); # pre-formatted user-defined data
+ $preamble->crud(      $value ); # hash ref of all crud indicators
 
 Note: the class code uses these accessors to set values in the object
 as it is assembling the preamble string in new().  Unless you have a

@@ -14,6 +14,7 @@ file data store record class.
  use FlatFile::DataStore::Preamble;
 
  my $preamble = FlatFile::DataStore::Preamble->new( {
+     datastore => $ds,         # FlatFile::DataStore object
      indicator => $indicator,  # single-character crud flag
      transind  => $transind,   # single-character crud flag
      date      => $date,       # pre-formatted date
@@ -123,8 +124,8 @@ The following read/write methods set and return their respective
 attribute values if C<$value> is given.  Otherwise, they just return
 the value.
 
- $record->data(     [$value] ); # actual record data as a scalar ref
- $record->preamble( [$value] ); # FlatFile::DataStore::Preamble object
+ $record->data(     $value ); # actual record data as a scalar ref
+ $record->preamble( $value ); # FlatFile::DataStore::Preamble object
 
 =cut
 
@@ -149,9 +150,9 @@ The values all come from the record's contained preamble object.
  $record->indicator()
  $record->transind()
  $record->date()
+ $record->transnum()
  $record->keynum()
  $record->reclen()
- $record->transnum()
  $record->thisfnum()
  $record->thisseek()
  $record->prevfnum()
@@ -169,12 +170,13 @@ sub user {for($_[0]->preamble()){defined&&return$_->user()}}
 
 sub preamble_string {$_[0]->preamble()->string()}
 
+sub datastore {$_[0]->preamble()->datastore()}
 sub indicator {$_[0]->preamble()->indicator()}
 sub transind  {$_[0]->preamble()->transind() }
 sub date      {$_[0]->preamble()->date()     }
+sub transnum  {$_[0]->preamble()->transnum() }
 sub keynum    {$_[0]->preamble()->keynum()   }
 sub reclen    {$_[0]->preamble()->reclen()   }
-sub transnum  {$_[0]->preamble()->transnum() }
 sub thisfnum  {$_[0]->preamble()->thisfnum() }
 sub thisseek  {$_[0]->preamble()->thisseek() }
 sub prevfnum  {$_[0]->preamble()->prevfnum() }

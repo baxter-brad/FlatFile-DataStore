@@ -3,12 +3,18 @@ use warnings;
 
 use Test::More 'no_plan';
 use File::Path;
+use Data::Dumper;
+$Data::Dumper::Terse    = 1;
+$Data::Dumper::Indent   = 0;
+$Data::Dumper::Sortkeys = 1;
 
 #---------------------------------------------------------------------
 # tempfiles cleanup
 
 sub delete_tempfiles {
     my( $dir ) = @_;
+    return unless $dir;
+
     for( glob "$dir/*" ) {
         if( -d $_ ) { rmtree( $_ ) }
         else        { unlink $_ or die "Can't delete $_: $!" }
@@ -73,6 +79,9 @@ ok( $ds, "FlatFile::DataStore->new()" );
         } );
 
     # values for an empty data store
+
+    my $try = $toc->datastore;
+    is( "$try", "$ds", "datastore()" );
 
     is( $toc->to_string, undef, "to_string() no data" );
     is( $toc->string, undef, "string()" );

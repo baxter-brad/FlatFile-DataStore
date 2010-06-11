@@ -3,12 +3,18 @@ use warnings;
 
 use Test::More 'no_plan';
 use File::Path;
+use Data::Dumper;
+$Data::Dumper::Terse    = 1;
+$Data::Dumper::Indent   = 0;
+$Data::Dumper::Sortkeys = 1;
 
 #---------------------------------------------------------------------
 # tempfiles cleanup
 
 sub delete_tempfiles {
     my( $dir ) = @_;
+    return unless $dir;
+
     for( glob "$dir/*" ) {
         if( -d $_ ) { rmtree( $_ ) }
         else        { unlink $_ or die "Can't delete $_: $!" }
@@ -22,6 +28,8 @@ END   { delete_tempfiles( $dir ) }
 
 #---------------------------------------------------------------------
 BEGIN { use_ok('FlatFile::DataStore::Preamble') };
+
+# need a datastore object
 
 use FlatFile::DataStore;
 
@@ -89,6 +97,96 @@ is( $string, '++WQ6A01001c10000----------:', "string()" );
      } );
 
 ok( $clone );
-is( $clone->string(), $preamble->string(), "clone" )
+is( $clone->string(), $preamble->string(), "clone" );
+
+# accessors pod
+
+# $preamble->string(    $value ); # full preamble string
+
+is( $string, '++WQ6A01001c10000----------:', "string()" );
+
+# $preamble->indicator( $value ); # single-character crud indicator
+
+is( $preamble->indicator(), '+', "indicator()" );
+
+# $preamble->transind(  $value ); # single-character crud indicator
+
+is( $preamble->transind(), '+', "transind()" );
+
+# $preamble->date(      $value ); # date as YYYY-MM-DD
+
+is( $preamble->date(), '2010-06-10', "date()" );
+
+# $preamble->transnum(  $value ); # transaction number (integer)
+
+is( $preamble->transnum(), 1, "transnum()" );
+
+# $preamble->keynum(    $value ); # record sequence number (integer)
+
+is( $preamble->keynum(), 0, "keynum()" );
+
+# $preamble->reclen(    $value ); # record length (integer)
+
+is( $preamble->reclen(), 100, "reclen()" );
+
+# $preamble->thisfnum(  $value ); # file number (in base format)
+
+is( $preamble->thisfnum(), '1', "thisfnum()" );
+
+# $preamble->thisseek(  $value ); # seek position (integer)
+
+is( $preamble->thisseek(), 0, "thisseek()" );
+
+# $preamble->prevfnum(  $value ); # ditto these ...
+
+is( $preamble->prevfnum(), undef, "prevfnum()" );
+
+# $preamble->prevseek(  $value ); # 
+
+is( $preamble->prevseek(), undef, "prevseek()" );
+
+# $preamble->nextfnum(  $value ); # 
+
+is( $preamble->nextfnum(), undef, "nextfnum()" );
+
+# $preamble->nextseek(  $value ); # 
+
+is( $preamble->nextseek(), undef, "nextseek()" );
+
+# $preamble->user(      $value ); # pre-formatted user-defined data
+
+is( $preamble->user(), ':', "user()" );
+
+# $preamble->crud(      $value ); # hash ref of all crud indicators
+
+is( Dumper($preamble->crud()),
+    "{'#' => 'oldupd','*' => 'olddel','+' => 'create','-' => 'delete','=' => 'update','create' => '+','delete' => '-','olddel' => '*','oldupd' => '#','update' => '='}",
+    "crud()" );
+
+# more pod
+
+ok( $preamble->is_created(), "is_created()" );
+
+my $rec = $ds->create( "This is a test", ":" );
+
+ok( $rec->preamble->is_created(), "is_created()" );
+ok( $rec->is_created(), "is_created()" );
+
+$rec = $ds->update( $rec );
+
+ok( $rec->preamble->is_updated(), "is_updated()" );
+ok( $rec->is_updated(), "is_updated()" );
+
+$rec = $ds->delete( $rec );
+
+ok( $rec->preamble->is_deleted(), "is_deleted()" );
+ok( $rec->is_deleted(), "is_deleted()" );
+
+# print "Deleted!" if $preamble->is_deleted();
+
+$preamble = $rec->preamble();
+my $msg = "Deleted!" if $preamble->is_deleted();
+
+is( $msg, "Deleted!", "is_deleted()" );
 
 }
