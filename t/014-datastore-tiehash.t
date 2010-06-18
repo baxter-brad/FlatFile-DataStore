@@ -46,8 +46,8 @@ my $datastore = FlatFile::DataStore::->new( {
     ) }
 );
 
-{ # tied intreface pod
 
+{
     use FlatFile::DataStore;
 
     tie my %dshash, 'FlatFile::DataStore', {
@@ -111,4 +111,3 @@ is( ${$dshash{ $record->keynum }->data}, $record_data, "object record data" );
 is( $dshash{ $record->keynum }->user, $user_data, "object user data" );
 
 }
-

@@ -17,6 +17,7 @@ t/010-datastore-large_nohist.t
 t/011-datastore-xlarge.t
 t/012-datastore-xlarge_nohist.t
 t/013-datastore-uripod.t
+t/014-datastore-tiehash.t
 t/601-preamble.t
 t/701-toc.t
 t/801-record.t
@@ -25,6 +26,7 @@ lib/FlatFile/DataStore/Initialize.pm
 lib/FlatFile/DataStore/Preamble.pm
 lib/FlatFile/DataStore/Record.pm
 lib/FlatFile/DataStore/Toc.pm
+lib/FlatFile/DataStore/Tiehash.pm
 lib/FlatFile/DataStore/Utils.pm
 lib/FlatFile/DataStore/FMTEYEWTK.pm
 lib/FlatFile/DataStore/Tutorial.pm
