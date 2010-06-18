@@ -126,6 +126,7 @@ my %Optional = qw(
     prevseek    1
     nextfnum    1
     nextseek    1
+    userdata    1
     );
 
 # attributes that we generate (vs. user-supplied)
@@ -1171,11 +1172,11 @@ sub keymax {
     return $self->{keymax} if exists $self->{keymax};
 }
 
-# default to a space
+# default to null string (will get space-padded)
 sub userdata {
     my $self = shift;
     return $self->{userdata} = $_[0] if @_;
-    return ' ' unless exists $self->{userdata};
+    return '' unless exists $self->{userdata};
     return $self->{userdata};
 }
 
