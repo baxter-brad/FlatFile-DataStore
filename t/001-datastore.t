@@ -3,6 +3,7 @@ use warnings;
 
 use Test::More 'no_plan';
 use File::Path;
+use URI::Escape;
 use Data::Dumper;
 $Data::Dumper::Terse    = 1;
 $Data::Dumper::Indent   = 0;
@@ -30,13 +31,13 @@ END   { delete_tempfiles( $dir ) }
 BEGIN { use_ok('FlatFile::DataStore') };
 
 my $name = "example";
-my $desc = "Example+FlatFile::DataStore";
+my $desc = "Example FlatFile::DataStore";
 
 {  # accessors
 
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
-        qq'desc=$desc',
+        qq'desc='.uri_escape($desc),
         qw(
             datamax=9_000
             recsep=%0A

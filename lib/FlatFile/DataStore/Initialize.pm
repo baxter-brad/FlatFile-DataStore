@@ -78,7 +78,7 @@ sub burst_query {
     };
     for( @pairs ) {
         if( /^defaults=(.*)/ ) {
-            $load_parms->( $_ ) for get_defaults( $1 );
+            $load_parms->( $_ ) for defaults( $1 );
             next;
         }
         $load_parms->( $_ );
@@ -92,7 +92,7 @@ sub burst_query {
 }
 
 #---------------------------------------------------------------------
-# get_defaults()
+# defaults()
 #     This routine provides some default values for the data store
 #     configuration uri.  It takes the default you want, one of
 #     xsmall  xsmall_nohist
@@ -101,109 +101,111 @@ sub burst_query {
 #      large   large_nohist
 #     xlarge  xlarge_nohist
 #     and it returns the default values as an array of key/value
-#     strings, ready to include in a uri.  These are not uri_escaped.
+#     strings, ready to include in a uri.
 #
 # Private method.
 
-sub get_defaults {
+sub defaults {
     my( $want ) = @_;
 
+    my $ind = uri_escape( "1-+#=*-" );
+
     my @xsmall_nohist = (
-        'indicator=1-+#=*-',
-        'transind=1-+#=*-',
-        'date=4-yymd',
-        'transnum=2-62 ',  # 3,843 transactions
-        'keynum=2-62',     # 3,843 records
-        'reclen=2-62',     # 3,843 bytes/record
-        'thisfnum=1-36',   # 35 data files
-        'thisseek=4-62',   # 14,776,335 bytes/file
+        "indicator=$ind",
+        "transind=$ind",
+        "date=4-yymd",
+        "transnum=2-62 ",  # 3,843 transactions
+        "keynum=2-62",     # 3,843 records
+        "reclen=2-62",     # 3,843 bytes/record
+        "thisfnum=1-36",   # 35 data files
+        "thisseek=4-62",   # 14,776,335 bytes/file
     );
     my @xsmall = (
         @xsmall_nohist,
-        'prevfnum=1-36',
-        'prevseek=4-62',
-        'nextfnum=1-36',
-        'nextseek=4-62',
+        "prevfnum=1-36",
+        "prevseek=4-62",
+        "nextfnum=1-36",
+        "nextseek=4-62",
     );
 
     my @small_nohist = (
-        'indicator=1-+#=*-',
-        'transind=1-+#=*-',
-        'date=4-yymd',
-        'transnum=3-62 ',  # 238,327 transactions
-        'keynum=2-62',     # 238,327 records
-        'reclen=2-62',     # 238,327 bytes/record
-        'thisfnum=1-36',   # 35 data files
-        'thisseek=5-62',   # 916,132,831 bytes/file
+        "indicator=$ind",
+        "transind=$ind",
+        "date=4-yymd",
+        "transnum=3-62 ",  # 238,327 transactions
+        "keynum=2-62",     # 238,327 records
+        "reclen=2-62",     # 238,327 bytes/record
+        "thisfnum=1-36",   # 35 data files
+        "thisseek=5-62",   # 916,132,831 bytes/file
     );
     my @small = (
         @small_nohist,
-        'prevfnum=1-36',
-        'prevseek=5-62',
-        'nextfnum=1-36',
-        'nextseek=5-62',
+        "prevfnum=1-36",
+        "prevseek=5-62",
+        "nextfnum=1-36",
+        "nextseek=5-62",
     );
 
     my @medium_nohist = (
-        'indicator=1-+#=*-',
-        'transind=1-+#=*-',
-        'date=4-yymd',
-        'transnum=4-62 ',  # 14,776,335 transactions
-        'keynum=4-62',     # 14,776,335 records
-        'reclen=4-62',     # 14,776,335 bytes/record
-        'thisfnum=2-36',   # 1,295 data files
-        'thisseek=5-62',   # 916,132,831 bytes/file
+        "indicator=$ind",
+        "transind=$ind",
+        "date=4-yymd",
+        "transnum=4-62 ",  # 14,776,335 transactions
+        "keynum=4-62",     # 14,776,335 records
+        "reclen=4-62",     # 14,776,335 bytes/record
+        "thisfnum=2-36",   # 1,295 data files
+        "thisseek=5-62",   # 916,132,831 bytes/file
     );
     my @medium = (
         @medium_nohist,
-        'prevfnum=2-36',
-        'prevseek=5-62',
-        'nextfnum=2-36',
-        'nextseek=5-62',
+        "prevfnum=2-36",
+        "prevseek=5-62",
+        "nextfnum=2-36",
+        "nextseek=5-62",
     );
 
     my @large_nohist = (
-        'datamax=1.9G',
-        'dirmax=300',
-        'keymax=100_000',
-        'indicator=1-+#=*-',
-        'transind=1-+#=*-',
-        'date=4-yymd',
-        'transnum=5-62 ',  # 916,132,831 transactions
-        'keynum=5-62',     # 916,132,831 records
-        'reclen=5-62',     # 916,132,831 bytes/record
-        'thisfnum=3-36',   # 46,655 data files
-        'thisseek=6-62',   # 56G per file (but see datamax)
+        "datamax=1.9G",
+        "dirmax=300",
+        "keymax=100_000",
+        "indicator=$ind",
+        "transind=$ind",
+        "date=4-yymd",
+        "transnum=5-62 ",  # 916,132,831 transactions
+        "keynum=5-62",     # 916,132,831 records
+        "reclen=5-62",     # 916,132,831 bytes/record
+        "thisfnum=3-36",   # 46,655 data files
+        "thisseek=6-62",   # 56G per file (but see datamax)
     );
     my @large = (
         @large_nohist,
-        'prevfnum=3-36',
-        'prevseek=6-62',
-        'nextfnum=3-36',
-        'nextseek=6-62',
+        "prevfnum=3-36",
+        "prevseek=6-62",
+        "nextfnum=3-36",
+        "nextseek=6-62",
     );
 
     my @xlarge_nohist = (
-        'datamax=1.9G',
-        'dirmax=300',
-        'dirlev=2',
-        'keymax=100_000',
-        'tocmax=100_000',
-        'indicator=1-+#=*-',
-        'transind=1-+#=*-',
-        'date=4-yymd',
-        'transnum=6-62 ',  # 56B transactions
-        'keynum=6-62',     # 56B records
-        'reclen=6-62',     # 56G per record
-        'thisfnum=4-36',   # 1,679,615 data files
-        'thisseek=6-62',   # 56G per file (but see datamax)
+        "datamax=1.9G",
+        "dirmax=300",
+        "dirlev=2",
+        "keymax=100_000",
+        "tocmax=100_000",
+        "indicator=$ind",
+        "transind=$ind",
+        "date=4-yymd",
+        "transnum=6-62 ",  # 56B transactions
+        "keynum=6-62",     # 56B records
+        "reclen=6-62",     # 56G per record
+        "thisfnum=4-36",   # 1,679,615 data files
+        "thisseek=6-62",   # 56G per file (but see datamax)
     );
     my @xlarge = (
         @xlarge_nohist,
-        'prevfnum=4-36',
-        'prevseek=6-62',
-        'nextfnum=4-36',
-        'nextseek=6-62',
+        "prevfnum=4-36",
+        "prevseek=6-62",
+        "nextfnum=4-36",
+        "nextseek=6-62",
     );
 
     my $ret = {

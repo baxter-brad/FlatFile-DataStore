@@ -3,6 +3,7 @@ use warnings;
 
 use Test::More 'no_plan';
 use File::Path;
+use URI::Escape;
 use Data::Dumper;
 $Data::Dumper::Terse    = 1;
 $Data::Dumper::Indent   = 0;
@@ -33,18 +34,19 @@ BEGIN { use_ok('FlatFile::DataStore::Record') };
 
 use FlatFile::DataStore;
 
-my $name = "example";
-my $desc = "Example FlatFile::DataStore";
+my $name   = "example";
+my $desc   = "Example FlatFile::DataStore";
 my $recsep = "\x0A";
+
 my $ds = FlatFile::DataStore->new(
     { dir  => $dir,
       name => $name,
       uri  => join( ";" =>
           "http://example.com?name=$name",
-          "desc=$desc",
+          "desc=".uri_escape($desc),
           "defaults=xsmall",
           "user=1-:",
-          "recsep=$recsep" ),
+          "recsep=".uri_escape($recsep) ),
     } );
 
 ok( $ds, "FlatFile::DataStore->new()" );

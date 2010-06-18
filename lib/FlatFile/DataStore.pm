@@ -4,7 +4,8 @@
 
 =head1 NAME
 
-FlatFile::DataStore - Perl module that implements a flat file data store.
+FlatFile::DataStore - Perl module that implements a flat file data
+store.
 
 =head1 SYNOPSYS
 
@@ -70,6 +71,66 @@ methods
 
 and others.
 
+=head1 TIED INTERFACE
+
+There is a tied hash interface.  The hash keys are integers ranging
+from 0 to $ds->lastkeynum.
+
+    use FlatFile::DataStore;
+
+    tie my %dshash, 'FlatFile::DataStore', {
+        name => "dsname",
+        dir  => "/my/datastore/directory",
+    };
+
+    # create a record (null string key says, "new record")
+
+    my $record = $dshash{''} = [ "Test record", "Test user data" ];
+    my $record_number = $record->keynum;
+
+    # update it (have to "have" a record to update it)
+
+    $record->data( "Updating the test record." );
+    $dshash{ $record_number } = $record;
+
+    # retrieve it
+
+    $record = $dshash{ $record_number };
+
+    # delete it
+
+    delete $dshash{ $record_number };
+    # -or-
+    tied(%dshash)->delete( $record );
+
+In the case of delete, you're limited in the tied interface -- you
+can't supply a "delete record" (one that has information about the
+delete operation).  Instead, it will simply retrieve the existing
+record and store that as the "delete record".  If you want the "delete
+record" to contain different information (such as who is deleting it),
+you must call the non-tied delete() method with the datastore object.
+
+Note that record data may be created/updated (stored) three ways:
+
+As a scalar (default user data will be used), e.g.,
+
+ $record = $dshash{''} = $record_data;
+
+As an array reference (so you can supply some user data), e.g.
+
+ $record = $dshash{''} = [ $record_data, $user_data ];
+
+As a record object (record data and user data gotten from object),
+e.g.,
+
+ $record->data( $record_data );
+ $recore->user( $user_data );
+ $record = $dshash{''} = $record;
+
+In all cases, a record object is returned, and in the last case, the
+returned object is not the same as the one given to be stored (it has a
+different preamble).
+
 =head1 VERSION
 
 FlatFile::DataStore version 0.11
@@ -82,6 +143,7 @@ use 5.008003;
 use strict;
 use warnings;
 
+use URI::Escape;
 use File::Path;
 use Fcntl qw(:DEFAULT :flock);
 use Digest::MD5 qw(md5_hex);
@@ -177,9 +239,9 @@ or pass the URI as the value of the C<uri> parameter, e.g.,
        name => $name,
        uri  => join( ";" =>
            "http://example.com?name=$name",
-           "desc=My+Data+Store",
+           "desc=My%20Data%20Store",
            "defaults=medium",
-           "user=8-+-~",
+           "user=8-%20-%7E",
            "recsep=%0A",
            ),
      } );
@@ -233,6 +295,9 @@ sub init {
     #   but only if there aren't any data files yet
 
     my $new_uri = $parms->{'uri'};
+    if( $new_uri and $new_uri !~ /%[0-9a-fA-F]{2}/ ) {
+        $new_uri = uri_escape( $new_uri );
+    }
 
     my $uri_file = "$dir/$name.uri";
     my( $uri, $obj, $uri_md5, $obj_md5 );
@@ -895,7 +960,7 @@ sub normalize_parms {
     # set the preamble object
     my( $preamble, $data_ref, $try_user );
     my $reftype = ref $obj;
-    unless( $reftype ) {  # string
+    if(   !$reftype ) {  # preamble string
         $preamble = $self->new_preamble( { string => $obj } ); }
     elsif( $reftype =~ /Preamble/ ) {
         $preamble = $obj; }
@@ -909,7 +974,7 @@ sub normalize_parms {
     # set the record data
     if( defined $record_data ) {
         my $reftype = ref $record_data;
-        unless( $reftype ) {
+        if(   !$reftype ) {
             $data_ref = \$record_data; }  # string
         elsif( $reftype eq "SCALAR" ) {
             $data_ref = $record_data; }
@@ -1146,7 +1211,7 @@ sub fnumbase    {for($_[0]->{fnumbase}    ){$_=0+$_[1]if@_>1;return$_}}
 
 sub dirmax {
     my $self = shift;
-    return $self->{dirmax} = 0+$_[0] if @_;
+    return $self->{dirmax} = $_[0] if @_;
     return $self->{dirmax} if exists $self->{dirmax};
 }
 sub dirlev {
@@ -1156,12 +1221,12 @@ sub dirlev {
 }
 sub tocmax {
     my $self = shift;
-    return $self->{tocmax} = 0+$_[0] if @_;
+    return $self->{tocmax} = $_[0] if @_;
     return $self->{tocmax} if exists $self->{tocmax};
 }
 sub keymax {
     my $self = shift;
-    return $self->{keymax} = 0+$_[0] if @_;
+    return $self->{keymax} = $_[0] if @_;
     return $self->{keymax} if exists $self->{keymax};
 }
 
@@ -1426,7 +1491,12 @@ for adding a new record to a hash tied to a data store, e.g.,
 
 =cut
 
-sub nextkeynum { $_[0]->lastkeynum + 1 }
+sub nextkeynum {
+   for( $_[0]->lastkeynum ) {
+       return 0 unless defined;
+       return $_ + 1;
+   }
+}
 
 #---------------------------------------------------------------------
 # keyseek(), seek to a particular line in the key file
@@ -1803,8 +1873,12 @@ sub TIEHASH {
 
 sub FETCH {
     my( $self, $key ) = @_;
+
+    my $lastkeynum = $self->lastkeynum;
+    $key = $lastkeynum if $key eq '';
+
     return if $key !~ /^[0-9]+$/;
-    return if $key > $self->lastkeynum;
+    return if $key  > $lastkeynum;
     $self->retrieve( $key );
 }
 
@@ -1815,27 +1889,42 @@ sub FETCH {
 #     gaps in the sequence of keys
 #     e.g., $h{ keys %h                } = [ "New", "record" ];
 #     or    $h{ tied( %h )->nextkeynum } = [ "New", "record" ];
-#     ('keys %h' is fairly light-weight, but nextkeynum() is more so)
+#     or    $h{ ''                     } = [ "New", "record" ];
+#     or    $h{ undef                  } = [ "New", "record" ];
+#     ('keys %h' is fairly light-weight, but nextkeynum is more so
+#     and $h{''} (or $h{undef}) is shorthand for nextkeynum)
 
 sub STORE {
     my( $self, $key, $record ) = @_;
 
     my $nextkeynum = $self->nextkeynum;
-
+    $key = $nextkeynum if $key eq '';
     croak "Unacceptable key: $key"
         unless $key =~ /^[0-9]+$/ and $key <= $nextkeynum;
 
+    my $reftype = ref $record;
+
+    # for updates, $record must be a record object
     if( $key < $nextkeynum ) {
+        croak "Not a record object: $record"
+            if not( $reftype and $reftype =~ /Record/ );
         my $keynum = $record->keynum;
         croak "Record key number ($keynum) doesn't match key ($key)"
             unless $key == $keynum;
         return $self->update( $record );
     }
+
+    # for creates, $record may be record object, aref or string
     else {
-        if( ref $record eq 'ARRAY' ) {  # i.e., ['recdata','userdata']
+        if( !$reftype or $reftype =~ /Record/ ) {  # string or obj
+            return $self->create( $record );
+        }
+        if( $reftype eq 'ARRAY' ) {  # ['recdata','userdata']
             return $self->create( $record->[0], $record->[1] );
         }
-        return $self->create( $record );
+        else {
+            croak "Unacceptable reference type: $reftype";
+        }
     }
 }
 
@@ -1938,11 +2027,595 @@ __END__
 
 =head1 URI Configuration
 
+It may seem odd to use a URI as a configuration file.  I needed some
+configuration approach and wanted to stay as lightweight as possible.
+The specs for a URI are fairly well-known, and it allows for everything
+we need, so I chose that approach.
+
+The examples all show a URL, because I thought it would be a nice touch
+to be able to visit the URL and have the page tell you things about the
+data store.  This is what the utils/flatfile-datastore.cgi program is
+intended to do, but it is in a very young/rough state so far.
+
+Following are the URI configuration parameters.  The order of the
+preamble parameters I<does> matter: that's the order those fields will
+appear in each record preamble.  Otherwise the order doesn't matter.
+
+Where needed, parameter values may be uri-escaped, e.g., %20 for space.
+
+Parameter values should be percent-encoded (uri escaped).  Use %20 for
+space (don't be tempted to use '+').  Use URI::Escape::uri_escape , if
+desired, e.g.,
+
+    my $name = 'example';
+    my $dir  = '/example/dir';
+
+    use URI::Escape;
+    my $datastore = FlatFile::DataStore::->new( {
+        name => $name,
+        dir  => $dir,
+        uri  => join( ';' =>
+            "http://example.com?name=$name",
+            "desc=" . uri_escape( 'My DataStore' ),
+            "defaults=medium",
+            "user=" . uri_escape( '8- -~' ),
+            "recsep=%0A",
+        ) }
+    );
+
+=head2 Preamble parameters
+
+All of the preamble parameters are required.
+
+(In fact, four of them are optional, but leaving them out means that
+you're giving up keeping the linked list of record history, so don't do
+that unless you have a very good reason.)
+
+=over 8
+
+=item indicator
+
+The indicator parameter specifies the single-character record
+indicators that appear in each record preamble.  This parameter has the
+following form: C<indicator=length-5CharacterString>,
+e.g.,
+
+    indicator=1-+#=*-
+
+The length is always 1.  The five characters represent the five states
+of a record in the data store (in this order):
+
+    create(+): the record has not changed since being added
+    oldupd(#): the record was updated, and this entry is an old version
+    update(=): this entry is the updated version of a record
+    olddel(*): the record was deleted, and this entry is the old version
+    delete(-): the record is deleted, and this entry is the "delete record"
+
+(The reason for a "delete record" is for storing information about the
+delete process, such has when it was deleted and by whom.)
+
+The five characters shown in the example are the ones used by all
+examples in the documentation.  You're free to use your own characters,
+but the length must always be 1.
+
+=item transind
+
+The transind parameter describes the single-character transaction
+indicators that appear in each record preamble.  This parameter has the
+same format and meanings as the indicator parameter, e.g.,
+
+    transind=1-+#=*-
+
+(Note that only three of these are used, but all five must be given and
+must match the indicator parameter.)
+
+The three characters that are used are create(+), update(=), and
+delete(-).  While the record indicators will change, e.g., from create
+to oldupd, or from update to olddel, etc., the transaction indicators
+never change from their original values.  So a transaction that created
+a record will always have the create value, and the same for update and
+delete.
+
+=item date
+
+The date parameter specifies how the transaction date is stored in the
+preamble.  It has the form: C<date=length-format>, e.g.,
+
+    date=8-yyyymmdd
+    date=4-yymd
+
+The example shows the two choices for length: 4 or 8.  When the length
+is 8, the format must contain 'yyyy', 'mm', and 'dd' in some order.
+When the length is 4, the format must contain 'yy', 'm', and 'd' in
+some order, e.g.,
+
+    date=8-mmddyyyy, date=8-ddmmyyyy, etc.
+    date=4-mdyy, date=4-dmyy, etc.
+
+When the length is 8, the year, month, and day are stored as decimal
+numbers, e.g., '20100615' for June, 15, 2010.  When the length is 4,
+they are stored as base62 numbers, e.g. 'WQ6F' (yymd) for June 15,
+2010.
+
+=item transnum
+
+The transnum parameter specifies how the transaction number is stored
+in the preamble.  It has the form: C<transnum=length-base>,
+e.g.,
+
+    transnum=4-62
+
+The example says the number is stored as a four-digit base62 integer.
+The highest transaction number this allows is 'zzzz' base62 which is
+14,776,335 decimal.  Therefore, the datastore will accommodate up to
+that many transactions (creates, updates, deletes).
+
+=item keynum
+
+The keynum parameter specifies how the record sequence number is stored
+in the preamble.  It has the form: C<keynum=length-base>,
+e.g.,
+
+    keynum=4-62
+
+As with the transnum example above, the keynum would be stored as a
+four-digit base62 integer, and the highest record sequence number
+allowed would be 14,776,335 ('zzzz' base62).  Therefore, the data store
+could not store more than this many records.
+
+=item reclen
+
+The reclen parameter specifies how the record length is stored in the
+preamble.  It has the form: C<reclen=length-base>, e.g.,
+
+    reclen=4-62
+
+This example allows records to be up to 14,776,335 bytes long.
+
+=item thisfnum
+
+The thisfnum parameter specifies how the file numbers are stored in the
+preamble.  There are three file number parameters, thisfnum, prevfnum,
+and nextfnum.  They must match each other in length and base.  The
+parameter has the form: C<thisfnum=length-base>, e.g.,
+
+    thisfnum=2-36
+
+There is an extra constraint imposed on the file number parameters:
+they may not use a number base higher than 36.  The reason is that the
+file number appears in file names, and base36 numbers match [0-9A-Z].
+By limiting to base36, file names will therefore never differ only by
+case, e.g., there may be a file named example.Z.data, but never one
+named example.z.data.
+
+The above example states that the file numbers will be stored as
+two-digit base36 integers.  The highest file number is 'ZZ' base36,
+which is 1,295 decimal.  Therefore, the datastore will allow up to that
+many data files before filling up.  (If a datastore "fills up", it must
+be migrated to a newly configured datastore that has bigger numbers
+where needed.)
+
+In a preamble, thisfnum is the number of the datafile where the record
+is stored.  This number combined with the thisseek value and the reclen
+value gives the precise location of the record data.
+
+=item thisseek
+
+The thisseek parameter specifies how the seek positions are stored in
+the preamble.  There are three seek parameters, thisseek, prevseek, and
+nextseek.  They must match each other in length and base.  The
+parameter has the form:  C<thisseek=length-base>, e.g.,
+
+    thisseek=5-62
+
+This example states that the seek positions will be stored as
+five-digit base62 integers.  So the highest seek position is 'zzzzz'
+base62, which is 916,132,831 decimal.  Therefore, each of the
+datastore's data files may contain up to that many bytes (record data
+plus preambles).
+
+Incidentally, no record (plus its preamble) may be longer than this,
+because it just wouldn't fit in a data file.
+
+Also, the size of each data file may be further limited using the
+datamax parameter (see below).  For example, a seek value of '4-62'
+would allow datafiles up to 14,776,335 bytes long.  If you want bigger
+files, but don't want them bigger than 500 Meg, you can give
+C<thisseek=5-62> and C<datamax=500M>.
+
+=item prevfnum (optional)
+
+The prevfnum parameter specifies how the "previous" file numbers are
+stored in the preamble.  The value of this parameter must exactly match
+thisfnum (see thisfnum above for more details).  It has the form:
+C<prevfnum=length-base>, e.g.,
+
+    prevfnum=2-36
+
+In a preamble, the prevfnum is the number of the datafile where the
+previous version of the record is stored.  This number combined with
+the prevseek value gives the beginning location of the previous
+record's data.
+
+This is the first of the four "optional" preamble parameters.  If you
+don't provide this one, don't provide the other three either.  If you
+leave these off, you will not be able to get a record's history of
+changes, and you will not be able to migrate any history to a new
+datastore.
+
+So why would to not provide these?  You might have a datastore that has
+very transient data, e.g., indexes, and you don't care about change
+history.  By not including these four optional parameters, when the
+module updates a record, it will not perform the extra bit of IO to
+update a previous record's nextfnum and nextseek values.  And the
+preambles will be a little bit shorter.
+
+=item prevseek (optional)
+
+The prevseek parameter specifies how the "previous" seek positions are
+stored in the preamble.  The value of this parameter must exactly match
+thisseek (see thisseek above for more details).  It has the form
+C<prevseek=length-base>, e.g.,
+
+    prevseek=5-62
+
+=item nextfnum (optional)
+
+The nextfnum parameter specifies how the "next" file numbers are stored
+in the preamble.  The value of this parameter must exactly match
+thisfnum (see thisfnum above for more details).  It has the form:
+C<nextfnum=length-base>, e.g.,
+
+    nextfnum=2-36
+
+In a preamble, the nextfnum is the number of the datafile where the
+next version of the record is stored.  This number combined with the
+nextseek value gives the beginning location of the next record's data.
+
+You would have a nextfnum and nextseek in a preamble when it's a
+previous version of a record whose current version appears later in the
+datastore.  While thisfnum and thisseek are critical for all record
+retrievals, prevfnum, prevseek, nextfnum, and nextseek are only needed
+for getting a record's history.  They are also used during a migration
+to help validate that all the data (and transactions) were migrated
+intact.
+
+=item nextseek (optional)
+
+The nextseek parameter specifies how the "next" seek positions are
+stored in the preamble.  The value of this parameter must exactly match
+thisseek (see thisseek above for more details).  It has the form
+C<nextseek=length-base>, e.g.,
+
+    nextseek=5-62
+
+=item user
+
+The user parameter specifies the length and character class for
+extra user data stored in the preamble.  It has the form:
+C<user=length-CharacterClass>, e.g.,
+
+    user=8-+-~    (must match /[ -~]+ */ and not be longer than 8)
+    user=10-0-9   (must match /[0-9]+ */ and not be longer than 10)
+    user=1-:      (must be literally ':')
+
+When a record is created, the application supplies a value to store
+as "user" data.  This might be a userid, an md5 digest, multiple
+fixed-length fields -- whatever is needed or wanted.
+
+This field is required but may be preassigned using the userdata
+parameter (see below).  If no user data is provided or preassigned,
+it will default to a space.
+
+When this data is stored in the preamble, it is padded on the right
+with spaces.
+
+=back
+
+=head2 Preamble defaults
+
+All of the preamble parameters -- except user -- may be set using one
+of the defaults provided, e.g.,
+
+    http://example.com?name=example;defaults=medium;user=8-+-~
+    http://example.com?name=example;defaults=large;user=10-0-9
+
+Note that these are in a default order also.  And the user parameter
+is still part of the preamble, so you can make it appear first if you
+want, e.g.,
+
+    http://example.com?name=example;user=8-+-~;defaults=medium
+    http://example.com?name=example;user=10-0-9;defaults=large
+
+The C<_nohist> versions leave out the optional preamble parameters --
+the above caveat about record history still applies.
+
+Finally, if non of these suits, they may still be good starting points
+for defining your own preambles.
+
+=over 8
+
+=item xsmall, xsmall_nohist
+
+When the URI contains C<defaults=xsmall>, the following values are
+set:
+
+    indicator=1-+#=*-
+    transind=1-+#=*-
+    date=4-yymd
+    transnum=2-62   3,843 transactions
+    keynum=2-62     3,843 records
+    reclen=2-62     3,843 bytes/record
+    thisfnum=1-36   35 data files
+    thisseek=4-62   14,776,335 bytes/file
+    prevfnum=1-36
+    prevseek=4-62
+    nextfnum=1-36
+    nextseek=4-62
+
+The last four are not set for C<defaults=xsmall_nohist>.
+
+Rough estimates: 3800 records (or transactions), no larger than
+3800 bytes each; 517 Megs total (35 * 14.7M).
+
+=item small, small_nohist
+
+For C<defaults=small>:
+
+    indicator=1-+#=*-
+    transind=1-+#=*-
+    date=4-yymd
+    transnum=3-62   238,327 transactions
+    keynum=2-62     238,327 records
+    reclen=2-62     238,327 bytes/record
+    thisfnum=1-36   35 data files
+    thisseek=5-62   916,132,831 bytes/file
+    prevfnum=1-36
+    prevseek=5-62
+    nextfnum=1-36
+    nextseek=5-62
+
+The last four are not set for C<defaults=small_nohist>.
+
+Rough estimates: 238K records (or transactions), no larger than 238K
+bytes each; 32 Gigs total (35 * 916M).
+
+=item medium, medium_nohist
+
+For C<defaults=medium>:
+
+    indicator=1-+#=*-
+    transind=1-+#=*-
+    date=4-yymd
+    transnum=4-62   14,776,335 transactions
+    keynum=4-62     14,776,335 records
+    reclen=4-62     14,776,335 bytes/record
+    thisfnum=2-36   1,295 data files
+    thisseek=5-62   916,132,831 bytes/file
+    prevfnum=2-36
+    prevseek=5-62
+    nextfnum=2-36
+    nextseek=5-62
+
+The last four are not set for C<defaults=medium_nohist>.
+
+Rough estimates: 14.7M records (or transactions), no larger than 14.7M
+bytes each; 1 Terabyte total (1,295 * 916M).
+
+=item large, large_nohist
+
+For C<defaults=large>:
+
+    datamax=1.9G    1,900,000,000 bytes/file
+    dirmax=300
+    keymax=100_000
+    indicator=1-+#=*-
+    transind=1-+#=*-
+    date=4-yymd
+    transnum=5-62   916,132,831 transactions
+    keynum=5-62     916,132,831 records
+    reclen=5-62     916,132,831 bytes/record
+    thisfnum=3-36   46,655 data files
+    thisseek=6-62   56G per file (but see datamax)
+    prevfnum=3-36
+    prevseek=6-62
+    nextfnum=3-36
+    nextseek=6-62
+
+The last four are not set for C<defaults=large_nohist>.
+
+Rough estimates: 916M records/transactions, no larger than 916M bytes
+each; 88 Terabytes total (46,655 * 1.9G).
+
+=item xlarge, xlarge_nohist
+
+For C<defaults=xlarge>:
+
+    datamax=1.9G    1,900,000,000 bytes/file
+    dirmax=300
+    dirlev=2
+    keymax=100_000
+    tocmax=100_000
+    indicator=1-+#=*-
+    transind=1-+#=*-
+    date=4-yymd
+    transnum=6-62   56B transactions
+    keynum=6-62     56B records
+    reclen=6-62     56G per record (limited to 1.9G by datamax)
+    thisfnum=4-36   1,679,615 data files
+    thisseek=6-62   56G per file (but see datamax)
+    prevfnum=4-36
+    prevseek=6-62
+    nextfnum=4-36
+    nextseek=6-62
+
+The last four are not set for C<defaults=xlarge_nohist>.
+
+Rough estimates: 56B records/transactions, no larger than 1.9G bytes
+each; 3 Petabytes total (1,679,615 * 1.9G).
+
+=back
+
+=head2 Other required parameters
+
+=over 8
+
+=item name
+
+The name parameter identifies the datastore by name.  This name should
+be short and uncomplicated, because it is used as the root for the
+datastore's files.
+
+=item recsep
+
+The recsep parameter gives the ascii character(s) that will make up the
+record separator.  The "flat file" stategy suggests that these
+characters ought to match what your OS considers to be a "newline".
+But in fact, you could use an string of ascii characters.
+
+    recsep=%0A       (LF)
+    recsep=%0D%0A    (CR+LF)
+    recsep=%0D       (CR)
+
+    recsep=%0A---%0A (HR--sort of)
+
+Also, if you develop your data on unix with recsep=%0A and then copy it
+to a windows machine, the module will continue to use the configured
+recsep, i.e., it is not tied the to OS.
+
+=back
+
+=head2 Other optional parameters
+
+=over 8
+
+=item desc
+
+The desc parameter provides a means to give a short description (or perhaps a
+longer name) of the datastore.
+
+=item datamax
+
+The datamax parameter give the maximum number of bytes a data file may contain.
+If you don't provide a datamax, it will be computed from the thisseek value (see
+thisseek above for more details).
+
+The datamax value is simply a number, e.g.,
+
+    datamax=1000000000   (1 Gig)
+
+To make things easier to see, you can add underscores, e.g.,
+
+    datamax=1_000_000_000   (1 Gig)
+
+You can also shorten the number with an 'M' for megabytes (10**6) or a
+'G' for gigabytes (10**9), e.g.,
+
+    datamax=1000M  (1 Gig)
+    datamax=1G     (1 Gig)
+
+Finally, with 'M' or 'G', you can use fractions, e.g.
+
+    datamax=.5M  (500_000)
+    datamax=1.9G (1_900_000_000)
+
+=item keymax
+
+The keymax parameter gives the number of record keys that may be stored
+in a key file.  This simply limits the size of the key files, e.g.,
+
+    keymax=10_000
+
+The maximum bytes would be:
+
+    keymax * (preamble length + recsep length)
+
+The numeric value may use underscores and 'M' or 'G' as described above
+for datamax.
+
+=item tocmax
+
+The tocmax parameter gives the number of data file entries that may be stored
+in a toc (table of contents) file.  This simply limits the size of the toc
+files, e.g.,
+
+    tocmax=10_000
+
+Each (fairly short) line in a toc file describes a single data file, so
+you would need a tocmax only in the extreme case of a datastore with
+thousands or millions of data files.
+
+The numeric value may use underscores and 'M' or 'G' as described above
+for datamax.
+
+=item dirmax
+
+The dirmax parameter gives the number of files (and directories) that
+may be stored in a datastore directory, e.g.,
+
+    dirmax=300
+
+This allows a large number of data files (and key/toc files) to be
+created without there being too many files in a single directory.
+
+(The numeric value may use underscores and 'M' or 'G' as described above
+for datamax.)
+
+If you specify dirmax without dirlev (see below), dirlev will default
+to 1.
+
+Without dirmax and dirlev, a datastore's data files (and key/toc files)
+will reside in the same directory as the uri file, and the module will
+not limit how many you may create (though the size of your filesystem
+might).
+
+With dirmax and dirlev, these files will reside in subdirectories.
+
+Giving a value for dirmax will also limit the number of data files (and
+key/toc files) a datastore may have, by this formula:
+
+ max files = dirmax ** (dirlev + 1)
+
+So dirmax=300 and dirlev=1 would result in a limit of 90,000 data
+files.  If you go to dirlev=2, the limit becomes 27,000,000, which is
+why you're unlikely to need a dirlev greater than 2.
+
+=item dirlev
+
+The dirlev parameter gives the number of levels of directories that a
+datastore may use, e.g.,
+
+    dirlev=1
+
+You can give a dirlev without a dirmax, which would store the data
+files (and key/toc files) in subdirectories, but wouldn't limit how
+many files may be in each directory.
+
+=item userdata
+
+The userdata parameter is similar to the userdata parameter in the call
+to new().  It specifies the default value to use if the application
+does not provide a value when creating, updating, or deleting a
+record.
+
+Those provided values will override the value given in the call to new(),
+which will override the value given here in the uri.
+
+If you don't specify a default value here or in the call to new(), the
+value defaults to a space (which may then be padded with more spaces).
+
+    userdata=:
+
+The example is contrived for a hypothetical datastore that doesn't need
+this field.  Since the field is required, the above setting will always
+store a colon (and the user parameter might be C<user=1-:>).
+
+=back
+
 =head1 CAVEATS
 
-This module is still in an experimental state.  The tests and pod are
-sparse.  When I start using it in production, I'll up the version to
-1.00.
+This module is still in an experimental state.  The tests are sparse.
+When I start using it in production, I'll bump the version to 1.00.
 
 Until then (afterwards, too) please use with care.
 
