@@ -113,8 +113,9 @@ sub init {
         croak qq/Missing parms 'int' or 'num'./; }
 
     my $sref = $self->read_toc( $datafint );
+    my $string = $sref? $$sref: '';
 
-    unless( $sref ) {
+    unless( $string ) {
         $self->datafnum( $datafint );
         $self->tocfnum( $self->toc_getfnum( $datafint ) );
         $self->keynum(   $datafint == 0? -1: 0 );
@@ -122,8 +123,6 @@ sub init {
             for qw( keyfnum numrecs transnum create oldupd update olddel delete );
         return $self;
     }
-
-    my $string = $$sref;
 
     my $fnumbase  = $ds->fnumbase;
     my $keybase   = $ds->keybase;
