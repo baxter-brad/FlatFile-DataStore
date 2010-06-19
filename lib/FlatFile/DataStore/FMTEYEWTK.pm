@@ -51,7 +51,7 @@ create (store) a new record, it is appended to the flat file.  When you
 update an existing record, the existing entry in the flat file is
 flagged as updated, and the updated record is appended to the flat
 file.  When you delete a record, the existing entry is flagged as
-deleted, and a I<deleted> record is I<appended> to the flat file.
+deleted, and a I<"delete record"> is I<appended> to the flat file.
 
 The result is that all versions of a record are retained in the data
 store, and running a history will return all of them.  Another result
@@ -60,7 +60,14 @@ update, or delete.
 
 =head2 Data Store Files and Directories
 
-Key files acts as an index into the data files.  The different versions
+There are four types of files that make up a data store:
+
+ uri file     (1)         ... essentially the configuration file
+ key file(s)  (1 or more) ... index(es) into the data file(s)
+ data file(s) (1 or more) ... where the records are stored
+ toc file(s)  (1 or more) ... table of contents file(s)
+
+Key files act as an index into the data files.  The different versions
 of the records in the data files act as linked lists:
 
  - the first version of a record links just to it's successor
@@ -78,7 +85,7 @@ string of fields containing:
  - transaction indicator (flag for created, updated, deleted, etc.)
  - transaction number    (incremented when a record is touched)
  - date                  (of the "transaction")
- - key number            (record sequence number)
+ - key number            (record key sequence number)
  - record length         (in bytes)
  - user data             (for out-of-band* user-defined data)
  - "this" file number    (linked list pointers ...)
@@ -101,14 +108,14 @@ Number bases larger than base-10 (up to base-36 for file numbers and up
 to base-62 for other numbers) may be used to help shorten the length of
 the preamble string.
 
-A data store will have the following files:
+Again, a data store will have the following files:
 
- - uri  file,  contains the uri, which defines the configuration parameters
-               after initialization, it contains a generic* serialized datastore object
-               * 'generic' because the object does not include the 'dir' attribute
- - toc  files, contain transaction numbers for each data file
- - key  files, contain pointers to every current record version
- - data files, contain all the versions of all the records
+ - uri  file,    contains the uri, which defines the configuration parameters
+                 after initialization, it contains a generic serialized datastore object
+                 ('generic' because the object does not include the 'dir' attribute)
+ - toc  file(s), contain information the data store and each data file
+ - key  file(s), contain pointers to every current record version
+ - data file(s), contain all the versions of all the records
 
 If the data store is small, it might have only one toc, key, and/or
 data file.
@@ -119,47 +126,88 @@ will reside at the same level as the uri file, e.g.,
     - name.uri
     - name.toc     (or name.1.toc if C<tocmax> is set)
     - name.key     (or name.1.key if C<keymax> is set)
-    - name.1.data  (the filenum, e.g., 1, is always present)
+    - name.1.data  (the file number (e.g., 1) is always present
+                   and always starts with 1, or 01, or 001, etc.)
 
-If C<dirlev> is 1 or more, the directory structure follows this scheme (note
-that file/dir numbers start at 1, not at 0):
+If C<dirlev> is 1, the directory structure follows the following scheme
+(note that like file numbers, directory numbers start at 1, not at 0):
 
 - dir
     - name.uri
     - name
         - toc1
-            - name.1.toc,
-            - name.2.toc,
+            - name.1.toc
+            - name.2.toc
             - etc.
-        - toc2,
+        - toc2
         - etc.
         - key1
-            - name.1.key,
-            - name.2.key,
+            - name.1.key
+            - name.2.key
+            - etc.
+        - key2
+        - etc.
+        - data1
+            - name.1.data
+            - name.2.data
+            - etc.
+        - data2
+        - etc.
+
+If C<dirlev> is 2, the scheme will look something like this:
+
+- dir
+    - name.uri
+    - name
+        - toc1
+            - 1
+                - name.1.toc,
+                - name.2.toc,
+                - etc.
+            - 2
+                - ...
+            - etc.
+        - toc2
+        - etc.
+        - key1
+            - 1
+                - name.1.key,
+                - name.2.key,
+                - etc.
+            - 2
+                - ...
             - etc.
         - key2,
         - etc.
         - data1
-            - name.1.data
-            - name.2.data,
+            - 1
+                - name.1.data
+                - name.2.data,
+                - etc.
+            - 2
+                - ...
             - etc.
         - data2,
         - etc.
 
+Since a C<dirlev> of 2 can accommodate millions of data files,
+it's unlikely you'll need a level of 3 or more.
+
 If C<tocmax> is not defined, there will never be more than one toc
-file and so the name will be C<name.toc> instead of C<name.1.toc>.
+file and so the name will be C<name.toc> instead of, e.g., C<name.1.toc>.
 
 If C<keymax> is not defined, there will never be more than one key
-file and so the name will be C<name.key> instead of C<name.1.key>.
+file and so the name will be C<name.key> instead of, e.g., C<name.1.key>.
 
 Different data stores may coexist in the same top-level directory--they
 just have to have different names.
 
 To retrieve a record, one must know the data file number and the seek
-position into that data file, or one must know the record's sequence
-number (the order it was added to the data store).  With a sequence
-number, the file number and seek position can be looked up in a key
-file, so these sequence numbers are called "key numbers" or C<keynum>.
+position into that data file, or one must know the record's key
+sequence number (the order it was added to the data store).  With a
+sequence number, the file number and seek position can be looked up in
+a key file, so these sequence numbers are called "key numbers" or
+C<keynum>.
 
 Methods support the following actions:
 
@@ -168,7 +216,6 @@ Methods support the following actions:
  - update
  - delete
  - history
- - iterate (over all transactions in the data files)
 
 Scripts supplied in the distribution perform:
 
@@ -183,20 +230,20 @@ Several factors motivated the development of this module:
  - the desire for simple, efficient reading and writing of records
  - the desire to handle any number and size of records
  - the desire to identify records using sequence numbers
- - the need to retain previous versions of records and to view history
+ - the need to retain previous versions of records and to view update history
  - the ability to store any sort of data: binary or text in any encoding
  - the desire for a relatively simple file structure
- - the desire for the data to be fairly easily read by a human
+ - the desire for the data to be reasonably easily read by a human
  - the ability to easily increase the data store size (through migration)
 
 The key file makes it easy and efficient to retrieve the current
-version of a record--you just need the record's sequence number.  Other
-retrievals via file number and seek position (e.g., gotten from a
+version of a record--you just need the record's key sequence number.
+Other retrievals via file number and seek position (e.g., gotten from a
 history list) are also fast and easy.
 
 Because the size and number of data files is configurable, the data
-store should scale up to large numbers of (perhaps large) records.
-This while still retaining efficient reading and writing.
+store should scale up to large numbers of (perhaps large) records --
+while still retaining efficient reading and writing.
 
 (In the extreme case that a record is too large for a single file,
 users might break up the record into parts, store them as multiple data
@@ -205,25 +252,25 @@ While that's outside the scope of this module, that sort of scheme is
 accommodated by the fact that the data store doesn't care if the record
 data is not a complete unit of a known format.)
 
-When a record is created, it is assigned a sequence number (keynum)
+When a record is created, it is assigned a key sequence number (keynum)
 that persistently identifies that record for the life of the data
-store.  This should help user-developed indexing schemes that
-employ, e.g., bit maps to remain correct.
+store.  This should help user-developed indexing schemes that employ,
+e.g., bit maps, to remain correct.
 
 Since a record links to it's predecessors, it's easy to get a history
 of that record's changes over time.  This can facilitate recovery and
 reporting.
 
-Since record retrieval is by seek position and record length (in
-bytes), any sequence of bytes may be stored and retrieved.  Disparate
-types of data may be stored in the same data store.
+Since record retrieval is by seek position and record length in bytes,
+any sequence of bytes may be stored and retrieved.  Disparate types of
+data may be stored in the same data store.
 
 Outside of the record data itself, the data store file structure uses
-ascii characters for the key file and preambles.  It appends a record
-separator, typically a newline character, after each record.  This is
-intended to make the file structure relatively simple and more easily
-read by a human--to aid copying, debugging, disaster recovery, simple
-curiosity, etc.
+ascii characters for the key file, toc file, and preambles.  It appends
+a record separator, typically a newline character, after each record.
+This is intended to make the file structure relatively simple and more
+easily read by a human--to aid copying, debugging, disaster recovery,
+simple curiosity, etc.
 
 Migration scripts are included in the module distribution.  If your
 initial configuration values prove too small to accommodate your data,
@@ -271,9 +318,9 @@ be accepted--you will have to re-retrieve the new version of the record
 
 =head2 Scaling to infinity (and beyond)
 
-Past experience designing data stores reveals that once a design is
-in place, you will always want to throw a lot more data at it that
-you thought you were going to.
+Past experience designing data stores suggests that once a design is in
+place, you will always want to throw a lot more data at it that you
+thought you were going to.
 
 So in this module, I want to make an extra effort to accommodate all the
 data anyone might want to put in a data store.  For that reason, any
@@ -291,7 +338,7 @@ directories.  As the number of key files grows, and as the number of
 toc files grows, they can be stored in multiple key and toc
 directories.
 
-To keep the API simpler, the specs for the data file number can be
+To keep things simpler, the specs for the data file number can be
 applied to the toc files, the key files, and also to the toc, key, and
 data directories.  That is, if the data store designer specifies that
 the data file number should be two base-36 characters (so he can
@@ -304,7 +351,8 @@ But some additional parameters are needed:
  - dirlev,  the number of directory levels for data, toc, and key files
  - tocmax,  the maximum number of entries per toc file
  - keymax,  the maximum number of entries per key file
- - datamax, the maximum size in bytes of any data file (was C<maxfilesize>)
+ - datamax, the maximum size in bytes of any data file
+   (was once called C<maxfilesize>, in case you ever saw that)
 
 The C<dirmax> and C<dirlev> parms are available for handling big data
 stores.  If C<dirmax> is set, C<dirlev> defaults to 1, but may be set
@@ -329,18 +377,18 @@ The toc file will have a total line at the top and a detail line for
 each data file below that.
 
 The fields in these lines are as follows:
- -  1. len FN, last toc file
- -  2. len FN, last key file
- -  3. len FN, last data file
- -  4. len KN, number of non-deleted records
- -  5. len KN, last keynum
- -  6. len TN, last transaction number
- -  7. len TN, #created
- -  8. len TN, #oldupd
- -  9. len TN, #updated
- - 10. len TN, #olddel
- - 11. len TN, #delete
- - 12. len RS, recsep 
+ -  1. len FN, tocfnum,  last toc file
+ -  2. len FN, keyfnum,  last key file
+ -  3. len FN, datafnum, last data file
+ -  4. len KN, numrecs,  number of non-deleted records
+ -  5. len KN, keynum,   last keynum
+ -  6. len TN, transnum, last transaction number
+ -  7. len TN, create,   number of records with create indicator
+ -  8. len TN, oldupd,   number of records with oldupd indicator
+ -  9. len TN, update,   number of records with update indicator
+ - 10. len TN, olddel,   number of records with olddel indicator
+ - 11. len TN, delete,   number of records with delete indicator
+ - 12. len RS, recsep    (usually just a newline)
 
 For example:
 
@@ -348,18 +396,34 @@ For example:
 
 FN is filenumlen; KN is keynumlen; TN is transnumlen; RS is recseplen.
 
-On the detail lines, these values will be of historical/validation
-interest.
+Fields 1 - 6 of the very first line (line number 0) of the toc file is
+the "top toc" line.  It has the vital information for the datastore,
+i.e., the current toc file number, the current key file number, the
+current data file number, the number of (non-deleted) records in the
+data store, the last key sequence number used, and the last transaction
+number used.  To get any of these, the module only has to read and
+split a single line.
 
-On the total line, these values will be where the program looks for:
+Fields 7 - 11 are there just for kicks, really.  They might aid in
+validation or tracking or whatever in the future, but at this time, the
+module doesn't read them for anything, it just keeps them up to date.
+
+On the detail lines, all of these values may be again useful for
+validation, tracking, data recovery, etc., but the module doesn't (yet)
+read them for anything, it just keeps them up to date.
+
+Again, on the total line (the first line -- line 0), these values will
+be where the program looks for:
+
  - last toc file
  - last key file
  - last data file
  - last keynum
  - last transaction number 
- - number of records
+ - number of (non-deleted) records
 
 On each transaction, the module will update these on:
+
  - the last line (because it has details for the current data file)
  - possibly another line (in possibly another toc file)
    (because the transaction may update a preamble in another data file)
@@ -373,6 +437,8 @@ Random access by line is accommodated because we know the length of each line an
 
 =head2 defining a data store
 
+(To be completed.)  See URI Configuration in FlatFile::DataStore.
+
 =head2 designing a program to analyze a data store definition (uri)
 
 Validation:
@@ -382,6 +448,8 @@ Validation:
  - Does user field look okay
  - For transnum, keynum, fnums, seeks, are they reasonable
  - For datamax, keymax, tocmax, dirmax, dirlev, are they reasonable
+
+See FlatFile::DataStore::Utils.
 
 Analysis:
 
@@ -402,17 +470,28 @@ Analysis:
  - What is maximum disk usage (datamax * max datafiles + key... + toc...)
  - How long would a migration take
 
+See utils/flatfile-datastore.cgi (which is young and rough and doesn't
+answer all of the above questions yet).
+
 =head2 validating a data store
 
  - Include average record size, biggest record, smallest record, size breakdown
 
+See Flatfile::DataStore::Utils.
+
 =head2 migrating a data store
 
+See Flatfile::DataStore::Utils and utils/migrate_validate.
+
 =head2 interating over the data store transactions
+
+See Flatfile::DataStore::Utils.
 
 =head1 FUTURE PLANS
 
 =head2 Indexes
+
+(Probably will use BerkeleyDB for this.)
 
 =head3 Overview
 
@@ -538,28 +617,7 @@ itself that is then keyword (and possibly phrase?) indexed.
 =head3 Facets
 
 We want to implement facets, but haven't settled on concrete ideas yet
-(other than they way we do them already, which is less than ideal).
+(other than the way we do them already, which is less than ideal).
 
-=head3 Index directories and files
-
-I'm expecting to have a separate directory for each index and a
-separate file for each subset of an index.  An example subset might be
-all the keywords that start with "a", "b", etc.  Or perhaps all the
-dates that start with "2008-01", "2008-02", etc.
-
-The motivation for breaking the index into subsets is to try to keep
-file sizes low, so that updating with Tie::File is reasonably scalable.
-
-Example index directory tree--'a', 'b', etc. are files:
-
- indexes/id/a
-           /b
-           ...
-        /au/a
-           /b
-           ...
-        /dt/2008-01
-           /2008-02
-           ...
 =cut
 

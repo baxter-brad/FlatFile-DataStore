@@ -2,6 +2,8 @@
 
 =head1 NAME
 
+(This is still just a stub.  See also FlatFile::DataStore::FMTEYEWTK.)
+
 FlatFile::DataStore::Tutorial - POD containing in-depth discussion
 of and tutorials for using FlatFile::DataStore.
 
