@@ -50,7 +50,7 @@ record.
 
 =head1 VERSION
 
-FlatFile::DataStore::Preamble version 0.13
+FlatFile::DataStore::Preamble version 0.14
 
 =cut
 

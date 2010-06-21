@@ -116,6 +116,6 @@ is( $dshash{ $record->keynum }->user, $user_data, "aref user data" );
 is( ${$dshash{ $record->keynum }->data}, $record_data, "object record data" );
 is( $dshash{ $record->keynum }->user, $user_data, "object user data" );
 
-$ds->close_files;
+tied(%dshash)->close_files;
 
 }
