@@ -75,11 +75,11 @@ See FlatFile::DataStore::Tiehash for a tied interface.
 
 =head1 VERSION
 
-FlatFile::DataStore version 0.16
+FlatFile::DataStore version 0.17
 
 =cut
 
-our $VERSION = '0.16';
+our $VERSION = '0.17';
 
 use 5.008003;
 use strict;
@@ -191,7 +191,7 @@ or pass the URI as the value of the C<uri> parameter, e.g.,
 (See URI Configuration below.)
 
 Also accepts a C<userdata> parameter, which sets the default user
-data for this instance of the data store, e.g.,
+data for this instance, e.g.,
 
  my $ds = FlatFile::DataStore->new(
      { dir  => $dir,
@@ -400,10 +400,11 @@ in which case the user data will be gotten from it.
 
 Returns a Flatfile::DataStore::Record object.
 
-Note: the record data (but not user data) is stored in the FF::DS::Record
-object as a scalar reference.  This is done for efficiency in the cases
-where the record data may be very large.  Likewise, the first parm to
-create() is allowed to be a scalar reference.
+Note: the record data (but not the user data) is stored in the
+FF::DS::Record object as a scalar reference.  This is done for
+efficiency in the cases where the record data may be very large.
+Likewise, the first parm to create() is allowed to be a scalar
+reference.
 
 =cut
 
@@ -524,7 +525,8 @@ Here's why: When $num is a record key sequence number (key number), a
 preamble is retrieved from the data store key file.  In that preamble
 is the file number and seek position where the record data may be
 gotten.  Otherwise, when $num is a file number, the application (you)
-must supply the seek position into that file.
+must supply the seek position into that file.  Working from an array
+of record history is the most likely time you would do this.
 
 Returns a Flatfile::DataStore::Record object.
 
@@ -606,6 +608,104 @@ sub retrieve_preamble {
     my $preamble  = $self->new_preamble( { string => $keystring } );
 
     return $preamble;
+}
+
+#---------------------------------------------------------------------
+
+=head2 locate_record_data( $num[, $pos] )
+
+Rather than retrieving a record, this subroutine positions you at the
+record data in the data file.  This might be handy if, for example,
+the record data is text, and you just want part of it.  You can scan
+the data and get what you want without having to read the entire
+record.  Or the data might be XML and you could parse it using SAX
+without reading it all into memory.
+
+The parm C<$num> may be one of
+
+ - a key number, i.e., record sequence number
+ - a file number
+
+The parm C<$pos> is required if C<$num> is a file number.  See
+C<retrieve> above for why.
+
+Returns a list containing the file handle (which is already locked
+for reading in binmode), the seek position, and the record length.
+
+You will be positioned at the seek position, so you could begin
+reading data, e.g., via C<< <$fh> >>:
+
+    my( $fh, $pos, $len ) = $ds->locate_record_data( $keynum );
+    my $got;
+    while( <$fh> ) {
+        last if ($got += length) > $len;  # in case we read the recsep
+        # [do something with $_ ...]
+        last if $got == $len;
+    }
+    close $fh;
+
+The above loop assumes you know each line of the data ends in a
+newline.  Also keep in mind that the file is opened in binmode,
+so you will be reading bytes (octets), not necessarily characters.
+Decoding these octets is up to you.
+
+=cut
+
+sub locate_record_data {
+    my( $self, $num, $pos ) = @_;
+
+    my $fnum;
+    my $seekpos;
+    my $keystring;
+    my $reclen;
+
+    if( defined $pos ) {
+        $fnum    = $num;
+        $seekpos = $pos;
+    }
+    else {
+        my $keynum  = $num;
+        my $recsep  = $self->recsep;
+        my $keyseek = $self->keyseek( $keynum );
+
+        my $keyfile = $self->keyfile( $keynum );
+        my $keyfh   = $self->locked_for_read( $keyfile );
+
+        my $trynum  = $self->lastkeynum;
+        croak qq/Record doesn't exist: "$keynum"/ if $keynum > $trynum;
+
+        $keystring = $self->read_preamble( $keyfh, $keyseek );
+        close $keyfh or die "Can't close $keyfile: $!";
+
+        my $parms  = $self->burst_preamble( $keystring );
+
+        $fnum    = $parms->{'thisfnum'};
+        $seekpos = $parms->{'thisseek'};
+        $reclen  = $parms->{'reclen'};
+    }
+
+    my $datafile = $self->which_datafile( $fnum );
+    my $datafh   = $self->locked_for_read( $datafile );
+    my $preamble = $self->read_preamble( $datafh, $seekpos );
+
+    # if we got the record via key file, check that preambles match
+    if( $keystring ) {
+        croak qq/Mismatch "$preamble" vs. "$keystring"/
+            if $preamble ne $keystring;
+    }
+
+    # if not via key file, we still need the record length
+    else {
+        my $parms  = $self->burst_preamble( $preamble );
+        $reclen  = $parms->{'reclen'};
+    }
+
+    $seekpos += $self->preamblelen;  # skip to record data
+
+    sysseek $datafh, $seekpos, 0 or
+        croak "Can't seek to $seekpos in $datafile: $!";
+
+    return $datafh, $seekpos, $reclen;
 }
 
 #---------------------------------------------------------------------
@@ -1017,6 +1117,11 @@ sub history {
 
 =head1 OBJECT METHODS, Accessors
 
+In the specifications below, square braces ([]) denote optional
+parameters, not anonymous arrays, e.g., C<[$omap]> indicates that
+C<$omap> is optional, instead of implying that you need to pass it
+inside an array.
+
 =head2 $ds->specs( [$omap] )
 
 Sets and returns the C<specs> attribute value if C<$omap> is given,
@@ -1141,7 +1246,7 @@ if C<$value> is given.  Otherwise, they just return the value.
 If no C<dirmax>, directories will keep being added to.
 
 If no C<dirlev>, toc, key, and data files will reside in top-level
-directory.  If C<dirmax> given, C<dirlev> defaults to 1.
+directory.  If C<dirmax> is given, C<dirlev> defaults to 1.
 
 If no C<tocmax>, there will be only one toc file, which will grow
 indefinitely.
@@ -1149,8 +1254,8 @@ indefinitely.
 If no C<keymax>, there will be only one key file, which will grow
 indefinitely.
 
-If no C<userdata>, will default to a null string unless supplied
-another way.
+If no C<userdata>, will default to a null string (padded with spaces)
+unless supplied another way.
 
 =cut
 
@@ -1591,7 +1696,7 @@ sub burst_preamble {
 # update_preamble(), called by update() and delete() to flag old recs
 #     Take a preamble string and a hash ref of values to change, and
 #     returns a new preamble string with those values changed.  Will
-#     croak if the new preamble does match the regx attribute
+#     croak if the new preamble does not match the regx attribute
 #
 # Private method.
 
@@ -1636,8 +1741,7 @@ sub update_preamble {
 #---------------------------------------------------------------------
 # locked_for_read()
 #     Takes a file name, opens it for input, locks it, and returns the
-#     open file handle.  It caches this file handle, and the cached
-#     handle will be returned instead if it exists in the cache.
+#     open file handle.
 #
 # Private method.
 
@@ -1655,9 +1759,7 @@ sub locked_for_read {
 #---------------------------------------------------------------------
 # locked_for_write()
 #     Takes a file name, opens it for read/write, locks it, and
-#     returns the open file handle.  It caches this file handle, and
-#     the cached handle will be returned instead if it exists in the
-#     cache.
+#     returns the open file handle.
 #
 # Private method.
 
@@ -1758,7 +1860,7 @@ sub write_bytes {
 
 #---------------------------------------------------------------------
 # read_file()
-#     Takes a file name, locks it for reading, and returnes the
+#     Takes a file name, locks it for reading, and returns the
 #     contents as an array of lines
 #
 # Private method.
@@ -1833,7 +1935,8 @@ intended to do, but it is in a very young/rough state so far.
 
 Following are the URI configuration parameters.  The order of the
 preamble parameters I<does> matter: that's the order those fields will
-appear in each record preamble.  Otherwise the order doesn't matter.
+appear in each record preamble.  Otherwise the order of the URI
+parameters doesn't matter.
 
 Parameter values should be percent-encoded (uri escaped).  Use %20 for
 space (don't be tempted to use '+').  Use URI::Escape::uri_escape , if
@@ -1861,7 +1964,7 @@ All of the preamble parameters are required.
 
 (In fact, four of them are optional, but leaving them out means that
 you're giving up keeping the linked list of record history, so don't do
-that unless you have a very good reason.)
+that unless you have a good reason.)
 
 =over 8
 
@@ -2062,7 +2165,8 @@ C<nextfnum=length-base>, e.g.,
 
 In a preamble, the nextfnum is the number of the datafile where the
 next version of the record is stored.  This number combined with the
-nextseek value gives the beginning location of the next record's data.
+nextseek value gives the beginning location of the next version of the
+record's data.
 
 You would have a nextfnum and nextseek in a preamble when it's a
 previous version of a record whose current version appears later in the
@@ -2271,6 +2375,9 @@ But in fact, you could use any string of ascii characters.
 
     recsep=%0A---%0A (HR--sort of)
 
+(But keep in mind that the recsep is also used for the key files and
+toc files.  So a simpler recsep is probably best.)
+
 Also, if you develop your data on unix with recsep=%0A and then copy it
 to a windows machine, the module will continue to use the configured
 recsep, i.e., it is not tied the to OS.
@@ -2296,7 +2403,7 @@ The datamax value is simply a number, e.g.,
 
     datamax=1000000000   (1 Gig)
 
-To make things easier to see, you can add underscores, e.g.,
+To make things easier to read, you can add underscores, e.g.,
 
     datamax=1_000_000_000   (1 Gig)
 

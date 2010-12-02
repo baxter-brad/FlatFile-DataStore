@@ -112,6 +112,7 @@ my $desc = "Example FlatFile::DataStore";
         "specs()" );
 }
 
+#---------------------------------------------------------------------
 {  # crud
 
     my( $y, $m, $d ) = sub{($_[5]+1900,$_[4]+1,$_[3])}->(localtime);
@@ -203,5 +204,45 @@ my $desc = "Example FlatFile::DataStore";
     $record = $ds->create( \"Apple", 'fruit' );
     is( ${$record->data}, 'Apple', "create( scalar-ref, user data )" );
     is( $record->user, 'fruit', "create( scalar-ref, user data )" );
+}
+
+#---------------------------------------------------------------------
+{  # misc
+
+    my $ds = FlatFile::DataStore->new( {
+        dir  => $dir,
+        name => $name,
+    } );
+
+    ok( $ds, "new()" );
+
+    # we want the newlines here:
+    my $msg1 = "For testing retrieve_preamble()\n";
+    my $msg2 = "For testing locate_record_data()\n";
+
+    my $record = $ds->create( "$msg1$msg2" );
+    my $keynum = $record->keynum;
+    my $preamble_string1 = $record->preamble_string;
+
+    my $preamble = $ds->retrieve_preamble( $keynum );
+    my $preamble_string2 = $preamble->string;
+
+    is( $preamble_string1, $preamble_string2, "retrieve_preamble()" );
+
+    my $buffer = '';
+
+    # see POD:
+    my( $fh, $pos, $len ) = $ds->locate_record_data( $keynum );
+    my $got;
+    while( <$fh> ) {
+        last if ($got += length) > $len;  # in case we read the recsep
+        # [do something with $_ ...]
+        $buffer .= $_;
+        last if $got == $len;
+    }
+    close $fh;
+
+    is( $buffer, "$msg1$msg2", "locate_record_data()" );
+
 }
 

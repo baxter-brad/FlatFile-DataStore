@@ -1,5 +1,9 @@
 Revision history for Perl extension FlatFile::DataStore.
 
+0.17 Thu Dec  2 13:28:03 EST 2010
+    - minor doc fixes
+    - added FlatFile::DataStore::locate_record_data()
+
 0.16 Mon Nov  1 09:16:56 EDT 2010
     - minor doc fixes
     - change 'xism' to '(?:\^|xism)' in regx test

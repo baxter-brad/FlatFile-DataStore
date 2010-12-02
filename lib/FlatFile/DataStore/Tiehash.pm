@@ -52,8 +52,8 @@ intended for loading more methods into the FlatFile::DataStore class.
 
     # test it ... exists is true after a delete
 
-    if( $record = exists $dshash{ $record_number } ) {
-        print "Deleted." if $record->is_deleted;
+    if( $preamble = exists $dshash{ $record_number } ) {
+        print "Deleted." if $preamble->is_deleted;
     }
 
 =head1 DESCRIPTION
@@ -108,11 +108,11 @@ saves you from having to do something like this equivalent code:
  
 =head1 VERSION
 
-FlatFile::DataStore::Tiehash version 0.16
+FlatFile::DataStore::Tiehash version 0.17
 
 =cut
 
-our $VERSION = '0.16';
+our $VERSION = '0.17';
 
 use 5.008003;
 use strict;
