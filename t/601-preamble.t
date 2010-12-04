@@ -174,7 +174,7 @@ is( Dumper($preamble->crud()),
 
 ok( $preamble->is_created(), "is_created()" );
 
-my $rec = $ds->create( "This is a test", ":" );
+my $rec = $ds->create({ data => "This is a test", user => ":" });
 
 ok( $rec->preamble->is_created(), "is_created()" );
 ok( $rec->is_created(), "is_created()" );

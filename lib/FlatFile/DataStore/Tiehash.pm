@@ -30,7 +30,7 @@ intended for loading more methods into the FlatFile::DataStore class.
 
     # create a record (null string key says, "new record")
 
-    my $record = $dshash{''} = [ "Test record", "Test user data" ];
+    my $record = $dshash{''} = { data => "Test record", user => "Test user data" };
     my $record_number = $record->keynum;
 
     # update it (have to "have" a record to update it)
@@ -76,9 +76,9 @@ As a scalar (default user data will be used), e.g.,
 
     $record = $dshash{''} = $record_data;
 
-As an array reference (so you can supply some user data), e.g.
+As a hash reference (so you can supply some user data), e.g.
 
-    $record = $dshash{''} = [ $record_data, $user_data ];
+    $record = $dshash{''} = { data => $record_data, user => $user_data };
 
 As a record object (record data and user data gotten from object),
 e.g.,
@@ -142,43 +142,46 @@ sub FETCH {
 #     Keys are limited to 0 .. lastkeynum (integers)
 #     If $key is new, it has to be nextkeynum, i.e., you can't leave
 #     gaps in the sequence of keys
-#     e.g., $h{ keys %h                } = [ "New", "record" ];
-#     or    $h{ tied( %h )->nextkeynum } = [ "New", "record" ];
-#     or    $h{ ''                     } = [ "New", "record" ];
-#     or    $h{ undef                  } = [ "New", "record" ];
+#     e.g., $h{ keys %h                } = { data => "New", user => "record" };
+#     or    $h{ tied( %h )->nextkeynum } = { data => "New", user => "record" };
+#     or    $h{ ''                     } = { data => "New", user => "record" };
+#     or    $h{ undef                  } = { data => "New", user => "record" };
 #     ('keys %h' is fairly light-weight, but nextkeynum is more so
 #     and $h{''} (or $h{undef}) is shorthand for nextkeynum)
 
 sub STORE {
-    my( $self, $key, $record ) = @_;
+    my( $self, $key, $parms ) = @_;
 
     my $nextkeynum = $self->nextkeynum;
     $key = $nextkeynum if $key eq '';
     croak "Unacceptable key: $key"
         unless $key =~ /^[0-9]+$/ and $key <= $nextkeynum;
 
-    my $reftype = ref $record;
+    my $reftype = ref $parms;  # record, hash, sref, string
 
-    # for updates, $record must be a record object
+    # for updates, $parms must be a record object
     if( $key < $nextkeynum ) {
-        croak "Not a record object: $record"
-            if not( $reftype and $reftype =~ /Record/ );
-        my $keynum = $record->keynum;
+        croak "Not a record object: $parms"
+            unless $reftype and $reftype =~ /Record/;
+        my $keynum = $parms->keynum;
         croak "Record key number ($keynum) doesn't match key ($key)"
             unless $key == $keynum;
-        return $self->update( $record );
+        return $self->update( $parms );
     }
 
-    # for creates, $record may be record object, aref or string
+    # for creates, $parms may be record, href, sref, or string
     else {
-        if( !$reftype or $reftype =~ /Record/ ) {  # string or obj
-            return $self->create( $record );
+        if( !$reftype or $reftype eq "SCALAR" ) {  # string
+            return $self->create({ data => $parms }); 
         }
-        if( $reftype eq 'ARRAY' ) {  # ['recdata','userdata']
-            return $self->create( $record->[0], $record->[1] );
+        if( $reftype =~ /Record/ ) {
+            return $self->create( $parms );
+        }
+        if( $reftype eq 'HASH' ) {  # e.g., {data=>'recdata',user=>'userdata'}
+            return $self->create( $parms );
         }
         else {
-            croak "Unacceptable reference type: $reftype";
+            croak "Unrecognized: '$reftype'";
         }
     }
 }

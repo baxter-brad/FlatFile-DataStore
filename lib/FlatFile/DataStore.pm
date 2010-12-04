@@ -21,7 +21,10 @@ store.
 
  my $record_data = "This is a test record.";
  my $user_data   = "Test1";
- my $record = $ds->create( $record_data, $user_data );
+ my $record = $ds->create( {
+     data => \$record_data,
+     user => $user_data,
+     } );
  my $record_number = $record->keynum;
 
  # retrieve it
@@ -387,44 +390,38 @@ sub init {
 
 =head1 OBJECT METHODS, Record Processing (CRUD)
 
-=head2 create( $record_data[, $user_data] )
+=head2 create( $record )
 
-Creates a record.  The parm C<$record_data> may be one of
+ or create( { data => \$record_data, user => $user_data } )
+ or create( { record => $record[, data => \$record_data][, user => $user_data] } )
 
- - data string
- - scalar reference (to the data string)
- - FlatFile::DataStore::Record object
+Creates a record. If the parameter is a record object,
+the record data and user data will be gotten from it.
+Otherwise, if the parameter is a hash reference, the
+expected keys are:
 
-The parm C<$user_data> may be omitted if C<$record_data> is an object,
-in which case the user data will be gotten from it.
+ - record => FlatFile::DataStore::Record object
+ - data => string or scalar reference
+ - user => string
+
+If no record is passed, both 'data' and 'user' are required.
+Otherwise, if a record is passed, the record data and user
+data will be gotten from it unless one or both are explicitly
+provided.
 
 Returns a Flatfile::DataStore::Record object.
 
 Note: the record data (but not the user data) is stored in the
 FF::DS::Record object as a scalar reference.  This is done for
 efficiency in the cases where the record data may be very large.
-Likewise, the first parm to create() is allowed to be a scalar
+Likewise, the data parm passed to create() may be a scalar
 reference.
 
 =cut
 
 sub create {
-    my( $self, $record_data, $user_data ) = @_;
-
-    my $data_ref;
-    if( defined $record_data ) {
-        my $reftype = ref $record_data;
-        unless( $reftype ) {
-            $data_ref = \$record_data; }  # string
-        elsif( $reftype eq "SCALAR" ) {
-            $data_ref = $record_data; }
-        elsif( $reftype =~ /Record/ ) {
-            $data_ref = $record_data->data;
-            $user_data = $record_data->user unless defined $user_data; }
-        else {
-            croak qq/Unrecognized: $reftype/; }
-    }
-    croak qq/No record data./ unless $data_ref;
+    my $self = shift;
+    my( $data_ref, $user_data ) = $self->normalize_parms( @_ );
 
     # get next keynum
     #   (we don't call nextkeynum(), because we need the
@@ -710,38 +707,47 @@ sub locate_record_data {
 
 #---------------------------------------------------------------------
 
-=head2 update( $object_or_string[, $record_data][, $user_data] )
+=head2 update( $record )
 
-Updates a record.  The parm $object_or_string may be one of:
+ or update( { string => $preamble_string, data => \$record_data, user => $user_data } )
+ or update( { preamble => $preamble_obj, data => \$record_data, user => $user_data } )
+ or update( { record => $record_obj
+    [, preamble => $preamble_obj]
+    [, string   => $preamble_string]
+    [, data     => \$record_data]
+    [, user     => $user_data] } )
 
- - FlatFile::DataStore::Record object
- - FlatFile::DataStore::Preamble object
- - Preamble string
+Updates a record. If the parameter is a record object,
+the preamble, record data, and user data will be gotten
+from it.  Otherwise, if the parameter is a hash reference,
+the expected keys are:
 
-The parms C<$record_data> and C<$user_data> may be omitted only if
-C<$object_or_string> is a FF::DS::Record object, in which case the
-record and user data will be gotten from it.
+ - record   => FlatFile::DataStore::Record object
+ - preamble => FlatFile::DataStore::Preamble object
+ - string   => a preamble string (the string attribute of a preamble object)
+ - data     => string or scalar reference
+ - user     => string
+
+If no record is passed, 'preamble' (or 'string'), 'data', and
+'user' are required.  Otherwise, if a record is passed, the
+preamble, record data and user data will be gotten from it
+unless any of them are explicitly provided.
 
 Returns a Flatfile::DataStore::Record object.
-
-Note: the record data (but not user data) is stored in the FF::DS::Record
-object as a scalar reference.  This is done for efficiency in the cases
-where the record data may be very large.  Likewise, the second parm to
-update() is allowed to be a scalar reference.
 
 =cut
 
 sub update {
     my $self = shift;
-    my( $obj, $data_ref, $user_data ) = $self->normalize_parms( @_ );
+    my( $data_ref, $user_data, $pr_obj ) = $self->normalize_parms( @_ );
 
     my $prevnext = $self->prevfnum;  # boolean
 
-    my $prevpreamble = $obj->string;
-    my $keyint       = $obj->keynum;
-    my $prevind      = $obj->indicator;
-    my $prevfnum     = $obj->thisfnum;
-    my $prevseek     = $obj->thisseek;
+    my $prevpreamble = $pr_obj->string;
+    my $keyint       = $pr_obj->keynum;
+    my $prevind      = $pr_obj->indicator;
+    my $prevfnum     = $pr_obj->thisfnum;
+    my $prevseek     = $pr_obj->thisseek;
 
     # update is okay for these:
     my $create = $self->crud->{'create'};
@@ -869,38 +875,33 @@ sub update {
 
 #---------------------------------------------------------------------
 
-=head2 delete( $object_or_string[, $record_data][, $user_data] )
+=head2 delete( $record )
 
-Deletes a record.  The parm $object_or_string may be one of:
+ or delete( { string => $preamble_string, data => \$record_data, user => $user_data } )
+ or delete( { preamble => $preamble_obj, data => \$record_data, user => $user_data } )
+ or delete( { record => $record_obj
+    [, preamble => $preamble_obj]
+    [, string   => $preamble_string]
+    [, data     => \$record_data]
+    [, user     => $user_data] } )
 
- - FlatFile::DataStore::Record object
- - FlatFile::DataStore::Preamble object
- - Preamble string
-
-The parms C<$record_data> and C<$user_data> may be omitted only if
-C<$object_or_string> is a FF::DS::Record object, in which case the
-record and user data will be gotten from it.
+Deletes a record.  The parameters are the same as for update().
 
 Returns a Flatfile::DataStore::Record object.
-
-Note: the record data (but not user data) is stored in the FF::DS::Record
-object as a scalar reference.  This is done for efficiency in the cases
-where the record data may be very large.  Likewise, the second parm to
-delete() is allowed to be a scalar reference.
 
 =cut
 
 sub delete {
     my $self = shift;
-    my( $obj, $data_ref, $user_data ) = $self->normalize_parms( @_ );
+    my( $data_ref, $user_data, $pr_obj ) = $self->normalize_parms( @_ );
 
     my $prevnext = $self->prevfnum;  # boolean
 
-    my $prevpreamble = $obj->string;
-    my $keyint       = $obj->keynum;
-    my $prevind      = $obj->indicator;
-    my $prevfnum     = $obj->thisfnum;
-    my $prevseek     = $obj->thisseek;
+    my $prevpreamble = $pr_obj->string;
+    my $keyint       = $pr_obj->keynum;
+    my $prevind      = $pr_obj->indicator;
+    my $prevfnum     = $pr_obj->thisfnum;
+    my $prevseek     = $pr_obj->thisseek;
 
     # delete is okay for these:
     my $create = $self->crud->{'create'};
@@ -1026,53 +1027,64 @@ sub delete {
 }
 
 #---------------------------------------------------------------------
-# $obj         may be preamble string, preamble obj, or record obj
-# $record_data may be data string, scalar ref, or record obj
-# $user_data   may be data string
+# parses parameters for create(), update(), and delete()
+# If the parameter is a record object, the preamble, record data,
+# and user data will be gotten from it.  Otherwise, if the parameter
+# is a hash reference, the expected keys are:
 #
-# $user_data, if not given, will be gotten from $record_data or $obj
-# $record_data, if not given, will be gotten from $obj
+# - record   => FlatFile::DataStore::Record object
+# - preamble => FlatFile::DataStore::Preamble object
+# - string   => a preamble string (the string attribute of a preamble object)
+# - data     => string or scalar reference
+# - user     => string
+#
+# returns record data (scalar ref), user data, preamble object
+#
+# (Note that create() ignores a returned preamble.)
 #
 # Private method.
 
 sub normalize_parms {
-    my( $self, $obj, $record_data, $user_data ) = @_;
+    my( $self, $parms ) = @_;
 
-    croak qq/Bad call./ unless $obj;
+    croak qq/Bad call./ unless $parms;
 
-    # set the preamble object
-    my( $preamble, $data_ref, $try_user );
-    my $reftype = ref $obj;
-    if(   !$reftype ) {  # preamble string
-        $preamble = $self->new_preamble( { string => $obj } ); }
-    elsif( $reftype =~ /Preamble/ ) {
-        $preamble = $obj; }
-    elsif( $reftype =~ /Record/ ) {
-        $preamble = $obj->preamble;
-        $data_ref = $obj->data; }
+    my( $data_ref, $user_data, $preamble );
+
+    my $reftype = ref $parms;
+    if( $reftype =~ /Record/ ) {
+        $data_ref  = $parms->data;
+        $user_data = $parms->user;
+        $preamble  = $parms->preamble;
+    }
+    elsif( $reftype eq "HASH" ) {
+        for( $parms->{'data'} ) {
+            if( ref ) { $data_ref = $_ }
+            else      { $data_ref = \$_ if defined }
+        }
+        for( $parms->{'user'} )  {
+            $user_data = $_ if defined;
+        }
+        for( $parms->{'string'} ) {
+            $preamble = $self->new_preamble( { string => $_ } )
+                if defined;
+        }
+        for( $parms->{'preamble'} ) {
+            $preamble = $_ if defined;
+        }
+        for( $parms->{'record'} ) {
+            last unless defined;
+            $data_ref  = $_->data     unless $data_ref;
+            $user_data = $_->user     unless defined $user_data;
+            $preamble  = $_->preamble unless $preamble;
+        }
+    }
     else {
-        croak qq/Unrecognized: $reftype/; }
-    $try_user = $preamble->user;
-
-    # set the record data
-    if( defined $record_data ) {
-        my $reftype = ref $record_data;
-        if(   !$reftype ) {
-            $data_ref = \$record_data; }  # string
-        elsif( $reftype eq "SCALAR" ) {
-            $data_ref = $record_data; }
-        elsif( $reftype =~ /Record/ ) {
-            $data_ref = $record_data->data;
-            $try_user = $record_data->user; }
-        else {
-            croak qq/Unrecognized: $reftype/; }
+        croak qq/Unrecognized: '$reftype'/;
     }
     croak qq/No record data./ unless $data_ref;
 
-    # set the user data
-    $user_data = $try_user unless defined $user_data;
-
-    return $preamble, $data_ref, $user_data;
+    return $data_ref, $user_data, $preamble;
 }
 
 #---------------------------------------------------------------------
