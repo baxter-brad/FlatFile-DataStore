@@ -546,6 +546,7 @@ sub retrieve {
         my $keyseek = $self->keyseek( $keynum );
 
         my $keyfile = $self->keyfile( $keynum );
+        return unless -e $keyfile;
         my $keyfh   = $self->locked_for_read( $keyfile );
 
         my $trynum  = $self->lastkeynum;
@@ -561,6 +562,7 @@ sub retrieve {
     }
 
     my $datafile = $self->which_datafile( $fnum );
+    return unless -e $datafile;
     my $datafh   = $self->locked_for_read( $datafile );
     my $record   = $self->read_record( $datafh, $seekpos );
     close $datafh or die "Can't close $datafile: $!";
@@ -594,6 +596,7 @@ sub retrieve_preamble {
 
     my $keyseek = $self->keyseek( $keynum );
     my $keyfile = $self->keyfile( $keynum );
+    return unless -e $keyfile;
     my $keyfh   = $self->locked_for_read( $keyfile );
 
     my $trynum  = $self->lastkeynum;
@@ -666,6 +669,7 @@ sub locate_record_data {
         my $keyseek = $self->keyseek( $keynum );
 
         my $keyfile = $self->keyfile( $keynum );
+        return unless -e $keyfile;
         my $keyfh   = $self->locked_for_read( $keyfile );
 
         my $trynum  = $self->lastkeynum;
@@ -682,6 +686,7 @@ sub locate_record_data {
     }
 
     my $datafile = $self->which_datafile( $fnum );
+    return unless -e $datafile;
     my $datafh   = $self->locked_for_read( $datafile );
     my $preamble = $self->read_preamble( $datafh, $seekpos );
 

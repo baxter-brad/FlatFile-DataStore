@@ -69,12 +69,8 @@ record and store that as the "delete record".  If you want the "delete
 record" to contain different information (such as who is deleting it),
 you must call the non-tied delete() method with the datastore object.
 
-Note that record data may be created or updated (i.e., STORE'd) three
+Note that record data may be created or updated (i.e., STORE'd) two
 ways:
-
-As a scalar (default user data will be used), e.g.,
-
-    $record = $dshash{''} = $record_data;
 
 As a hash reference (so you can supply some user data), e.g.
 
