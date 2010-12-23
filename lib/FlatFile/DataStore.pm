@@ -100,6 +100,7 @@ use FlatFile::DataStore::Record;
 use FlatFile::DataStore::Toc;
 use Math::Int2Base qw( base_chars int2base base2int );
 use Data::Omap qw( :ALL );
+sub untaint;
 
 #---------------------------------------------------------------------
 # globals:
@@ -219,6 +220,29 @@ sub new {
 }
 
 #---------------------------------------------------------------------
+# exists(), called by user to test if a datastore exists
+#     currently, a datastore "exists" if there is a .uri
+#     file (good or not)
+
+sub exists {
+    my( $self, $parms ) = @_;
+
+    my( $dir, $name );
+    if( ref $self ) {  # object method
+        $dir  = $self->dir;
+        $name = $self->name;
+    }
+    elsif( $parms ) {  # class method
+        $dir  = $parms->{'dir'};
+        $name = $parms->{'name'};
+    }
+
+    croak qq/exists() needs 'dir' and 'name'/ unless $dir and $name;
+
+    -e "$dir/$name.uri";  # returned
+}
+
+#---------------------------------------------------------------------
 # init(), called by new() to initialize a data store object
 #     parms (from hash ref):
 #       dir  ... the directory where the data store lives
@@ -237,6 +261,9 @@ sub init {
         unless defined $dir and defined $name;
     croak qq/Directory "$dir" doesn't exist./
         unless -d $dir;
+
+    $self->dir( $dir );
+    $self->name( $name );
 
     # uri file may be
     # - one line: just the uri, or
@@ -269,6 +296,7 @@ sub init {
 
     # if database has been initialized, there's an object
     if( $obj ) {
+        untaint trusted => $obj;
         $self = eval $obj;  # note: *new* $self
         croak qq/Problem with $uri_file: $@/ if $@;
         $self->dir( $dir );  # dir not in object
@@ -282,9 +310,13 @@ sub init {
         }
     }
 
-    # otherwise initialize the database
-    unless( $obj ) {
-        $uri ||= $new_uri || croak "No URI.";
+    # otherwise initialize the database if there's a uri
+    # (we could have an instance that only contains name and dir)
+
+    $uri ||= $new_uri;
+
+    if( !$obj and $uri ) {
+
         $self->uri( $uri );
 
         # Note: 'require', not 'use'.  This isn't
@@ -546,7 +578,6 @@ sub retrieve {
         my $keyseek = $self->keyseek( $keynum );
 
         my $keyfile = $self->keyfile( $keynum );
-        return unless -e $keyfile;
         my $keyfh   = $self->locked_for_read( $keyfile );
 
         my $trynum  = $self->lastkeynum;
@@ -562,7 +593,6 @@ sub retrieve {
     }
 
     my $datafile = $self->which_datafile( $fnum );
-    return unless -e $datafile;
     my $datafh   = $self->locked_for_read( $datafile );
     my $record   = $self->read_record( $datafh, $seekpos );
     close $datafh or die "Can't close $datafile: $!";
@@ -596,7 +626,6 @@ sub retrieve_preamble {
 
     my $keyseek = $self->keyseek( $keynum );
     my $keyfile = $self->keyfile( $keynum );
-    return unless -e $keyfile;
     my $keyfh   = $self->locked_for_read( $keyfile );
 
     my $trynum  = $self->lastkeynum;
@@ -669,7 +698,6 @@ sub locate_record_data {
         my $keyseek = $self->keyseek( $keynum );
 
         my $keyfile = $self->keyfile( $keynum );
-        return unless -e $keyfile;
         my $keyfh   = $self->locked_for_read( $keyfile );
 
         my $trynum  = $self->lastkeynum;
@@ -686,7 +714,6 @@ sub locate_record_data {
     }
 
     my $datafile = $self->which_datafile( $fnum );
-    return unless -e $datafile;
     my $datafh   = $self->locked_for_read( $datafile );
     my $preamble = $self->read_preamble( $datafh, $seekpos );
 
@@ -1764,9 +1791,11 @@ sub update_preamble {
 
 sub locked_for_read {
     my( $self, $file ) = @_;
+    untaint path => $file;
 
     my $fh;
-    open $fh, '<', $file or croak "Can't open for read $file: $!";
+    # open $fh, '<', $file or croak "Can't open for read $file: $!";
+    sysopen( $fh, $file, O_RDONLY|O_CREAT ) or croak "Can't open for read $file: $!";
     flock $fh, LOCK_SH   or croak "Can't lock shared $file: $!";
     binmode $fh;
 
@@ -1782,6 +1811,7 @@ sub locked_for_read {
 
 sub locked_for_write {
     my( $self, $file ) = @_;
+    untaint path => $file;
 
     my $fh;
     sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak "Can't open for read/write $file: $!";
@@ -1913,6 +1943,21 @@ sub now {
     }
     return $format;
 }
+
+BEGIN {
+my %allow = (
+    trusted  =>  qr{^       (.*) $}x,  # i.e., anything
+    path     =>  qr{^ ([-.\w/]*) $}x,  # e.g., /tmp/sess/s.1.data
+);
+
+sub untaint {
+    my( $key, $var ) = @_;
+    return unless defined $var;
+    return if $var eq '';
+    die "Not defined: $key" unless $allow{ $key };
+    if( $var =~ /$allow{ $key }/ ) { $_[1] = $1 }  # must set the alias
+    else { die "Invalid $key.\n" }
+}}
 
 #---------------------------------------------------------------------
 # TIEHASH() supports tied hash access
@@ -2279,8 +2324,8 @@ For C<defaults=small>:
     transind=1-+#=*-
     date=4-yymd
     transnum=3-62   238,327 transactions
-    keynum=2-62     238,327 records
-    reclen=2-62     238,327 bytes/record
+    keynum=3-62     238,327 records
+    reclen=3-62     238,327 bytes/record
     thisfnum=1-36   35 data files
     thisseek=5-62   916,132,831 bytes/file
     prevfnum=1-36

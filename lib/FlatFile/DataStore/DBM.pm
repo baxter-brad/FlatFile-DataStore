@@ -213,7 +213,7 @@ sub STORE {
     my( $self, $key, $parms ) = @_;
 
     # block efforts to store to "_keynum" entries
-    croak "Unsupported key format" if $key =~ /^_[0-9]+$/;
+    croak qq/Unsupported key format/ if $key =~ /^_[0-9]+$/;
 
     my $ds    = $self->ds;
     my $dir   = $ds->dir;
@@ -224,25 +224,44 @@ sub STORE {
     tie my %dbm_hash, $dbm_package, "$dir/$name", @{$dbm_parms};
 
     my $keynum  = $dbm_hash{ $key };
+
+    # $parms may be record, href, sref, or string
     my $reftype = ref $parms;
 
-    my $record;
+    my $record;  # to be returned
 
-    # for updates, $parms must be a record object
-    if( defined $keynum ) {
+    if( defined $keynum ) {  # update
 
-        croak "Not a record object: $parms ($keynum)"
-            unless $reftype and $reftype =~ /Record/;
+        # record data string
+        if( !$reftype or $reftype eq "SCALAR" ) {
+            $record = $ds->retrieve( $keynum );  # read it
+            $record->data( $parms );             # update it
+            $record = $ds->update( $record );    # write it
+        }
 
-        # trying to update the record using the wrong key?
-        croak "Record key number doesn't match key"
-            unless $keynum == $parms->keynum;
+        # record object
+        elsif( $reftype =~ /Record/ ) {
 
-        $record = $ds->update( $parms );
+            # trying to update a record using the wrong key?
+            croak qq/Record key number doesn't match key/
+                unless $keynum == $parms->keynum;
+
+            $record = $ds->update( $parms );
+        }
+
+        # hash, e.g., {data=>'record data',user=>'user data'}
+        elsif( $reftype eq 'HASH' ) {
+            $record = $ds->retrieve( $keynum );
+            for( $parms->{'data'} ) { $record->data( $_ ) if defined }
+            for( $parms->{'user'} ) { $record->user( $_ ) if defined }
+            $record = $ds->update( $record );
+        }
+
+        else { croak "Unrecognized: '$reftype'" }
+
     }
 
-    # for creates, $parms may be record, href, sref, or string
-    else {
+    else {  # create
 
         # record data string
         if( !$reftype or $reftype eq "SCALAR" ) {
@@ -287,23 +306,28 @@ sub DELETE {
     my $dir   = $ds->dir;
     my $name  = $ds->name;
 
-    # lock the dbm file and read the keynum
     $self->writelock;
     tie my %dbm_hash, $dbm_package, "$dir/$name", @{$dbm_parms};
 
-    my $keynum = $dbm_hash{ $key };
+    my $exists;
+    my $record;
 
-    # must have a record to delete it
-    my $record = $ds->retrieve( $keynum );
-       $record = $ds->delete( $record );
+    if( $exists = exists $dbm_hash{ $key } ) {
 
-    # record delete succeeded, so delete the dbm hash entries
-    delete $dbm_hash{ $key };
-    delete $dbm_hash{ "_$keynum" };
+        my $keynum = $dbm_hash{ $key };
+
+        # must have a record to delete it
+        $record = $ds->retrieve( $keynum );
+        $record = $ds->delete( $record );
+
+        delete $dbm_hash{ $key };
+        delete $dbm_hash{ "_$keynum" };
+    }
 
     untie %dbm_hash;
     $self->unlock;
 
+    return unless $exists;
     $record;  # return the "delete record"
 }
 
@@ -388,6 +412,8 @@ sub EXISTS {
     croak "Unsupported key format" if $key =~ /^_[0-9]+$/;
 
     my $ds    = $self->ds;
+    return unless $ds->exists;
+
     my $dir   = $ds->dir;
     my $name  = $ds->name;
 

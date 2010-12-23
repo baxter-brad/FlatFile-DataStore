@@ -1,12 +1,19 @@
 Revision history for Perl extension FlatFile::DataStore.
 
-0.17 Wed Dec 15 15:58:18 EST 2010
+0.17 Thu Dec 23 17:15:20 EST 2010
     - major API change: parameters to create(), update(),
       and delete() are now passed as record or a hashref
       (incompatable with previous versions' conventions)
     - added FlatFile::DataStore::DBM and tests
     - added FlatFile::DataStore::locate_record_data()
     - minor doc fixes
+    - DataStore.pm
+      - added exists() (for datastore)
+      - added untaint()
+      - minor logic changes
+      - locked_for_read may create an empty file
+    - Initialize.pm
+      - corrected some faulty defaults
 
 0.16 Mon Nov  1 09:16:56 EDT 2010
     - minor doc fixes

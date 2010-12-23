@@ -72,6 +72,8 @@ sub burst_query {
         $parms{ $name } = $val;
         if( $Preamble->{ $name } ) {
             my( $len, $parm ) = split /-/, $val, 2;
+            croak qq/"$name=$val": value must be format 'length-parm'/
+                unless defined $len and defined $parm;
             omap_add( $omap, $name => [ $pos, 0+$len, $parm ] );
             $pos += $len;
         }
@@ -114,7 +116,7 @@ sub defaults {
         "indicator=$ind",
         "transind=$ind",
         "date=4-yymd",
-        "transnum=2-62 ",  # 3,843 transactions
+        "transnum=2-62",   # 3,843 transactions
         "keynum=2-62",     # 3,843 records
         "reclen=2-62",     # 3,843 bytes/record
         "thisfnum=1-36",   # 35 data files
@@ -132,9 +134,9 @@ sub defaults {
         "indicator=$ind",
         "transind=$ind",
         "date=4-yymd",
-        "transnum=3-62 ",  # 238,327 transactions
-        "keynum=2-62",     # 238,327 records
-        "reclen=2-62",     # 238,327 bytes/record
+        "transnum=3-62",   # 238,327 transactions
+        "keynum=3-62",     # 238,327 records
+        "reclen=3-62",     # 238,327 bytes/record
         "thisfnum=1-36",   # 35 data files
         "thisseek=5-62",   # 916,132,831 bytes/file
     );
@@ -150,7 +152,7 @@ sub defaults {
         "indicator=$ind",
         "transind=$ind",
         "date=4-yymd",
-        "transnum=4-62 ",  # 14,776,335 transactions
+        "transnum=4-62",   # 14,776,335 transactions
         "keynum=4-62",     # 14,776,335 records
         "reclen=4-62",     # 14,776,335 bytes/record
         "thisfnum=2-36",   # 1,295 data files
@@ -171,7 +173,7 @@ sub defaults {
         "indicator=$ind",
         "transind=$ind",
         "date=4-yymd",
-        "transnum=5-62 ",  # 916,132,831 transactions
+        "transnum=5-62",   # 916,132,831 transactions
         "keynum=5-62",     # 916,132,831 records
         "reclen=5-62",     # 916,132,831 bytes/record
         "thisfnum=3-36",   # 46,655 data files
@@ -194,7 +196,7 @@ sub defaults {
         "indicator=$ind",
         "transind=$ind",
         "date=4-yymd",
-        "transnum=6-62 ",  # 56B transactions
+        "transnum=6-62",   # 56B transactions
         "keynum=6-62",     # 56B records
         "reclen=6-62",     # 56G per record
         "thisfnum=4-36",   # 1,679,615 data files
