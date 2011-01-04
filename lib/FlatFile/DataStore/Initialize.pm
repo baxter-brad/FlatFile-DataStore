@@ -115,7 +115,7 @@ sub defaults {
     my @xsmall_nohist = (
         "indicator=$ind",
         "transind=$ind",
-        "date=4-yymd",
+        "date=7-yymdttt",
         "transnum=2-62",   # 3,843 transactions
         "keynum=2-62",     # 3,843 records
         "reclen=2-62",     # 3,843 bytes/record
@@ -133,7 +133,7 @@ sub defaults {
     my @small_nohist = (
         "indicator=$ind",
         "transind=$ind",
-        "date=4-yymd",
+        "date=7-yymdttt",
         "transnum=3-62",   # 238,327 transactions
         "keynum=3-62",     # 238,327 records
         "reclen=3-62",     # 238,327 bytes/record
@@ -151,7 +151,7 @@ sub defaults {
     my @medium_nohist = (
         "indicator=$ind",
         "transind=$ind",
-        "date=4-yymd",
+        "date=7-yymdttt",
         "transnum=4-62",   # 14,776,335 transactions
         "keynum=4-62",     # 14,776,335 records
         "reclen=4-62",     # 14,776,335 bytes/record
@@ -172,7 +172,7 @@ sub defaults {
         "keymax=100_000",
         "indicator=$ind",
         "transind=$ind",
-        "date=4-yymd",
+        "date=7-yymdttt",
         "transnum=5-62",   # 916,132,831 transactions
         "keynum=5-62",     # 916,132,831 records
         "reclen=5-62",     # 916,132,831 bytes/record
@@ -195,7 +195,7 @@ sub defaults {
         "tocmax=100_000",
         "indicator=$ind",
         "transind=$ind",
-        "date=4-yymd",
+        "date=7-yymdttt",
         "transnum=6-62",   # 56B transactions
         "keynum=6-62",     # 56B records
         "reclen=6-62",     # 56G per record
@@ -251,7 +251,9 @@ sub make_preamble_regx {
                 $regx .= ($len == 1 ? "([$parm])" : "([$parm]{$len})");
             }
             elsif( /date/ ) {
-                $regx .= ($len == 8 ? "([0-9]{8})" : "([0-9A-Za-z]{4})");
+                # e.g., yyyymmdd(8) yyyymmddtttttt(14) yymd(4) yymdttt(7)
+                croak qq/Invalid date length ($len)./ unless $len =~ /^(?:4|7|8|14)$/;
+                $regx .= ($len < 8 ? "([0-9A-Za-z]{$len})" : "([0-9]{$len})");
             }
             else {
                 my $chars = base_chars( $parm );

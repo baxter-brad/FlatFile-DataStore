@@ -212,7 +212,7 @@ if C<$value> is given.  Otherwise, they just return the value.
  $preamble->string(    $value ); # full preamble string
  $preamble->indicator( $value ); # single-character crud indicator
  $preamble->transind(  $value ); # single-character crud indicator
- $preamble->date(      $value ); # date as YYYY-MM-DD
+ $preamble->date(      $value ); # date as YYYY-MM-DD (hh:mm:ss)
  $preamble->transnum(  $value ); # transaction number (integer)
  $preamble->keynum(    $value ); # record sequence number (integer)
  $preamble->reclen(    $value ); # record length (integer)
@@ -280,34 +280,51 @@ sub is_deleted {
 }
 
 #---------------------------------------------------------------------
-# then(), translates stored date to YYYY-MM-DD
-#     Takes a date and a format and returns the date as yyyy-mm-dd.
+# then(), translates stored date to YYYY-MM-DD hh:mm:ss
+#     Takes a date and a format and returns the date as
+#     yyyy-mm-dd hh:mm:ss
 #     If the format contains 'yyyy' it is assumed to have decimal
-#     values for month, day, year.  Otherwise, it is assumed to have
-#     base62 values for them.
+#     values for month, day, year, hours, minutes, seconds.
+#     Otherwise, it is assumed to have base62 values for them.
 #
 # Private method.
 
 sub then {
     my( $date, $format ) = @_;
-    my( $y, $m, $d );
+    my( $yr, $mo, $da, $hr, $mn, $sc );
+    my $tm = '';
     my $ret;
     for( $format ) {
-        if( /yyyy/ ) {  # decimal year/month/day
-            $y = substr $date, index( $format, 'yyyy' ), 4;
-            $m = substr $date, index( $format, 'mm'   ), 2;
-            $d = substr $date, index( $format, 'dd'   ), 2;
+        if( /yyyy/ ) {  # decimal
+            $yr = substr $date, index( $format, 'yyyy'   ), 4;
+            $mo = substr $date, index( $format, 'mm'     ), 2;
+            $da = substr $date, index( $format, 'dd'     ), 2;
+            if( (my $pos = index( $format, 'tttttt' )) > -1 ) {
+                $tm = substr $date, $pos, 2;
+                ( $hr, $mn, $sc ) = $tm =~ /(..)(..)(..)/;
+                $tm = " $hr:$mn:$sc";
+            }
         }
-        else {  # assume base62 year/month/day
-            $y = substr $date, index( $format, 'yy' ), 2;
-            $m = substr $date, index( $format, 'm'  ), 1;
-            $d = substr $date, index( $format, 'd'  ), 1;
-            $y = sprintf "%04d", base2int( $y, 62 );
-            $m = sprintf "%02d", base2int( $m, 62 );
-            $d = sprintf "%02d", base2int( $d, 62 );
+        else {          # base62
+            $yr = substr $date, index( $format, 'yy'  ), 2;
+            $mo = substr $date, index( $format, 'm'   ), 1;
+            $da = substr $date, index( $format, 'd'   ), 1;
+
+            $yr = sprintf "%04d", base2int( $yr, 62 );
+            $mo = sprintf "%02d", base2int( $mo, 62 );
+            $da = sprintf "%02d", base2int( $da, 62 );
+
+            if( (my $pos = index( $format, 'ttt' )) > -1 ) {
+                $tm = substr $date, $pos, 3;
+                ( $hr, $mn, $sc ) = $tm =~ /(.)(.)(.)/;
+                $hr = sprintf "%02d", base2int( $hr, 62 );
+                $mn = sprintf "%02d", base2int( $mn, 62 );
+                $sc = sprintf "%02d", base2int( $sc, 62 );
+                $tm = " $hr:$mn:$sc";
+            }
         }
     }
-    return "$y-$m-$d";
+    return "$yr-$mo-$da$tm";
 }
 
 __END__

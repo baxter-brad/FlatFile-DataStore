@@ -7,6 +7,7 @@ Revision history for Perl extension FlatFile::DataStore.
     - added FlatFile::DataStore::DBM and tests
     - added FlatFile::DataStore::locate_record_data()
     - minor doc fixes
+    - added timestamp (tttttt or ttt) in preamble date
     - DataStore.pm
       - added exists() (for datastore)
       - added untaint()

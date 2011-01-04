@@ -1920,25 +1920,34 @@ sub read_file {
 }
 
 #---------------------------------------------------------------------
-# now(), expects 'yyyymmdd' or 'yymd' (or 'mmddyyyy', 'mdyy', etc.)
+# now(), expects a string that contains
+#     'yyyy', 'mm', 'da', 'tttttt' (hhmmss) in some order, or
+#     'yy',   'm',  'd',  'ttt'    (hms)    in some order
+#
+#     ('yyyy' is a magic string that denotes decimal vs. base62)
+#
 #     Returns current date formatted as requested.
 #
 # Private method.
 
 sub now {
     my( $format ) = @_;
-    my( $y, $m, $d ) =
-        sub{($_[5]+1900,$_[4]+1,$_[3])}->(localtime);
+    my( $yr, $mo, $da, $hr, $mn, $sc ) =
+        sub{($_[5]+1900,$_[4]+1,$_[3],$_[2],$_[1],$_[0])}->(localtime);
     for( $format ) {
-        if( /yyyy/ ) {  # decimal year/month/day
-            s/ yyyy / sprintf("%04d",$y) /ex;
-            s/ mm   / sprintf("%02d",$m) /ex;
-            s/ dd   / sprintf("%02d",$d) /ex;
+        if( /yyyy/ ) {  # decimal
+            s/ yyyy   / sprintf "%04d", $yr                   /ex;  # Y10K bug
+            s/ mm     / sprintf "%02d", $mo                   /ex;
+            s/ dd     / sprintf "%02d", $da                   /ex;
+            s/ tttttt / sprintf "%02d%02d%02d", $hr, $mn, $sc /ex;
         }
-        else {  # assume base62 year/month/day
-            s/ yy / int2base( $y, 62) /ex;
-            s/ m  / int2base( $m, 62) /ex;
-            s/ d  / int2base( $d, 62) /ex;
+        else {          # base62
+            s/ yy  / int2base( $yr, 62 )  /ex;  # Y3844 bug
+            s/ m   / int2base( $mo, 62 )  /ex;
+            s/ d   / int2base( $da, 62 )  /ex;
+            s/ ttt / int2base( $hr, 62 ).
+                     int2base( $mn, 62 ).
+                     int2base( $sc, 62 )  /ex;
         }
     }
     return $format;
@@ -2079,20 +2088,31 @@ The date parameter specifies how the transaction date is stored in the
 preamble.  It has the form: C<date=length-format>, e.g.,
 
     date=8-yyyymmdd
+    date=14-yyyymmddtttttt
     date=4-yymd
+    date=7-yymdttt
 
-The example shows the two choices for length: 4 or 8.  When the length
-is 8, the format must contain 'yyyy', 'mm', and 'dd' in some order.
+The examples show the four choices for length: 4, 7, 8, or 14.  When
+the length is 8, the format must contain 'yyyy', 'mm', and 'dd' in some
+order.  When the length is 14, add 'tttttt' (hhmmss) in there
+somewhere.
+
 When the length is 4, the format must contain 'yy', 'm', and 'd' in
-some order, e.g.,
+some order.  When the length is 7, add 'ttt' (hms) in there somewhere,
+e.g.
 
-    date=8-mmddyyyy, date=8-ddmmyyyy, etc.
-    date=4-mdyy, date=4-dmyy, etc.
+    date=8-mmddyyyy,        date=8-ddmmyyyy,        etc.
+    date=14-mmddyyyytttttt, date=14-ttttttddmmyyyy, etc.
+    date=4-mdyy,            date=4-dmyy,            etc.
+    date=7-mdyyttt,         date=7-tttdmyy,         etc.
 
-When the length is 8, the year, month, and day are stored as decimal
-numbers, e.g., '20100615' for June, 15, 2010.  When the length is 4,
-they are stored as base62 numbers, e.g. 'WQ6F' (yymd) for June 15,
-2010.
+When the length is 8 (or 14), the year, month, and day (and hours,
+minutes, seconds) are stored as decimal numbers, e.g., '20100615' for
+June 15, 2010 (or '20101224114208' for Dec 24, 2010 11:42:08).
+
+When the length is 4 (or 7), they are stored as base62 numbers, e.g.
+'WQ6F' (yymd) for June 15, 2010, or 'WQCOBg8' (yymdttt) for Dec 24, 2010
+11:42:08.
 
 =item transnum
 
@@ -2300,7 +2320,7 @@ set:
 
     indicator=1-+#=*-
     transind=1-+#=*-
-    date=4-yymd
+    date=7-yymdttt
     transnum=2-62   3,843 transactions
     keynum=2-62     3,843 records
     reclen=2-62     3,843 bytes/record
@@ -2322,7 +2342,7 @@ For C<defaults=small>:
 
     indicator=1-+#=*-
     transind=1-+#=*-
-    date=4-yymd
+    date=7-yymdttt
     transnum=3-62   238,327 transactions
     keynum=3-62     238,327 records
     reclen=3-62     238,327 bytes/record
@@ -2344,7 +2364,7 @@ For C<defaults=medium>:
 
     indicator=1-+#=*-
     transind=1-+#=*-
-    date=4-yymd
+    date=7-yymdttt
     transnum=4-62   14,776,335 transactions
     keynum=4-62     14,776,335 records
     reclen=4-62     14,776,335 bytes/record
@@ -2369,7 +2389,7 @@ For C<defaults=large>:
     keymax=100_000
     indicator=1-+#=*-
     transind=1-+#=*-
-    date=4-yymd
+    date=7-yymdttt
     transnum=5-62   916,132,831 transactions
     keynum=5-62     916,132,831 records
     reclen=5-62     916,132,831 bytes/record
@@ -2396,7 +2416,7 @@ For C<defaults=xlarge>:
     tocmax=100_000
     indicator=1-+#=*-
     transind=1-+#=*-
-    date=4-yymd
+    date=7-yymdttt
     transnum=6-62   56B transactions
     keynum=6-62     56B records
     reclen=6-62     56G per record (limited to 1.9G by datamax)
