@@ -614,7 +614,7 @@ my $desc = "Example FlatFile::DataStore";
 {  # create(): 
    #     'Database exceeds configured size, keynum too long: $keynum'
 
-    # uri with very small limits
+    # uri with very small keynum limits
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
         qq'desc='.uri_escape($desc),
@@ -865,6 +865,88 @@ my $desc = "Example FlatFile::DataStore";
     like( $@, qr/No record data/,
               q'normalize_parms()/delete() No record data' );
 
+}
+
+#---------------------------------------------------------------------
+{  # exists():
+   #     'Need dir and name'
+
+    eval {
+        FlatFile::DataStore->exists();  # no parm
+    };
+
+    like( $@, qr/Need dir and name/,
+              q'exists() Need dir and name' );
+}
+
+#---------------------------------------------------------------------
+{  # accessors ...
+   # specs(): /Invalid omap:/
+   # dir():   /Directory doesn't exist: $dir/
+
+    my $ds = FlatFile::DataStore->new();
+
+    eval {
+        $ds->specs( {} );  # invalid omap
+    };
+
+    like( $@, qr/Invalid omap:/,
+              q'specs() Invalid omap:' );
+
+    eval {
+        $ds->dir( "$dir/3.14159" );  # dummy directory name
+    };
+
+    like( $@, qr/Directory doesn't exist:/,
+              q/dir() Directory doesn't exist:/ );
+}
+
+#---------------------------------------------------------------------
+{  # keyfile() via create():
+   # (note: update() and delete() don't add records to keyfiles, so
+   #        they wouldn't generate this error)
+   # /Database exceeds configured size, keyfnum too long: $keyfnum/
+
+    delete_tempfiles( $dir );  # start fresh
+
+    # uri with very small keymax and fnum limits
+    my $uri = join( ';' =>
+        qq'http://example.com?name=$name',
+        qq'desc='.uri_escape($desc),
+        qw(
+            keymax=2
+            thisfnum=1-2 thisseek=4-10
+            prevfnum=1-2 prevseek=4-10
+            nextfnum=1-2 nextseek=4-10
+
+            indicator=1-%2B%23%3D%2A%2D
+            transind=1-%2B%23%3D%2A%2D
+            date=7-yymdttt
+            keynum=1-10
+            transnum=1-10
+            reclen=2-10
+            user=10-%20-%7E
+            recsep=%0A
+        )
+    );
+
+    my $ds = FlatFile::DataStore->new({
+        name => $name,
+        dir  => $dir,
+        uri  => $uri,
+        });
+
+    # should succeed
+    my $rec = $ds->create({ data => "This is a test" });  # example.1.key
+       $rec = $ds->create({ data => "This is a test" });  # example.1.key
+
+    # should fail (trying to write to example.10.key)
+    eval {
+        $ds->create({ data => "This is a test" });
+    };
+
+    like( $@, qr/Database exceeds configured size, keyfnum too long: 10/,
+              q/keyfile() via create() Database exceeds configured size, keyfnum too long: $keynum/ );
 }
 
 __END__

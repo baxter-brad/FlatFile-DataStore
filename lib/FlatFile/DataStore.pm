@@ -1097,24 +1097,51 @@ sub normalize_parms {
 }
 
 #---------------------------------------------------------------------
-# exists(), called by user to test if a datastore exists
-#     currently, a datastore "exists" if there is a .uri
-#     file (good or not)
+
+=head2 exists()
+
+Tests if a datastore exists.  Currently, a datastore "exists" if there
+is a .uri file -- whether the file is valid or not.
+
+May be called on a datastore object, e.g.,
+
+    $ds->exists()
+
+Or may be called as a class method, e.g.,
+
+    FlatFile::DataStore->exists({
+        name => 'example',
+        dir  => '/dbs/example',
+        })
+
+If called as a class method, you must pass a hashref that provides
+values for 'name' and 'dir'.
+
+=cut
 
 sub exists {
     my( $self, $parms ) = @_;
 
     my( $dir, $name );
+
     if( ref $self ) {  # object method
         $dir  = $self->dir;
         $name = $self->name;
-    }
-    elsif( $parms ) {  # class method
-        $dir  = $parms->{'dir'};
-        $name = $parms->{'name'};
+
+        # empty object, so datastore doesn't exist
+        return unless $dir and $name;
     }
 
-    croak qq/exists() needs 'dir' and 'name'/ unless $dir and $name;
+    else {  # class method
+
+        if( $parms ) {
+            $dir  = $parms->{'dir'};
+            $name = $parms->{'name'};
+        }
+
+        # required for class method
+        croak qq/Need dir and name/ unless $dir and $name;
+    }
 
     -e "$dir/$name.uri";  # returned
 }
@@ -1179,6 +1206,10 @@ and implemented here using Data::Omap.  That is, it's an array of
 single-key hashes.  This ordered hash contains the specifications for
 constructing and parsing a record preamble as defined in the name.uri
 file.
+
+In list context, the value returned is a list of hashrefs.  In scalar
+context, the value returned is an arrayref containing the list of 
+hashrefs.
 
 =cut
 
@@ -1437,7 +1468,7 @@ sub keyfile {
     if( my $keymax = $self->keymax ) {
         $keyfint = int( $keyint / $keymax ) + 1;
         my $keyfnum = int2base $keyfint, $fnumbase, $fnumlen;
-        croak qq/Database exceeds configured size (keyfnum too long): $keyfnum/
+        croak qq/Database exceeds configured size, keyfnum too long: $keyfnum/
             if length $keyfnum > $fnumlen;
         $keyfile .= ".$keyfnum";
     }
@@ -1503,7 +1534,7 @@ sub datafile {
         my $fnumlen  = $self->fnumlen;
         my $fnumbase = $self->fnumbase;
         $fnum = int2base( 1 + base2int( $fnum, $fnumbase ), $fnumbase, $fnumlen );
-        croak qq/Database exceeds configured size (fnum too long): $fnum/
+        croak qq/Database exceeds configured size, fnum too long: $fnum/
             if length $fnum > $fnumlen;
 
         $datafile = $self->which_datafile( $fnum );
@@ -1685,7 +1716,7 @@ sub nexttransnum {
     my $translen  = $self->translen;
     my $transbase = $self->transbase;
     my $transnum  = int2base $transint, $transbase, $translen;
-    croak qq/Database exceeds configured size (transnum too long): $transnum/
+    croak qq/Database exceeds configured size, transnum too long: $transnum/
         if length $transnum > $translen;
 
     return $transint;
