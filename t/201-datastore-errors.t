@@ -612,44 +612,6 @@ my $desc = "Example FlatFile::DataStore";
 
 #---------------------------------------------------------------------
 {  # create(): 
-   #     'Parameter must be a hashref or a record object'
-
-    # ok uri
-    my $uri = join( ';' =>
-        qq'http://example.com?name=$name',
-        qq'desc='.uri_escape($desc),
-        qw(
-            keynum=1-10
-
-            indicator=1-%2B%23%3D%2A%2D
-            transind=1-%2B%23%3D%2A%2D
-            date=7-yymdttt
-            transnum=1-10
-            reclen=2-10
-            thisfnum=1-10 thisseek=4-10
-            prevfnum=1-10 prevseek=4-10
-            nextfnum=1-10 nextseek=4-10
-            user=10-%20-%7E
-            recsep=%0A
-        )
-    );
-
-    my $ds = FlatFile::DataStore->new({
-        name => $name,
-        dir  => $dir,
-        uri  => $uri,
-        });
-
-    eval {
-        $ds->create( "This is a test" );  # bad parm
-    };
-
-    like( $@, qr/Parameter must be a hashref or a record object/,
-              q/create() Parameter must be a hashref or a record object/ );
-}
-
-#---------------------------------------------------------------------
-{  # create(): 
    #     'Database exceeds configured size, keynum too long: $keynum'
 
     # uri with very small limits
@@ -807,6 +769,102 @@ my $desc = "Example FlatFile::DataStore";
     
     like( $@, qr/\Qdelete not allowed: */,
               q/update() delete not allowed: $prevind/ );
+}
+
+#---------------------------------------------------------------------
+{  # normalize_parms() (via create(), update(), delete()): 
+   #     'Bad call'
+   #     'Parameter must be a hashref or a record object'
+   #     'No record data'
+
+    # ok uri
+    my $uri = join( ';' =>
+        qq'http://example.com?name=$name',
+        qq'desc='.uri_escape($desc),
+        qw(
+            indicator=1-%2B%23%3D%2A%2D
+            transind=1-%2B%23%3D%2A%2D
+            date=7-yymdttt
+            keynum=1-10
+            transnum=1-10
+            reclen=2-10
+            thisfnum=1-10 thisseek=4-10
+            prevfnum=1-10 prevseek=4-10
+            nextfnum=1-10 nextseek=4-10
+            user=10-%20-%7E
+            recsep=%0A
+        )
+    );
+
+    my $ds = FlatFile::DataStore->new({
+        name => $name,
+        dir  => $dir,
+        uri  => $uri,
+        });
+
+    eval {
+        $ds->create();  # no parm
+    };
+
+    like( $@, qr/Bad call/,
+              q'normalize_parms()/create() Bad call' );
+
+    eval {
+        $ds->create( "This is a test" );  # bad parm
+    };
+
+    like( $@, qr/Parameter must be a hashref or a record object/,
+              q'normalize_parms()/create() Parameter must be a hashref or a record object' );
+
+    eval {
+        $ds->create( {} );  # no record data
+    };
+
+    like( $@, qr/No record data/,
+              q'normalize_parms()/create() No record data' );
+
+    eval {
+        $ds->update();  # no parm
+    };
+
+    like( $@, qr/Bad call/,
+              q'normalize_parms()/update() Bad call' );
+
+    eval {
+        $ds->update( "This is a test" );  # bad parm
+    };
+
+    like( $@, qr/Parameter must be a hashref or a record object/,
+              q'normalize_parms()/update() Parameter must be a hashref or a record object' );
+
+    eval {
+        $ds->update( {} );  # no record data
+    };
+
+    like( $@, qr/No record data/,
+              q'normalize_parms()/update() No record data' );
+
+    eval {
+        $ds->delete();  # no parm
+    };
+
+    like( $@, qr/Bad call/,
+              q'normalize_parms()/delete() Bad call' );
+
+    eval {
+        $ds->delete( "This is a test" );  # bad parm
+    };
+
+    like( $@, qr/Parameter must be a hashref or a record object/,
+              q'normalize_parms()/delete() Parameter must be a hashref or a record object' );
+
+    eval {
+        $ds->delete( {} );  # no record data
+    };
+
+    like( $@, qr/No record data/,
+              q'normalize_parms()/delete() No record data' );
+
 }
 
 __END__

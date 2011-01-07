@@ -19,7 +19,7 @@ t/012-datastore-xlarge_nohist.t
 t/013-datastore-uripod.t
 t/014-datastore-tiehash.t
 t/015-datastore-dbm.t
-t/201-datastore-subs.t
+t/201-datastore-errors.t
 t/601-preamble.t
 t/701-toc.t
 t/801-record.t
