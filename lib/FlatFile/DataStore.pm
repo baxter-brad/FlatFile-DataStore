@@ -78,11 +78,11 @@ See FlatFile::DataStore::Tiehash for a tied interface.
 
 =head1 VERSION
 
-FlatFile::DataStore version 0.17
+FlatFile::DataStore version 1.00
 
 =cut
 
-our $VERSION = '0.17';
+our $VERSION = '1.00';
 
 use 5.008003;
 use strict;
@@ -220,29 +220,6 @@ sub new {
 }
 
 #---------------------------------------------------------------------
-# exists(), called by user to test if a datastore exists
-#     currently, a datastore "exists" if there is a .uri
-#     file (good or not)
-
-sub exists {
-    my( $self, $parms ) = @_;
-
-    my( $dir, $name );
-    if( ref $self ) {  # object method
-        $dir  = $self->dir;
-        $name = $self->name;
-    }
-    elsif( $parms ) {  # class method
-        $dir  = $parms->{'dir'};
-        $name = $parms->{'name'};
-    }
-
-    croak qq/exists() needs 'dir' and 'name'/ unless $dir and $name;
-
-    -e "$dir/$name.uri";  # returned
-}
-
-#---------------------------------------------------------------------
 # init(), called by new() to initialize a data store object
 #     parms (from hash ref):
 #       dir  ... the directory where the data store lives
@@ -259,7 +236,7 @@ sub init {
     my $name = $parms->{'name'};
     croak qq/Need "dir" and "name"/
         unless defined $dir and defined $name;
-    croak qq/Directory "$dir" doesn't exist./
+    croak qq/Directory doesn't exist: $dir/
         unless -d $dir;
 
     $self->dir( $dir );
@@ -283,14 +260,14 @@ sub init {
         my @lines = $self->read_file( $uri_file ); chomp @lines;
         if( @lines == 4 ) {
             ( $uri, $obj, $uri_md5, $obj_md5 ) = @lines;
-            croak "URI MD5 check failed."    unless $uri_md5 eq md5_hex( $uri );
-            croak "Object MD5 check failed." unless $obj_md5 eq md5_hex( $obj );
+            croak qq/URI MD5 check failed/    unless $uri_md5 eq md5_hex( $uri );
+            croak qq/Object MD5 check failed/ unless $obj_md5 eq md5_hex( $obj );
         }
         elsif( @lines == 1 ) {
             $uri = $new_uri || shift @lines;
         }
         else {
-            croak "Invalid URI file: '$uri_file'";
+            croak qq/Invalid URI file: $uri_file/;
         }
     }
 
@@ -298,7 +275,7 @@ sub init {
     if( $obj ) {
         untaint trusted => $obj;
         $self = eval $obj;  # note: *new* $self
-        croak qq/Problem with $uri_file: $@/ if $@;
+        croak qq/Problem with URI file, $uri_file: $@/ if $@;
         $self->dir( $dir );  # dir not in object
 
         # new uri ok only if no data has been added yet
@@ -327,7 +304,7 @@ sub init {
 
         my $uri_parms = $self->burst_query( \%Preamble );
         for my $attr ( keys %$uri_parms ) {
-            croak qq/Unrecognized parameter: "$attr"/ unless $Attrs{ $attr };
+            croak qq/Unrecognized parameter: $attr/ unless $Attrs{ $attr };
 
             # (note: using $attr as method name here)
             $self->$attr( $uri_parms->{ $attr } );
@@ -380,7 +357,7 @@ sub init {
             $self->datamax( convert_max( $max ) );
             if( $self->datamax > $maxint ) {
                 croak join '' =>
-                    "datamax (", $self->datamax, ") too large: ",
+                    "datamax too large: (", $self->datamax, ") ",
                     "thisseek is ", $self->thisseek,
                     " so maximum datamax is $maxnum base-$base ",
                     "(decimal: $maxint)";
@@ -404,7 +381,7 @@ sub init {
         }
 
         for my $attr ( keys %Attrs ) {
-            croak qq/Uninitialized attribute: "$attr"/
+            croak qq/Uninitialized attribute: $attr/
                 if not $Optional{ $attr } and not defined $self->$attr;
         }
 
@@ -464,7 +441,7 @@ sub create {
     my $keylen  = $self->keylen;
     my $keybase = $self->keybase;
     my $keynum  = int2base $keyint, $keybase, $keylen;
-    croak qq/Database exceeds configured size (keynum: "$keynum" too long)/
+    croak qq/Database exceeds configured size, keynum too long: $keynum/
         if length $keynum > $keylen;
 
     # get keyfile
@@ -581,7 +558,7 @@ sub retrieve {
         my $keyfh   = $self->locked_for_read( $keyfile );
 
         my $trynum  = $self->lastkeynum;
-        croak qq/Record doesn't exist: "$keynum"/ if $keynum > $trynum;
+        croak qq/Record doesn't exist: $keynum/ if $keynum > $trynum;
 
         $keystring = $self->read_preamble( $keyfh, $keyseek );
         close $keyfh or die "Can't close $keyfile: $!";
@@ -600,7 +577,7 @@ sub retrieve {
     # if we got the record via key file, check that preambles match
     if( $keystring ) {
         my $string = $record->preamble_string;
-        croak qq/Mismatch "$string" vs. "$keystring"/ if $string ne $keystring;
+        croak qq/Mismatch: "$string" ne "$keystring"/ if $string ne $keystring;
     }
 
     return $record;
@@ -629,7 +606,7 @@ sub retrieve_preamble {
     my $keyfh   = $self->locked_for_read( $keyfile );
 
     my $trynum  = $self->lastkeynum;
-    croak qq/Record doesn't exist: "$keynum"/ if $keynum > $trynum;
+    croak qq/Record doesn't exist: $keynum/ if $keynum > $trynum;
 
     my $keystring = $self->read_preamble( $keyfh, $keyseek );
     close $keyfh or die "Can't close $keyfile: $!";
@@ -701,7 +678,7 @@ sub locate_record_data {
         my $keyfh   = $self->locked_for_read( $keyfile );
 
         my $trynum  = $self->lastkeynum;
-        croak qq/Record doesn't exist: "$keynum"/ if $keynum > $trynum;
+        croak qq/Record doesn't exist: $keynum/ if $keynum > $trynum;
 
         $keystring = $self->read_preamble( $keyfh, $keyseek );
         close $keyfh or die "Can't close $keyfile: $!";
@@ -719,7 +696,7 @@ sub locate_record_data {
 
     # if we got the record via key file, check that preambles match
     if( $keystring ) {
-        croak qq/Mismatch "$preamble" vs. "$keystring"/
+        croak qq/Mismatch: "$preamble" ne "$keystring"/
             if $preamble ne $keystring;
     }
 
@@ -732,7 +709,7 @@ sub locate_record_data {
     $seekpos += $self->preamblelen;  # skip to record data
 
     sysseek $datafh, $seekpos, 0 or
-        croak "Can't seek to $seekpos in $datafile: $!";
+        croak qq/Can't seek to $seekpos in $datafile: $!/;
 
     return $datafh, $seekpos, $reclen;
 }
@@ -786,7 +763,7 @@ sub update {
     my $update = $self->crud->{'update'};
     my $delete = $self->crud->{'delete'};
 
-    croak qq/update not allowed: "$prevind"/
+    croak qq/update not allowed: $prevind/
         unless $prevind =~ /[\Q$create$update$delete\E]/;
 
     # get keyfile
@@ -798,7 +775,7 @@ sub update {
     my $keyseek              = $self->keyseek( $keyint );
 
     my $try = $self->read_preamble( $keyfh, $keyseek );
-    croak qq/Mismatch [$try] [$prevpreamble]/ unless $try eq $prevpreamble;
+    croak qq/Mismatch: "$try" ne "$prevpreamble"/ unless $try eq $prevpreamble;
 
     # get datafile ($datafnum may increment)
     my $top_toc  = $self->new_toc( { int => 0 } );
@@ -939,7 +916,7 @@ sub delete {
     my $create = $self->crud->{'create'};
     my $update = $self->crud->{'update'};
 
-    croak qq/'delete' not allowed: "$prevind"/
+    croak qq/delete not allowed: $prevind/
         unless $prevind =~ /[\Q$create$update\E]/;
 
     # get keyfile
@@ -951,7 +928,7 @@ sub delete {
     my $keyseek              = $self->keyseek( $keyint );
 
     my $try = $self->read_preamble( $keyfh, $keyseek );
-    croak qq/Mismatch [$try] [$prevpreamble]/ unless $try eq $prevpreamble;
+    croak qq/Mismatch: "$try" ne "$prevpreamble"/ unless $try eq $prevpreamble;
 
     # get datafile ($datafnum may increment)
     my $top_toc  = $self->new_toc( { int => 0 } );
@@ -1079,7 +1056,7 @@ sub delete {
 sub normalize_parms {
     my( $self, $parms ) = @_;
 
-    croak qq/Bad call./ unless $parms;
+    croak qq/Bad call/ unless $parms;
 
     my( $data_ref, $user_data, $preamble );
 
@@ -1112,11 +1089,34 @@ sub normalize_parms {
         }
     }
     else {
-        croak qq/Unrecognized: '$reftype'/;
+        croak qq/Parameter must be a hashref or a record object/;
     }
-    croak qq/No record data./ unless $data_ref;
+    croak qq/No record data/ unless $data_ref;
 
     return $data_ref, $user_data, $preamble;
+}
+
+#---------------------------------------------------------------------
+# exists(), called by user to test if a datastore exists
+#     currently, a datastore "exists" if there is a .uri
+#     file (good or not)
+
+sub exists {
+    my( $self, $parms ) = @_;
+
+    my( $dir, $name );
+    if( ref $self ) {  # object method
+        $dir  = $self->dir;
+        $name = $self->name;
+    }
+    elsif( $parms ) {  # class method
+        $dir  = $parms->{'dir'};
+        $name = $parms->{'name'};
+    }
+
+    croak qq/exists() needs 'dir' and 'name'/ unless $dir and $name;
+
+    -e "$dir/$name.uri";  # returned
 }
 
 #---------------------------------------------------------------------
@@ -1216,7 +1216,7 @@ sub dir {
     else {
         for( $self->{dir} ) {
             if( defined $dir ) {
-                croak qq/$dir doesn't exist/ unless -d $dir;
+                croak qq/Directory doesn't exist: $dir/ unless -d $dir;
                 $_ = $dir
             }
             return $_;
@@ -1437,7 +1437,7 @@ sub keyfile {
     if( my $keymax = $self->keymax ) {
         $keyfint = int( $keyint / $keymax ) + 1;
         my $keyfnum = int2base $keyfint, $fnumbase, $fnumlen;
-        croak qq/Database exceeds configured size (keyfnum: "$keyfnum" too long)/
+        croak qq/Database exceeds configured size (keyfnum too long): $keyfnum/
             if length $keyfnum > $fnumlen;
         $keyfile .= ".$keyfnum";
     }
@@ -1499,11 +1499,11 @@ sub datafile {
 
     if( $datasize + $checksize > $datamax ) {
 
-        croak qq/Record too long/ if $checksize > $datamax;
+        croak qq/Record too long: $checksize > $datamax/ if $checksize > $datamax;
         my $fnumlen  = $self->fnumlen;
         my $fnumbase = $self->fnumbase;
         $fnum = int2base( 1 + base2int( $fnum, $fnumbase ), $fnumbase, $fnumlen );
-        croak qq/Database exceeds configured size (fnum: "$fnum" too long)/
+        croak qq/Database exceeds configured size (fnum too long): $fnum/
             if length $fnum > $fnumlen;
 
         $datafile = $self->which_datafile( $fnum );
@@ -1685,7 +1685,7 @@ sub nexttransnum {
     my $translen  = $self->translen;
     my $transbase = $self->transbase;
     my $transnum  = int2base $transint, $transbase, $translen;
-    croak qq/Database exceeds configured size (transnum: "$transnum" too long)/
+    croak qq/Database exceeds configured size (transnum too long): $transnum/
         if length $transnum > $translen;
 
     return $transint;
@@ -1706,7 +1706,7 @@ sub burst_preamble {
     croak qq/No preamble to burst/ unless $string;
 
     my @fields = $string =~ $self->regx;
-    croak qq/Something is wrong with "$string"/ unless @fields;
+    croak qq/Something is wrong with preamble: $string/ unless @fields;
 
     my %parms;
     my $i;
@@ -1757,7 +1757,7 @@ sub update_preamble {
         my $try;
         if( /indicator|transind|date|user/ ) {
             $try = sprintf "%-${len}s", $value;
-            croak qq/Invalid value for "$_" ($try)/
+            croak qq/Invalid value for $_: $try/
                 unless $try =~ $Ascii_chars;
         }
         # the fnums should be in their base form already
@@ -1767,12 +1767,12 @@ sub update_preamble {
         else {
             $try = int2base $value, $parm, $len;
         }
-        croak qq/Value of "$_" ($try) too long/ if length $try > $len;
+        croak qq/Value of $_ too long: $try/ if length $try > $len;
 
         substr $preamble, $pos, $len, $try;  # update the field
     }
 
-    croak qq/Something is wrong with preamble: "$preamble"/
+    croak qq/Something is wrong with preamble: $preamble/
         unless $preamble =~ $self->regx;
 
     return $preamble;
@@ -1794,9 +1794,8 @@ sub locked_for_read {
     untaint path => $file;
 
     my $fh;
-    # open $fh, '<', $file or croak "Can't open for read $file: $!";
-    sysopen( $fh, $file, O_RDONLY|O_CREAT ) or croak "Can't open for read $file: $!";
-    flock $fh, LOCK_SH   or croak "Can't lock shared $file: $!";
+    sysopen( $fh, $file, O_RDONLY|O_CREAT ) or croak qq/Can't open $file for read: $!/;
+    flock $fh, LOCK_SH   or croak qq/Can't lock $file shared: $!/;
     binmode $fh;
 
     return $fh;
@@ -1814,9 +1813,9 @@ sub locked_for_write {
     untaint path => $file;
 
     my $fh;
-    sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak "Can't open for read/write $file: $!";
+    sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak qq/Can't open $file for read-write: $!/;
     my $ofh = select( $fh ); $| = 1; select ( $ofh );  # flush buffers
-    flock $fh, LOCK_EX                    or croak "Can't lock exclusive $file: $!";
+    flock $fh, LOCK_EX                    or croak qq/Can't lock $file exclusive: $!/;
     binmode $fh;
 
     return $fh;
@@ -1882,9 +1881,9 @@ sub read_bytes {
     my( $self, $fh, $seekpos, $len ) = @_;
 
     my $string;
-    sysseek $fh, $seekpos, 0 or croak "Can't seek: $!";
+    sysseek $fh, $seekpos, 0 or croak qq/Can't seek: $!/;
     my $rc = sysread $fh, $string, $len;
-    croak "Can't read: $!" unless defined $rc;
+    croak qq/Can't read: $!/ unless defined $rc;
 
     return \$string;
 }
@@ -1900,8 +1899,8 @@ sub read_bytes {
 sub write_bytes {
     my( $self, $fh, $seekpos, $sref ) = @_;
 
-    sysseek  $fh, $seekpos, 0 or croak "Can't seek: $!";
-    syswrite $fh, $$sref      or croak "Can't write: $!";
+    sysseek  $fh, $seekpos, 0 or croak qq/Can't seek: $!/;
+    syswrite $fh, $$sref      or croak qq/Can't write: $!/;
 
 }
 

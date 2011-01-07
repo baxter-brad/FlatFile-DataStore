@@ -1,5 +1,9 @@
 Revision history for Perl extension FlatFile::DataStore.
 
+1.00 Fri Jan  7 10:40:00 EST 2011
+    - added tests
+    - moved into production
+
 0.17 Thu Dec 23 17:15:20 EST 2010
     - major API change: parameters to create(), update(),
       and delete() are now passed as record or a hashref

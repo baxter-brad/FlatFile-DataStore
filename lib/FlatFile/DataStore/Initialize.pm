@@ -22,11 +22,11 @@ FlatFile::DataStore class.
 
 =head1 VERSION
 
-FlatFile::DataStore::Initialize version 0.17
+FlatFile::DataStore::Initialize version 1.00
 
 =cut
 
-our $VERSION = '0.17';
+our $VERSION = '1.00';
 
 use 5.008003;
 use strict;
@@ -67,12 +67,12 @@ sub burst_query {
         $name = uri_unescape( $name );
         $val  = uri_unescape( $val );
 
-        croak qq/"$name" duplicated in uri/ if $parms{ $name };
+        croak qq/Parm duplicated in uri: $name/ if $parms{ $name };
 
         $parms{ $name } = $val;
         if( $Preamble->{ $name } ) {
             my( $len, $parm ) = split /-/, $val, 2;
-            croak qq/"$name=$val": value must be format 'length-parm'/
+            croak qq/Value must be format 'length-parm': $name=$val/
                 unless defined $len and defined $parm;
             omap_add( $omap, $name => [ $pos, 0+$len, $parm ] );
             $pos += $len;
@@ -223,7 +223,7 @@ sub defaults {
         xlarge_nohist => \@xlarge_nohist,
     }->{ $want };
 
-    croak "Unrecognized default: $want." unless $ret;
+    croak qq/Unrecognized defaults: $want/ unless $ret;
     @$ret;  # returned
 }
 
@@ -246,13 +246,19 @@ sub make_preamble_regx {
             if( /indicator/ or /transind/ ) {
                 $regx .= ($len == 1 ? "([\Q$parm\E])" : "([\Q$parm\E]{$len})");
             }
-            elsif( /user/ ) {  # should only allow $Ascii_chars
+            elsif( /user/ ) {
+                # XXX should only allow $Ascii_chars, not checked here
                 # (metachars in $parm should already be escaped as needed)
                 $regx .= ($len == 1 ? "([$parm])" : "([$parm]{$len})");
             }
             elsif( /date/ ) {
+                # XXX regx makes no attempt to insure an actual valid date
+                # XXX this code needs to barf on, e.g., yyyyyyyy ...
                 # e.g., yyyymmdd(8) yyyymmddtttttt(14) yymd(4) yymdttt(7)
-                croak qq/Invalid date length ($len)./ unless $len =~ /^(?:4|7|8|14)$/;
+                croak qq/Invalid date length: $len/
+                    unless $len =~ /^(?:4|7|8|14)$/;
+                croak qq/Date length doesn't match format: $len-$parm/
+                    unless $len == length $parm;
                 $regx .= ($len < 8 ? "([0-9A-Za-z]{$len})" : "([0-9]{$len})");
             }
             else {
@@ -287,7 +293,7 @@ sub make_crud {
     my( $self ) = @_;
 
     my( $len, $chars ) = split /-/, $self->indicator, 2;
-    croak qq/Only single-character indicators supported./ if $len != 1;
+    croak qq/Only single-character indicators supported/ if $len != 1;
 
     my @c = split //, $chars;
     my %c = map { $_ => 1 } @c;
@@ -337,7 +343,7 @@ sub initialize {
 
     my $fnum     = int2base 1, $self->fnumbase, $self->fnumlen;
     my $datafile = $self->which_datafile( $fnum );
-    croak qq/Can't initialize database: data files exist (e.g., $datafile)./
+    croak qq/Can't initialize database (data files exist): $datafile/
         if -e $datafile;
 
     # make object a one-liner
@@ -385,9 +391,9 @@ sub write_file {
     my $fh = $self->locked_for_write( $file );
     my $type = ref $contents;
     if( $type ) {
-        if   ( $type eq 'SCALAR' ) { print $fh $$contents           }
-        elsif( $type eq 'ARRAY'  ) { print $fh join "", @$contents  }
-        else                       { croak "Unrecognized type: $type" }
+        if   ( $type eq 'SCALAR' ) { print $fh $$contents               }
+        elsif( $type eq 'ARRAY'  ) { print $fh join "", @$contents      }
+        else                       { croak qq/Unrecognized type: $type/ }
     }
     else { print $fh $contents }
     close $fh or die "Can't close $file: $!";
