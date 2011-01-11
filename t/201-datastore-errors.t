@@ -9,6 +9,12 @@ $Data::Dumper::Terse    = 1;
 $Data::Dumper::Indent   = 0;
 $Data::Dumper::Sortkeys = 1;
 
+# If in a circle, a line,
+# Hits the center, and runs spine to spine,
+#   And the line's length is D,
+#   The circumference will be,
+# D times 3.14159
+
 #---------------------------------------------------------------------
 # tempfiles cleanup
 
@@ -46,35 +52,49 @@ my $desc = "Example FlatFile::DataStore";
 
     # init() with insufficient parms
     eval {
-        $ds->init({ a => 1});  # dummy parms
+        $ds->init({
+            a => 1,  # dummy parms
+        });
     };
     like( $@, qr/Need "dir" and "name"/, "init() with insufficient parms" );
 
     # init() with bad dir
     eval {
-        $ds->init({ name => $name, dir => 3.14159 });  # dummy dir
+        $ds->init({
+            name => $name,
+            dir  => 3.14159,  # dummy dir
+        });
     };
     like( $@, qr/Directory doesn't exist: 3.14159/, "init() with bad dir" );
 }
 
 #---------------------------------------------------------------------
 {  # new() with insufficient parms (really testing init())
+
     eval {
-        my $ds = FlatFile::DataStore->new({ a => 1 });  # dummy parms
+        my $ds = FlatFile::DataStore->new({
+            a => 1,  # dummy parms
+        });
     };
     like( $@, qr/Need "dir" and "name"/, "new() with insufficient parms" );
 }
 
 #---------------------------------------------------------------------
 {  # new() with bad dir (really testing init())
+
     eval {
-        my $ds = FlatFile::DataStore->new({ name => $name, dir => 3.14159 });  # dummy dir
+        my $ds = FlatFile::DataStore->new({
+            name => $name,
+            dir  => 3.14159,  # dummy dir
+        });
     };
     like( $@, qr/Directory doesn't exist: 3.14159/, "new() with bad dir" );
 }
 
 #---------------------------------------------------------------------
 {  # init() 'Invalid URI file'
+
+    delete_tempfiles( $dir );  # start fresh
 
     # create invalid dummy uri file
     my $uri_file = "$dir/$name.uri";
@@ -87,13 +107,18 @@ my $desc = "Example FlatFile::DataStore";
     close $fh or die "Problem closing $uri_file: $!";
 
     eval {
-        my $ds = FlatFile::DataStore->new({ name => $name, dir => $dir });
+        my $ds = FlatFile::DataStore->new({
+            name => $name,
+            dir  => $dir,
+        });
     };
     like( $@, qr/Invalid URI file: $uri_file/, "init() Invalid URI file" );
 }
 
 #---------------------------------------------------------------------
 {  # init() 'URI MD5 check failed'
+
+    delete_tempfiles( $dir );  # start fresh
 
     # create invalid dummy uri file
     my $uri_file = "$dir/$name.uri";
@@ -106,13 +131,18 @@ my $desc = "Example FlatFile::DataStore";
     close $fh or die "Problem closing $uri_file: $!";
 
     eval {
-        my $ds = FlatFile::DataStore->new({ name => $name, dir => $dir });
+        my $ds = FlatFile::DataStore->new({
+            name => $name,
+            dir  => $dir,
+        });
     };
     like( $@, qr/URI MD5 check failed/, "init() URI MD5 check failed" );
 }
 
 #---------------------------------------------------------------------
 {  # init() 'Object MD5 check failed'
+
+    delete_tempfiles( $dir );  # start fresh
 
     use Digest::MD5 qw(md5_hex);
     my $dummy_md5 = md5_hex( 'dummy' );
@@ -128,7 +158,10 @@ my $desc = "Example FlatFile::DataStore";
     close $fh or die "Problem closing $uri_file: $!";
 
     eval {
-        my $ds = FlatFile::DataStore->new({ name => $name, dir => $dir });
+        my $ds = FlatFile::DataStore->new({
+            name => $name,
+            dir  => $dir,
+        });
     };
     like( $@, qr/Object MD5 check failed/, "init() Object MD5 check failed" );
 }
@@ -137,6 +170,8 @@ my $desc = "Example FlatFile::DataStore";
 {  # init() 'Problem with $uri_file'
    #     the idea here is that 'dummy' (on the second line) should
    #     not be 'eval-able' as a serialized object
+
+    delete_tempfiles( $dir );  # start fresh
 
     use Digest::MD5 qw(md5_hex);
     my $dummy_md5 = md5_hex( 'dummy' );
@@ -161,6 +196,8 @@ my $desc = "Example FlatFile::DataStore";
 {  # init(): uri file with only one line replaced by uri passed in
    #         Unrecognized parameter: $attr
 
+    delete_tempfiles( $dir );  # start fresh
+
     # create okay dummy uri file
     my $uri_file = "$dir/$name.uri";
 
@@ -184,6 +221,8 @@ my $desc = "Example FlatFile::DataStore";
 
 #---------------------------------------------------------------------
 {  # init(): 'fnum parameters differ'
+
+    delete_tempfiles( $dir );  # start fresh
 
     # uri with thisfnum ne prev/nextfnum
     my $uri = join( ';' =>
@@ -219,6 +258,8 @@ my $desc = "Example FlatFile::DataStore";
 #---------------------------------------------------------------------
 {  # init(): 'seek parameters differ'
 
+    delete_tempfiles( $dir );  # start fresh
+
     # uri with thisseek ne prev/nextseek
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
@@ -252,6 +293,8 @@ my $desc = "Example FlatFile::DataStore";
 
 #---------------------------------------------------------------------
 {  # init(): 'datamax too large'
+
+    delete_tempfiles( $dir );  # start fresh
 
     # uri with overly large datamax
     # thisseek is 4-10 so datamax can't be larger than 9999
@@ -288,6 +331,8 @@ my $desc = "Example FlatFile::DataStore";
 #---------------------------------------------------------------------
 {  # init(): 'Uninitialized attribute: $attr'
 
+    delete_tempfiles( $dir );  # start fresh
+
     # uri without a user= parm
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
@@ -321,6 +366,8 @@ my $desc = "Example FlatFile::DataStore";
 
 #---------------------------------------------------------------------
 {  # new() => init() => burst_query(): 'Parm duplicated in uri: $name'
+
+    delete_tempfiles( $dir );  # start fresh
 
     # uri with duplicate datamax
     my $uri = join( ';' =>
@@ -359,6 +406,8 @@ my $desc = "Example FlatFile::DataStore";
 {  # new() => init() => burst_query():
    #     "Value must be format 'length-parm: $name=$val'
 
+    delete_tempfiles( $dir );  # start fresh
+
     # uri with invalid thisfnum
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
@@ -394,6 +443,8 @@ my $desc = "Example FlatFile::DataStore";
 #---------------------------------------------------------------------
 {  # new() => init() => burst_query(): 'Unrecognized defaults: $want'
 
+    delete_tempfiles( $dir );  # start fresh
+
     # uri with invalid defaults
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
@@ -420,6 +471,8 @@ my $desc = "Example FlatFile::DataStore";
 #---------------------------------------------------------------------
 {  # new() => init() => make_preamble_regx():
    #     'Invalid date length: $len'
+
+    delete_tempfiles( $dir );  # start fresh
 
     # uri with invalid date
     my $uri = join( ';' =>
@@ -458,6 +511,8 @@ my $desc = "Example FlatFile::DataStore";
 {  # new() => init() => make_preamble_regx():
    #     'Date length doesn't match format: $len-$parm'
 
+    delete_tempfiles( $dir );  # start fresh
+
     # uri with invalid date (4 is okay, but not with yyyymmdd)
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
@@ -495,6 +550,8 @@ my $desc = "Example FlatFile::DataStore";
 {  # new() => init() => make_crud():
    #     'Only single-character indicators supported'
 
+    delete_tempfiles( $dir );  # start fresh
+
     # uri with invalid indicator length
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
@@ -531,6 +588,8 @@ my $desc = "Example FlatFile::DataStore";
 {  # new() => init() => make_crud():
    #     'Need five unique indicator characters'
 
+    delete_tempfiles( $dir );  # start fresh
+
     # uri with invalid indicator values
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
@@ -566,6 +625,8 @@ my $desc = "Example FlatFile::DataStore";
 #---------------------------------------------------------------------
 {  # new() => init() => initialize():
    #     'Can't initialize database (data files exist): $datafile'
+
+    delete_tempfiles( $dir );  # start fresh
 
     # create dummy data file
     my $datafile = "$dir/$name.1.data";
@@ -614,7 +675,9 @@ my $desc = "Example FlatFile::DataStore";
 {  # create(): 
    #     'Database exceeds configured size, keynum too long: $keynum'
 
-    # uri with very small keynum limits
+    delete_tempfiles( $dir );  # start fresh
+
+    # uri with absurdly small keynum limits
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
         qq'desc='.uri_escape($desc),
@@ -777,6 +840,8 @@ my $desc = "Example FlatFile::DataStore";
    #     'Parameter must be a hashref or a record object'
    #     'No record data'
 
+    delete_tempfiles( $dir );  # start fresh
+
     # ok uri
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
@@ -871,6 +936,8 @@ my $desc = "Example FlatFile::DataStore";
 {  # exists():
    #     'Need dir and name'
 
+    delete_tempfiles( $dir );  # start fresh
+
     eval {
         FlatFile::DataStore->exists();  # no parm
     };
@@ -883,6 +950,8 @@ my $desc = "Example FlatFile::DataStore";
 {  # accessors ...
    # specs(): /Invalid omap:/
    # dir():   /Directory doesn't exist: $dir/
+
+    delete_tempfiles( $dir );  # start fresh
 
     my $ds = FlatFile::DataStore->new();
 
@@ -903,13 +972,13 @@ my $desc = "Example FlatFile::DataStore";
 
 #---------------------------------------------------------------------
 {  # keyfile() via create():
-   # (note: update() and delete() don't add records to keyfiles, so
+   # (note: update() and delete() don't add lines to keyfiles, so
    #        they wouldn't generate this error)
    # /Database exceeds configured size, keyfnum too long: $keyfnum/
 
     delete_tempfiles( $dir );  # start fresh
 
-    # uri with very small keymax and fnum limits
+    # uri with absurdly small keymax and fnum limits
     my $uri = join( ';' =>
         qq'http://example.com?name=$name',
         qq'desc='.uri_escape($desc),
@@ -937,8 +1006,8 @@ my $desc = "Example FlatFile::DataStore";
         });
 
     # should succeed
-    my $rec = $ds->create({ data => "This is a test" });  # example.1.key
-       $rec = $ds->create({ data => "This is a test" });  # example.1.key
+    $ds->create({ data => "This is a test" });  # example.1.key
+    $ds->create({ data => "This is a test" });  # example.1.key
 
     # should fail (trying to write to example.10.key)
     eval {
@@ -946,7 +1015,60 @@ my $desc = "Example FlatFile::DataStore";
     };
 
     like( $@, qr/Database exceeds configured size, keyfnum too long: 10/,
-              q/keyfile() via create() Database exceeds configured size, keyfnum too long: $keynum/ );
+              q/keyfile() via create() Database exceeds configured size, keyfnum too long: $keyfnum/ );
+}
+
+#---------------------------------------------------------------------
+{  # datafile():
+   # /Record too long: $checksize > $datamax/
+   # /Database exceeds configured size, fnum too long: $fnum/
+
+    delete_tempfiles( $dir );  # start fresh
+
+    # uri with absurdly small datamax and fnum limits
+    my $uri = join( ';' =>
+        qq'http://example.com?name=$name',
+        qq'desc='.uri_escape($desc),
+        qw(
+            datamax=50
+            thisfnum=1-2 thisseek=4-10
+            prevfnum=1-2 prevseek=4-10
+            nextfnum=1-2 nextseek=4-10
+
+            indicator=1-%2B%23%3D%2A%2D
+            transind=1-%2B%23%3D%2A%2D
+            date=7-yymdttt
+            keynum=1-10
+            transnum=1-10
+            reclen=2-10
+            user=10-%20-%7E
+            recsep=%0A
+        )
+    );
+
+    my $ds = FlatFile::DataStore->new({
+        name => $name,
+        dir  => $dir,
+        uri  => $uri,
+        });
+
+    eval {
+        $ds->create({ data => "This is a test" });
+    };
+
+    like( $@, qr/Record too long:/,
+              q/datafile() via create() Record too long:/ );
+
+    # should succeed
+    $ds->create({ data => "testing" });  # example.1.data
+
+    # should fail (trying to write to example.10.data)
+    eval {
+        $ds->create({ data => "testing" });
+    };
+
+    like( $@, qr/Database exceeds configured size, fnum too long: 10/,
+              q/datafile() via create() Database exceeds configured size, fnum too long: $fnum/ );
 }
 
 __END__
