@@ -150,17 +150,17 @@ sub STORE {
 
     my $nextkeynum = $self->nextkeynum;
     $key = $nextkeynum if $key eq '';
-    croak "Unacceptable key: $key"
+    croak qq/Unsupported key format: $key/
         unless $key =~ /^[0-9]+$/ and $key <= $nextkeynum;
 
     my $reftype = ref $parms;  # record, hash, sref, string
 
     # for updates, $parms must be a record object
     if( $key < $nextkeynum ) {
-        croak "Not a record object: $parms"
+        croak qq/Not a record object: $parms/
             unless $reftype and $reftype =~ /Record/;
         my $keynum = $parms->keynum;
-        croak "Record key number ($keynum) doesn't match key ($key)"
+        croak qq/Record key number, $keynum, doesn't match key: $key/
             unless $key == $keynum;
         return $self->update( $parms );
     }
@@ -177,7 +177,7 @@ sub STORE {
             return $self->create( $parms );
         }
         else {
-            croak "Unrecognized: '$reftype'";
+            croak qq/Unsupported ref type: $reftype/;
         }
     }
 }
@@ -207,7 +207,7 @@ sub DELETE {
 
 sub CLEAR {
     my $self = shift;
-    croak "Clearing the entire data store is not supported";
+    croak qq/Clearing the entire data store is not supported/;
 }
 
 #---------------------------------------------------------------------

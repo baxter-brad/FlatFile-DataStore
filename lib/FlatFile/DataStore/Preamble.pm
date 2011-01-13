@@ -116,90 +116,103 @@ sub new {
 sub init {
     my( $self, $parms ) = @_;
 
-    my $datastore = $parms->{'datastore'} || croak "Missing datastore";
+    my $datastore = $parms->{'datastore'} || croak qq/Missing: datastore/;
+
     if( my $string = $parms->{'string'} ) {
-        $parms = $datastore->burst_preamble( $string );
+        $parms = $datastore->burst_preamble( $string );  # replace parms
     }
 
     my $crud = $datastore->crud();
     $self->crud( $crud );
 
+    # single chars:
     my $create = $crud->{'create'};
     my $update = $crud->{'update'};
     my $delete = $crud->{'delete'};
     my $oldupd = $crud->{'oldupd'};
     my $olddel = $crud->{'olddel'};
 
-    my $indicator = $parms->{'indicator'} || croak "Missing indicator";
+    # need these in validations below
+    my $indicator = $parms->{'indicator'} || croak qq/Missing: indicator/;
+    my $transind  = $parms->{'transind'}  || croak qq/Missing: transind/;
     $self->indicator( $indicator );
+    $self->transind(  $transind );
 
-    my $transind = $parms->{'transind'} || croak "Missing transind";
-    $self->transind( $transind );
-
-    my $string = "";
+    my $string = '';
     for my $href ( $datastore->specs() ) {  # each field is href of aref
         my( $field, $aref )     = %$href;
         my( $pos, $len, $parm ) = @$aref;
         my $value               = $parms->{ $field };
 
         for( $field ) {
-            if( /indicator/ or /transind/ ) {
-                croak qq'Missing value for "$_"' unless defined $value;
-                croak qq'Invalid value for "$_" ($value)' unless length $value == $len;
 
-                $self->{ $_ } = $value;
-                $string      .= $value;
+            if( /indicator|transind/ ) {
+
+                my $regx = qr/^[\Q$parm\E]{1,$len}$/;
+                croak qq/Invalid value, $value, for: $_/ unless $value =~ $regx;
+
+                # did these above
+                # croak qq/Missing: $_/ unless defined $value;
+                # $self->$_( $value );
+
+                $string .= $value;
             }
             elsif( /date/ ) {
-                croak qq'Missing value for "$_"' unless defined $value;
-                croak qq'Invalid value for "$_" ($value)' unless length $value == $len;
 
-                $self->{ $_ } = then( $value, $parm );
-                $string      .= $value;
+                croak qq/Missing: $_/ unless defined $value;
+                croak qq/Invalid value, $value, for: $_/ unless length $value == $len;
+
+                $self->$_( then( $value, $parm ) );
+                $string .= $value;
             }
             elsif( /user/ ) {
+
                 unless( defined $value ) {
                     $value = $datastore->userdata;
-                    croak qq'Missing value for "$_"' unless defined $value;
+                    croak qq/Missing: $_/ unless defined $value;
                 }
 
                 my $try = sprintf "%-${len}s", $value;  # pads with blanks
-                croak qq'Value of "$_" ($try) too long' if length $try > $len;
+                croak qq/Value, $try, too long for: $_/ if length $try > $len;
 
-                my $user_regx = qr/^[$parm]+ *$/;  # $parm chars already escaped as needed
-                croak qq'Invalid value for "$_" ($value)' unless $try =~ $user_regx;
+                my $regx = qr/^[$parm]+ *$/;  # $parm chars already escaped as needed
+                croak qq/Invalid value, $value, for: $_/ unless $try =~ $regx;
 
-                $self->{ $_ } = $value;
-                $string      .= $try;
+                $self->$_( $value );
+                $string .= $try;
             }
             elsif( not defined $value ) {
-                if( (/keynum|reclen|transnum|thisfnum|thisseek/              ) or
-                    (/prevfnum|prevseek/ and $indicator =~ /[\Q$update$delete\E]/) or
-                    (/nextfnum|nextseek/ and $indicator =~ /[\Q$oldupd$olddel\E]/) ) {
-                    croak qq'Missing value for "$_"';
+
+                if( ( /keynum|reclen|transnum|thisfnum|thisseek/                   ) ||
+                    ( /prevfnum|prevseek/ and $transind  =~ /[\Q$update$delete\E]/ ) ||
+                    ( /nextfnum|nextseek/ and $indicator =~ /[\Q$oldupd$olddel\E]/ ) ){
+                    croak qq/Missing: $_/;
                 }
-                $string .= "-" x $len;  # string of '-' for null
+
+                $string .= '-' x $len;  # string of '-' for null
             }
             else {
-                if( (/nextfnum|nextseek/ and $indicator =~ /[\Q$update$delete\E]/) or
-                    (/prevfnum|prevseek/ and $indicator =~ /[\Q$create\E]/       ) ) {
-                    croak qq'Setting value of "$_" not permitted';
-                }
-                my $try = sprintf "%0${len}s", /fnum/? $value: int2base( $value, $parm );
-                croak qq'Value of "$_" ($try) too long' if length $try > $len;
 
-                $self->{ $_ } = /fnum/? $try: 0+$value;
-                $string      .= $try;
+                if( ( /nextfnum|nextseek/ and $indicator =~ /[\Q$update$delete\E]/ ) ||
+                    ( /prevfnum|prevseek/ and $indicator =~ /[\Q$create\E]/        ) ){
+                    croak qq/For indicator, $indicator, you may not set: $_/;
+                }
+
+                my $try = sprintf "%0${len}s", /fnum/? $value: int2base( $value, $parm );
+                croak qq/Value, $try, too long for: $_/ if length $try > $len;
+
+                $self->$_( /fnum/? $try: 0+$value );
+                $string .= $try;
             }
         }
     }
 
-    croak qq'Something is wrong with preamble string: "$string"'
+    croak qq/Something is wrong with preamble: $string/
         unless $string =~ $datastore->regx();
     
     $self->string( $string );
 
-    return $self;
+    $self;  # returned
 }
 
 #---------------------------------------------------------------------

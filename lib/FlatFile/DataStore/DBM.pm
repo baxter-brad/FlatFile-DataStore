@@ -151,7 +151,7 @@ sub locked        {for($_[0]->{locked       }){$_=$_[1]if@_>1;return$_}}
 
 sub TIEHASH {
 
-    eval qq{require $dbm_package; 1} or die "Can't use $dbm_package: $@";
+    eval qq{require $dbm_package; 1} or croak qq/Can't use $dbm_package: $@/;
 
     my $class = shift;
     my $ds    = FlatFile::DataStore->new( @_ );
@@ -174,7 +174,7 @@ sub FETCH {
     my( $self, $key ) = @_;
 
     # block efforts to fetch a "_keynum" entry
-    croak "Unsupported key format" if $key =~ /^_[0-9]+$/;
+    croak qq/Unsupported key format: $key/ if $key =~ /^_[0-9]+$/;
 
     my $ds    = $self->ds;
     my $dir   = $ds->dir;
@@ -213,7 +213,7 @@ sub STORE {
     my( $self, $key, $parms ) = @_;
 
     # block efforts to store to "_keynum" entries
-    croak qq/Unsupported key format/ if $key =~ /^_[0-9]+$/;
+    croak qq/Unsupported key format: $key/ if $key =~ /^_[0-9]+$/;
 
     my $ds    = $self->ds;
     my $dir   = $ds->dir;
@@ -257,7 +257,7 @@ sub STORE {
             $record = $ds->update( $record );
         }
 
-        else { croak "Unrecognized: '$reftype'" }
+        else { croak qq/Unsupported ref type: $reftype/ }
 
     }
 
@@ -275,7 +275,7 @@ sub STORE {
             $record = $ds->create( $parms );
         }
 
-        else { croak "Unrecognized: '$reftype'" }
+        else { croak qq/Unsupported ref type: $reftype/ }
 
         # create succeeded, let's store the key
         for( $record->keynum ) {
@@ -338,7 +338,7 @@ sub DELETE {
 #     accidental %h = ();
 
 sub CLEAR {
-    croak "Clearing the entire data store is not supported";
+    croak qq/Clearing the entire data store is not supported/;
 }
 
 #---------------------------------------------------------------------
@@ -394,12 +394,13 @@ sub NEXTKEY {
 #---------------------------------------------------------------------
 # SCALAR() supports tied hash access
 #     Here we're bypassing the dbm file altogether and simply getting
-#     the number of non-deleted records in the data store.  The should
-#     be the same as the number of (logical) entries in the dbm hash.
+#     the number of non-deleted records in the data store.  This
+#     should be the same as the number of (logical) entries in the
+#     dbm hash.
 
 sub SCALAR {
     my $self = shift;
-    $self->ds->howmany;  # create|update (no deletes)
+    $self->ds->howmany;  # create|update (not deletes)
 }
 
 #---------------------------------------------------------------------
@@ -409,7 +410,7 @@ sub EXISTS {
     my( $self, $key ) = @_;
 
     # block efforts to look at a "_keynum" entry
-    croak "Unsupported key format" if $key =~ /^_[0-9]+$/;
+    croak qq/Unsupported key format: $key/ if $key =~ /^_[0-9]+$/;
 
     my $ds    = $self->ds;
     return unless $ds->exists;
@@ -455,9 +456,9 @@ sub readlock {
     my $file = $self->dbm_lock_file;
     my $fh;
 
-    # open $fh, '<', $file or croak "Can't open for read $file: $!";
-    sysopen( $fh, $file, O_RDONLY|O_CREAT ) or croak "Can't open for read $file: $!";
-    flock $fh, LOCK_SH   or croak "Can't lock shared $file: $!";
+    # open $fh, '<', $file or croak qq/Can't open for read $file: $!/;
+    sysopen( $fh, $file, O_RDONLY|O_CREAT ) or croak qq/Can't open for read $file: $!/;
+    flock $fh, LOCK_SH   or croak qq/Can't lock shared $file: $!/;
     binmode $fh;
 
     $self->locked( $fh );
@@ -476,9 +477,9 @@ sub writelock {
     my $file = $self->dbm_lock_file;
     my $fh;
 
-    sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak "Can't open for read/write $file: $!";
+    sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak qq/Can't open for read-write $file: $!/;
     my $ofh = select( $fh ); $| = 1; select ( $ofh );  # flush buffers
-    flock $fh, LOCK_EX                    or croak "Can't lock exclusive $file: $!";
+    flock $fh, LOCK_EX                    or croak qq/Can't lock exclusive $file: $!/;
     binmode $fh;
 
     $self->locked( $fh );
@@ -496,7 +497,7 @@ sub unlock {
     my $file = $self->dbm_lock_file;
     my $fh   = $self->locked;
 
-    close $fh or croak "Problem closing $file: $!";
+    close $fh or croak qq/Problem closing $file: $!/;
 }
 
 #---------------------------------------------------------------------
@@ -506,7 +507,8 @@ sub unlock {
 sub get_key {
     my( $self, $keynum ) = @_;
 
-    croak "Not a keynum" unless $keynum =~ /^[0-9]+$/;
+    croak qq/Not a keynum: $keynum/
+        unless defined $keynum and $keynum =~ /^[0-9]+$/;
 
     my $ds    = $self->ds;
     my $dir   = $ds->dir;
@@ -525,21 +527,46 @@ sub get_key {
 }
 
 #---------------------------------------------------------------------
+# get_keynum()
+#     get the keynum associated with a key
+
+sub get_keynum {
+    my( $self, $key ) = @_;
+
+    croak qq/Unsupported key format: $key/ if $key =~ /^_[0-9]+$/;
+
+    my $ds    = $self->ds;
+    my $dir   = $ds->dir;
+    my $name  = $ds->name;
+
+    # lock the dbm file and read the keynum
+    $self->readlock;
+    tie my %dbm_hash, $dbm_package, "$dir/$name", @{$dbm_parms};
+
+    my $keynum = $dbm_hash{ $key };
+
+    untie %dbm_hash;
+    $self->unlock;
+
+    $keynum;  # returned
+}
+
+#---------------------------------------------------------------------
 our $AUTOLOAD;
 sub AUTOLOAD {
 
     my   $method = $AUTOLOAD;
          $method =~ s/.*:://;
     for( $method ) {
-        croak "Unsupported: $_" unless /^
-            retrieve           |
-            retrieve_preamble  |
-            locate_record_data |
-            history            |
-            userdata           |
-            howmany            |
-            lastkeynum         |
-            nextkeynum
+        croak qq/Unsupported method: $_/ unless /^
+             retrieve
+            |retrieve_preamble
+            |locate_record_data
+            |history
+            |userdata
+            |howmany
+            |lastkeynum
+            |nextkeynum
             $/x;
     }
 

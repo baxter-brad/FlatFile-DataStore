@@ -41,8 +41,25 @@ END   { delete_tempfiles( $dir ) }
 #---------------------------------------------------------------------
 BEGIN { use_ok('FlatFile::DataStore') };
 
-my $name = "example";
-my $desc = "Example FlatFile::DataStore";
+my $name   = "example";
+my $desc   = "Example FlatFile::DataStore";
+my $ok_uri = join( ';' =>
+    qq'http://example.com?name=$name',
+    qq'desc='.uri_escape($desc),
+    qw(
+        recsep=%0A
+        indicator=1-%2B%23%3D%2A%2D
+        transind=1-%2B%23%3D%2A%2D
+        date=8-yyyymmdd
+        transnum=2-10
+        keynum=2-10
+        reclen=2-10
+        thisfnum=1-10 thisseek=4-10
+        prevfnum=1-10 prevseek=4-10
+        nextfnum=1-10 nextseek=4-10
+        user=10-%20-%7E
+    )
+);
 
 {  # new()/init()
 
@@ -637,31 +654,11 @@ my $desc = "Example FlatFile::DataStore";
 
     close $fh or die "Problem closing $datafile: $!";
 
-    # ok uri
-    my $uri = join( ';' =>
-        qq'http://example.com?name=$name',
-        qq'desc='.uri_escape($desc),
-        qw(
-            datamax=9_000
-            recsep=%0A
-            indicator=1-%2B%23%3D%2A%2D
-            transind=1-%2B%23%3D%2A%2D
-            date=8-yyyymmdd
-            transnum=2-10
-            keynum=2-10
-            reclen=2-10
-            thisfnum=1-10 thisseek=4-10
-            prevfnum=1-10 prevseek=4-10
-            nextfnum=1-10 nextseek=4-10
-            user=10-%20-%7E
-        )
-    );
-
     eval {
         my $ds = FlatFile::DataStore->new({
             name => $name,
             dir  => $dir,
-            uri  => $uri,
+            uri  => $ok_uri,
             });
     };
 
@@ -722,29 +719,10 @@ my $desc = "Example FlatFile::DataStore";
 
     delete_tempfiles( $dir );  # start fresh
 
-    # ok uri
-    my $uri = join( ';' =>
-        qq'http://example.com?name=$name',
-        qq'desc='.uri_escape($desc),
-        qw(
-            indicator=1-%2B%23%3D%2A%2D
-            transind=1-%2B%23%3D%2A%2D
-            date=7-yymdttt
-            keynum=1-10
-            transnum=1-10
-            reclen=2-10
-            thisfnum=1-10 thisseek=4-10
-            prevfnum=1-10 prevseek=4-10
-            nextfnum=1-10 nextseek=4-10
-            user=10-%20-%7E
-            recsep=%0A
-        )
-    );
-
     my $ds = FlatFile::DataStore->new({
         name => $name,
         dir  => $dir,
-        uri  => $uri,
+        uri  => $ok_uri,
         });
 
     $ds->create({ data => "This is a test" });  # keynum 0
@@ -773,41 +751,38 @@ my $desc = "Example FlatFile::DataStore";
 }
 
 #---------------------------------------------------------------------
-{  # update(), delete(): 'update/delete not allowed: $prevind'
+{  # update(), delete():
+   #     'Must have at least a previous preamble for update/delete'
+   #     'update/delete not allowed: $prevind'
 
     delete_tempfiles( $dir );  # start fresh
-
-    # ok uri
-    my $uri = join( ';' =>
-        qq'http://example.com?name=$name',
-        qq'desc='.uri_escape($desc),
-        qw(
-            indicator=1-%2B%23%3D%2A%2D
-            transind=1-%2B%23%3D%2A%2D
-            date=7-yymdttt
-            keynum=1-10
-            transnum=1-10
-            reclen=2-10
-            thisfnum=1-10 thisseek=4-10
-            prevfnum=1-10 prevseek=4-10
-            nextfnum=1-10 nextseek=4-10
-            user=10-%20-%7E
-            recsep=%0A
-        )
-    );
 
     my $ds = FlatFile::DataStore->new({
         name => $name,
         dir  => $dir,
-        uri  => $uri,
+        uri  => $ok_uri,
         });
+
+    # data without a record or preamble object
+    eval {
+        $ds->update({ data => "This is a test" });
+    };
+    
+    like( $@, qr/Must have at least a previous preamble for update/,
+              q/update() Must have at least a previous preamble for update/ );
+
+    eval {  # ditto
+        $ds->delete({ data => "This is a test" });
+    };
+    
+    like( $@, qr/Must have at least a previous preamble for delete/,
+              q/delete() Must have at least a previous preamble for delete/ );
 
     my $rec = $ds->create({ data => "This is a test" });
 
     # save the location of that record
     my $fnum   = $rec->thisfnum;
     my $seek   = $rec->thisseek;
-    my $keynum = $rec->keynum;
 
     # delete that record (which appends a new "delete record")
     $ds->delete( $rec );
@@ -819,6 +794,8 @@ my $desc = "Example FlatFile::DataStore";
 
     $rec = $ds->retrieve( $fnum, $seek );
 
+    # not allowed to update it or delete it again, because it's an
+    # 'old' version (can only update or delete the 'current' one)
     eval {
         $rec = $ds->update({ data => "New data", record => $rec });
     };
@@ -842,29 +819,10 @@ my $desc = "Example FlatFile::DataStore";
 
     delete_tempfiles( $dir );  # start fresh
 
-    # ok uri
-    my $uri = join( ';' =>
-        qq'http://example.com?name=$name',
-        qq'desc='.uri_escape($desc),
-        qw(
-            indicator=1-%2B%23%3D%2A%2D
-            transind=1-%2B%23%3D%2A%2D
-            date=7-yymdttt
-            keynum=1-10
-            transnum=1-10
-            reclen=2-10
-            thisfnum=1-10 thisseek=4-10
-            prevfnum=1-10 prevseek=4-10
-            nextfnum=1-10 nextseek=4-10
-            user=10-%20-%7E
-            recsep=%0A
-        )
-    );
-
     my $ds = FlatFile::DataStore->new({
         name => $name,
         dir  => $dir,
-        uri  => $uri,
+        uri  => $ok_uri,
         });
 
     eval {
@@ -1019,7 +977,7 @@ my $desc = "Example FlatFile::DataStore";
 }
 
 #---------------------------------------------------------------------
-{  # datafile():
+{  # datafile() via create(), update(), delete():
    # /Record too long: $checksize > $datamax/
    # /Database exceeds configured size, fnum too long: $fnum/
 
@@ -1060,7 +1018,21 @@ my $desc = "Example FlatFile::DataStore";
               q/datafile() via create() Record too long:/ );
 
     # should succeed
-    $ds->create({ data => "testing" });  # example.1.data
+    my $rec = $ds->create({ data => "testing" });  # example.1.data
+
+    eval {
+        $ds->update({ record => $rec, data => "This is a test" });
+    };
+
+    like( $@, qr/Record too long:/,
+              q/datafile() via update() Record too long:/ );
+
+    eval {
+        $ds->delete({ record => $rec, data => "This is a test" });
+    };
+
+    like( $@, qr/Record too long:/,
+              q/datafile() via delete() Record too long:/ );
 
     # should fail (trying to write to example.10.data)
     eval {
@@ -1069,6 +1041,196 @@ my $desc = "Example FlatFile::DataStore";
 
     like( $@, qr/Database exceeds configured size, fnum too long: 10/,
               q/datafile() via create() Database exceeds configured size, fnum too long: $fnum/ );
+
+    eval {  # ditto
+        $ds->update({ record => $rec });
+    };
+
+    like( $@, qr/Database exceeds configured size, fnum too long: 10/,
+              q/datafile() via update() Database exceeds configured size, fnum too long: $fnum/ );
+
+    eval {  # ditto
+        $ds->delete({ record => $rec });
+    };
+
+    like( $@, qr/Database exceeds configured size, fnum too long: 10/,
+              q/datafile() via delete() Database exceeds configured size, fnum too long: $fnum/ );
+}
+
+#---------------------------------------------------------------------
+{  # nexttransnum() via create(), update(), delete():
+   # /Database exceeds configured size, transnum too long: $transnum/
+
+    delete_tempfiles( $dir );  # start fresh
+
+    # uri with absurdly small transnum limit
+    my $uri = join( ';' =>
+        qq'http://example.com?name=$name',
+        qq'desc='.uri_escape($desc),
+        qw(
+            transnum=1-2
+
+            indicator=1-%2B%23%3D%2A%2D
+            transind=1-%2B%23%3D%2A%2D
+            date=7-yymdttt
+            keynum=1-10
+            thisfnum=1-10 thisseek=4-10
+            prevfnum=1-10 prevseek=4-10
+            nextfnum=1-10 nextseek=4-10
+            reclen=2-10
+            user=10-%20-%7E
+            recsep=%0A
+        )
+    );
+
+    my $ds = FlatFile::DataStore->new({
+        name => $name,
+        dir  => $dir,
+        uri  => $uri,
+        });
+
+    # should succeed (note, transaction numbers start at 1)
+    my $rec = $ds->create({ data => "This is a test" });  # transaction 1
+
+    # should fail (trying to use transaction 10)
+    eval {
+        $ds->create({ data => "This is a test" });
+    };
+
+    like( $@, qr/Database exceeds configured size, transnum too long:/,
+              q/nexttransnum() via create() Database exceeds configured size, transnum too long: $transnum/ );
+
+    eval {  # ditto
+        $ds->update( $rec );
+    };
+
+    like( $@, qr/Database exceeds configured size, transnum too long:/,
+              q/nexttransnum() via update() Database exceeds configured size, transnum too long: $transnum/ );
+
+    eval {  # ditto
+        $ds->delete( $rec );
+    };
+
+    like( $@, qr/Database exceeds configured size, transnum too long:/,
+              q/nexttransnum() via delete() Database exceeds configured size, transnum too long: $transnum/ );
+}
+
+#---------------------------------------------------------------------
+{  # burst_preamble():
+   # /Something is wrong with preamble: $string/
+
+    delete_tempfiles( $dir );  # start fresh
+
+    my $ds = FlatFile::DataStore->new({
+        name => $name,
+        dir  => $dir,
+        uri  => $ok_uri,
+        });
+
+    my $rec = $ds->create({ data => "This is a test" });
+    my $preamble_string = $rec->preamble_string();
+
+    # invalidate the string
+    chop $preamble_string;
+
+    eval {
+        $ds->burst_preamble( $preamble_string );
+    };
+
+    like( $@, qr/Something is wrong with preamble:/,
+              q/burst_preamble() Something is wrong with preamble: $string/ );
+
+}
+
+#---------------------------------------------------------------------
+{  # update_preamble():
+   #     /Unrecognized field: $_/
+   #     /Invalid value for $_: $try/
+   #     /Value of $_ too long: $try/
+   #     /Something is wrong with preamble: $string/
+
+    delete_tempfiles( $dir );  # start fresh
+
+    # uri with values we want to test here
+    my $uri = join( ';' =>
+        qq'http://example.com?name=$name',
+        qq'desc='.uri_escape($desc),
+        qw(
+            indicator=1-%2B%23%3D%2A%2D
+            transind=1-%2B%23%3D%2A%2D
+            date=4-yymd
+            keynum=1-10
+            transnum=1-10
+            reclen=2-10
+            thisfnum=1-10 thisseek=4-10
+            prevfnum=1-10 prevseek=4-10
+            nextfnum=1-10 nextseek=4-10
+            user=4-%20-%7E
+            recsep=%0A
+        )
+    );
+
+    my $ds = FlatFile::DataStore->new({
+        name => $name,
+        dir  => $dir,
+        uri  => $uri,
+        });
+
+    my $rec = $ds->create({ data => "This is a test" });
+    my $preamble_string = $rec->preamble_string();
+
+    # recsep isn't in the preamble
+    eval {
+        $ds->update_preamble( $preamble_string, { recsep => 'dummy' } );
+    };
+
+    like( $@, qr/Unrecognized field: recsep/,
+              q/update_preamble() Unrecognized field: recsep/ );
+
+    my $non_printable = chr( 0x1F );
+
+    for( qw( indicator transind date user ) ) {
+        eval {
+            $ds->update_preamble( $preamble_string, { $_ => $non_printable } );
+        };
+
+        like( $@, qr/Invalid value for $_:/,
+                  qq/update_preamble() Invalid value for $_:/ );
+    }
+
+    # these values are all too long ...
+    for( { indicator => 'dummy' },
+         { transind  => 'dummy' },
+         { date      => 'dummy' },
+         { user      => 'dummy' },
+         { transnum  => 10      },
+         { keynum    => 10      },
+         { reclen    => 100     },
+         { thisfnum  => 10      },
+         { thisseek  => 10000   },
+         { prevfnum  => 10      },
+         { prevseek  => 10000   },
+         { nextfnum  => 10      },
+         { nextseek  => 10000   },
+    ) {
+        my( $this ) = keys %$_;
+        eval {
+            $ds->update_preamble( $preamble_string,  $_ );
+        };
+
+        like( $@, qr/Value of $this too long:/,
+                  qq/update_preamble() Value of $this too long/ );
+    }
+
+    # invalidate the string
+    chop $preamble_string;
+
+    eval {
+        $ds->update_preamble( $preamble_string );
+    };
+
+    like( $@, qr/Something is wrong with preamble:/,
+              q/update_preamble() Something is wrong with preamble: $string/ );
 }
 
 __END__

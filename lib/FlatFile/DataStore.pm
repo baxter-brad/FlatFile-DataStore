@@ -785,6 +785,9 @@ sub update {
     my $self = shift;
     my( $data_ref, $user_data, $pr_obj ) = $self->normalize_parms( @_ );
 
+    croak qq/Must have at least a previous preamble for update/
+        unless $pr_obj;
+
     my $prevnext = $self->prevfnum;  # boolean
 
     my $prevpreamble = $pr_obj->string;
@@ -939,6 +942,9 @@ Returns a Flatfile::DataStore::Record object.
 sub delete {
     my $self = shift;
     my( $data_ref, $user_data, $pr_obj ) = $self->normalize_parms( @_ );
+
+    croak qq/Must have at least a previous preamble for delete/
+        unless $pr_obj;
 
     my $prevnext = $self->prevfnum;  # boolean
 
@@ -1807,6 +1813,7 @@ sub keyseek {
 # the "top" Toc that has many of the key values for the datastore.
 # 
 # Returns the next transaction number as an integer.
+# Note: transaction numbers begin with 1 (not 0).
 # 
 # Will croak if this number is longer than allowed by the current
 # configuration.  In that case, a new datastore that allows for
@@ -1913,7 +1920,11 @@ sub update_preamble {
     for( keys %$parms ) {
 
         my $value = $parms->{ $_ };
-        my( $pos, $len, $parm ) = @{omap_get_values( $omap, $_ )};
+
+        my $specs = omap_get_values( $omap, $_ );
+        croak qq/Unrecognized field: $_/ unless $specs;
+
+        my( $pos, $len, $parm ) = @{$specs};
 
         my $try;
         if( /indicator|transind|date|user/ ) {
