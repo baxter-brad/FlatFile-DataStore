@@ -36,4 +36,3 @@ lib/FlatFile/DataStore/Tiehash.pm
 lib/FlatFile/DataStore/DBM.pm
 lib/FlatFile/DataStore/Utils.pm
 lib/FlatFile/DataStore/FMTEYEWTK.pm
-lib/FlatFile/DataStore/Tutorial.pm
