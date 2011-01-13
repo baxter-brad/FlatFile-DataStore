@@ -125,12 +125,12 @@ sub init {
     my $crud = $datastore->crud();
     $self->crud( $crud );
 
-    # single chars:
-    my $create = $crud->{'create'};
-    my $update = $crud->{'update'};
-    my $delete = $crud->{'delete'};
-    my $oldupd = $crud->{'oldupd'};
-    my $olddel = $crud->{'olddel'};
+    # single chars for character classes:
+    my $create = quotemeta $crud->{'create'};
+    my $update = quotemeta $crud->{'update'};
+    my $delete = quotemeta $crud->{'delete'};
+    my $oldupd = quotemeta $crud->{'oldupd'};
+    my $olddel = quotemeta $crud->{'olddel'};
 
     # need these in validations below
     my $indicator = $parms->{'indicator'} || croak qq/Missing: indicator/;
@@ -183,9 +183,9 @@ sub init {
             }
             elsif( not defined $value ) {
 
-                if( ( /keynum|reclen|transnum|thisfnum|thisseek/                   ) ||
-                    ( /prevfnum|prevseek/ and $transind  =~ /[\Q$update$delete\E]/ ) ||
-                    ( /nextfnum|nextseek/ and $indicator =~ /[\Q$oldupd$olddel\E]/ ) ){
+                if( ( /transnum|keynum|reclen|thisfnum|thisseek/               ) ||
+                    ( /prevfnum|prevseek/ and $transind  =~ /[$update$delete]/ ) ||
+                    ( /nextfnum|nextseek/ and $indicator =~ /[$oldupd$olddel]/ ) ){
                     croak qq/Missing: $_/;
                 }
 
@@ -193,8 +193,8 @@ sub init {
             }
             else {
 
-                if( ( /nextfnum|nextseek/ and $indicator =~ /[\Q$update$delete\E]/ ) ||
-                    ( /prevfnum|prevseek/ and $indicator =~ /[\Q$create\E]/        ) ){
+                if( ( /prevfnum|prevseek/ and $indicator =~ /[$create]/        ) ||
+                    ( /nextfnum|nextseek/ and $indicator =~ /[$update$delete]/ ) ){
                     croak qq/For indicator, $indicator, you may not set: $_/;
                 }
 
