@@ -208,6 +208,17 @@ sub FETCH {
 #     have these entries:
 #         1. able_baker_charlie => 257
 #         2. _257 => able_baker_charlie
+#
+# Note: some croak's below are positioned between writelock() and
+# unlock().  On linux systems that don't allow a process to have
+# multiple locks on the same file, if you trap those croaks in an
+# eval{} (like for testing), the program will hang waiting for a
+# lock.  For that reason, where there's a croak like that, we
+# explicitly unlock (and untie).  It think what's happening is that
+# the filehandle isn't being let go of because it is stored in the
+# object.  That's a guess that I haven't proved yet.  It might be a
+# different reason.
+#
 
 sub STORE {
     my( $self, $key, $parms ) = @_;
@@ -243,8 +254,12 @@ sub STORE {
         elsif( $reftype =~ /Record/ ) {
 
             # trying to update a record using the wrong key?
-            croak qq/Record key number doesn't match key/
-                unless $keynum == $parms->keynum;
+            unless( $keynum == $parms->keynum ) {
+                # see note above about croak's
+                untie %dbm_hash;
+                $self->unlock;
+                croak qq/Record key number doesn't match key/;
+            }
 
             $record = $ds->update( $parms );
         }
@@ -257,7 +272,12 @@ sub STORE {
             $record = $ds->update( $record );
         }
 
-        else { croak qq/Unsupported ref type: $reftype/ }
+        else {
+            # see note above about croak's
+            untie %dbm_hash;
+            $self->unlock;
+            croak qq/Unsupported ref type: $reftype/;
+        }
 
     }
 
@@ -275,7 +295,12 @@ sub STORE {
             $record = $ds->create( $parms );
         }
 
-        else { croak qq/Unsupported ref type: $reftype/ }
+        else {
+            # see note above about croak's
+            untie %dbm_hash;
+            $self->unlock;
+            croak qq/Unsupported ref type: $reftype/;
+        }
 
         # create succeeded, let's store the key
         for( $record->keynum ) {
