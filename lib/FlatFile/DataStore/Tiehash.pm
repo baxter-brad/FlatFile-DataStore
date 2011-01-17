@@ -69,8 +69,12 @@ record and store that as the "delete record".  If you want the "delete
 record" to contain different information (such as who is deleting it),
 you must call the non-tied delete() method with the datastore object.
 
-Note that record data may be created or updated (i.e., STORE'd) two
+Note that record data may be created or updated (i.e., STORE'd) three
 ways:
+
+As data string (or scalar reference), e.g.,
+
+    $record = $dshash{''} = $record_data;
 
 As a hash reference (so you can supply some user data), e.g.
 
@@ -104,11 +108,11 @@ saves you from having to do something like this equivalent code:
  
 =head1 VERSION
 
-FlatFile::DataStore::Tiehash version 1.01
+FlatFile::DataStore::Tiehash version 1.02
 
 =cut
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 use 5.008003;
 use strict;

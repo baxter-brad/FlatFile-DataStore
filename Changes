@@ -1,5 +1,8 @@
 Revision history for Perl extension FlatFile::DataStore.
 
+1.02 Mon Jan 17 16:59:16 EST 2011
+    - add FlatFile::DataStore::Index
+
 1.01 Fri Jan 14 18:42:32 EST 2011
     - minor doc fixes
 

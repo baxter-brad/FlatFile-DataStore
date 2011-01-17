@@ -94,11 +94,11 @@ the data.
 
 =head1 VERSION
 
-FlatFile::DataStore::DBM version 1.01
+FlatFile::DataStore::DBM version 1.02
 
 =cut
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 use 5.008003;
 use strict;
@@ -294,15 +294,11 @@ sub FETCH {
 #         1. able_baker_charlie => 257
 #         2. _257 => able_baker_charlie
 #
-# Note: some croak's below are positioned between writelock() and
-# unlock().  On linux systems that don't allow a process to have
-# multiple locks on the same file, if you trap those croaks in an
-# eval{} (like for testing), the program will hang waiting for a
-# lock.  For that reason, where there's a croak like that, we
-# explicitly unlock (and untie).  It think what's happening is that
-# the filehandle isn't being let go of because it is stored in the
-# object.  That's a guess that I haven't proved yet.  It might be a
-# different reason.
+# Note: the $error variable is intended to avoid having a croak
+# between writelock() and unlock().  On linux systems that don't
+# allow a process to have multiple locks on the same file, if you
+# trap those croaks in an eval{} (like for testing), the program
+# will hang waiting for a lock.
 #
 
 sub STORE {
@@ -315,7 +311,7 @@ sub STORE {
     my $dir   = $ds->dir;
     my $name  = $ds->name;
 
-    my $err;
+    my $error;
 
     # lock the dbm file and read the keynum
     $self->writelock;
@@ -341,14 +337,12 @@ sub STORE {
         elsif( $reftype =~ /Record/ ) {
 
             # trying to update a record using the wrong key?
-            unless( $keynum == $parms->keynum ) {
-                # see note above about croak's
-                untie %dbm_hash;
-                $self->unlock;
-                croak qq/Record key number doesn't match key/;
+            if( $keynum != $parms->keynum ) {
+                $error = qq/Record key number doesn't match key/;
             }
-
-            $record = $ds->update( $parms );
+            else {
+                $record = $ds->update( $parms );
+            }
         }
 
         # hash, e.g., {data=>'record data',user=>'user data'}
@@ -360,10 +354,7 @@ sub STORE {
         }
 
         else {
-            # see note above about croak's
-            untie %dbm_hash;
-            $self->unlock;
-            croak qq/Unsupported ref type: $reftype/;
+            $error = qq/Unsupported ref type: $reftype/;
         }
 
     }
@@ -383,21 +374,22 @@ sub STORE {
         }
 
         else {
-            # see note above about croak's
-            untie %dbm_hash;
-            $self->unlock;
-            croak qq/Unsupported ref type: $reftype/;
+            $error = qq/Unsupported ref type: $reftype/;
         }
 
         # create succeeded, let's store the key
-        for( $record->keynum ) {
-            $dbm_hash{ $key  } = $_;
-            $dbm_hash{ "_$_" } = $key;
+        unless( $error ) {
+            for( $record->keynum ) {
+                $dbm_hash{ $key  } = $_;
+                $dbm_hash{ "_$_" } = $key;
+            }
         }
     }
 
     untie %dbm_hash;
     $self->unlock;
+
+    croak $error if $error;
 
     $record;  # returned
 

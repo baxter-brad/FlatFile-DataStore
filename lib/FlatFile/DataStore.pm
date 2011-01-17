@@ -78,11 +78,11 @@ See FlatFile::DataStore::Tiehash for a tied interface.
 
 =head1 VERSION
 
-FlatFile::DataStore version 1.01
+FlatFile::DataStore version 1.02
 
 =cut
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 use 5.008003;
 use strict;
@@ -2478,14 +2478,6 @@ next version of the record is stored.  This number combined with the
 nextseek value gives the beginning location of the next version of the
 record's data.
 
-You would have a nextfnum and nextseek in a preamble when it's a
-previous version of a record whose current version appears later in the
-datastore.  While thisfnum and thisseek are critical for all record
-retrievals, prevfnum, prevseek, nextfnum, and nextseek are only needed
-for getting a record's history.  They are also used during a migration
-to help validate that all the data (and transactions) were migrated
-intact.
-
 =item nextseek (optional)
 
 The nextseek parameter specifies how the "next" seek positions are
@@ -2494,6 +2486,14 @@ thisseek (see thisseek above for more details).  It has the form
 C<nextseek=length-base>, e.g.,
 
     nextseek=5-62
+
+You would have a nextfnum and nextseek in a preamble when it's a
+previous version of a record whose current version appears later in the
+datastore.  While thisfnum and thisseek are critical for all record
+retrievals, prevfnum, prevseek, nextfnum, and nextseek are only needed
+for getting a record's history.  They are also used during a migration
+to help validate that all the data (and transactions) were migrated
+intact.
 
 =item user
 

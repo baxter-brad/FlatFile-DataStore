@@ -22,11 +22,11 @@ FlatFile::DataStore class.
 
 =head1 VERSION
 
-FlatFile::DataStore::Initialize version 1.01
+FlatFile::DataStore::Initialize version 1.02
 
 =cut
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 use 5.008003;
 use strict;
@@ -62,7 +62,7 @@ sub burst_query {
     my $pos   = 0;
     my %parms;
     my $load_parms = sub {
-        my( $name, $val ) = split /=/, $_, 2;
+        my( $name, $val ) = split /=/, $_[0], 2;
 
         $name = uri_unescape( $name );
         $val  = uri_unescape( $val );
