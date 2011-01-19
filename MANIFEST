@@ -19,9 +19,11 @@ t/012-datastore-xlarge_nohist.t
 t/013-datastore-uripod.t
 t/014-datastore-tiehash.t
 t/015-datastore-dbm.t
+t/016-datastore-index.t
 t/201-datastore-errors.t
 t/202-datastore-tiehash-errors.t
 t/203-datastore-dbm-errors.t
+t/204-datastore-index-errors.t
 t/206-preamble-errors.t
 t/207-toc-errors.t
 t/601-preamble.t
@@ -34,5 +36,6 @@ lib/FlatFile/DataStore/Record.pm
 lib/FlatFile/DataStore/Toc.pm
 lib/FlatFile/DataStore/Tiehash.pm
 lib/FlatFile/DataStore/DBM.pm
+lib/FlatFile/DataStore/Index.pm
 lib/FlatFile/DataStore/Utils.pm
 lib/FlatFile/DataStore/FMTEYEWTK.pm
