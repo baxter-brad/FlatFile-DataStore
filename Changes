@@ -1,5 +1,8 @@
 Revision history for Perl extension FlatFile::DataStore.
 
+1.03 Thu Jan 20 15:30:09 EST 2011
+    - added FlatFile::DataStore::Index.pm and tests
+
 1.02 Thu Jan 20 15:20:48 EST 2011
     - fix binmode in read_file() (to correct failing tests under windows)
 

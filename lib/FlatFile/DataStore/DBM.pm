@@ -97,11 +97,11 @@ the data.
 
 =head1 VERSION
 
-FlatFile::DataStore::DBM version 1.02
+FlatFile::DataStore::DBM version 1.03
 
 =cut
 
-our $VERSION = '1.02';
+our $VERSION = '1.03';
 
 use 5.008003;
 use strict;
