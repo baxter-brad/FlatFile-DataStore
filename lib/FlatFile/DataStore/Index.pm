@@ -307,13 +307,13 @@ sub get_kw_keys {
     my $eglen;
     my $config = $self->config;
 
-    for( $parms{'tag'} ) {
+    for( $parms->{'tag'} ) {
         croak qq/Missing: tag/ unless defined;
         $index_key = $_;
         $eplen = $config->{ $_ }{'eplen'}||$config->{'eplen'};
         $eglen = $config->{ $_ }{'eglen'}||$config->{'eglen'};
     }
-    for( $parms{'kw'} ) {
+    for( $parms->{'kw'} ) {
         croak qq/Missing: kw/ unless defined;
         my $ep = substr $_, 0, $eplen;
         my $eg = substr $_, 0, $eglen;
@@ -321,21 +321,21 @@ sub get_kw_keys {
         $entry_group = "$index_key $ep $eg";
         $index_entry = "$index_key $_";
     }
-    for( $parms{'field'} ) {
+    for( $parms->{'field'} ) {
         croak qq/Missing: field/ unless defined;
         $index_entry .= " $_";
     }
-    for( $parms{'occ'} ) {
+    for( $parms->{'occ'} ) {
         croak qq/Missing: occ/ unless defined;
         $index_entry .= " $_";
     }
-    for( $parms{'pos'} ) {
+    for( $parms->{'pos'} ) {
         croak qq/Missing: pos/ unless defined;
-        $index_entry .= " $_ ";
+        $index_entry .= " $_";
     }
 
     # returned
-    ( $index_key, $entry_point, $entry_group, $index_compare, $index_entry );
+    ( $index_key, $entry_point, $entry_group, $index_entry );
 }
 
 sub add_kw {
@@ -345,7 +345,7 @@ sub add_kw {
     my $dir   = $ds->dir;
     my $name  = $ds->name;
 
-    my $num   = $parms{'num'};
+    my $num   = $parms->{'num'};
     croak qq/Missing: num/ unless defined $num;
 
     my( $index_key, $entry_point, $entry_group, $index_entry ) =
@@ -360,14 +360,14 @@ sub add_kw {
     if( my $entry_group_val = $dbm{ $entry_group } ) {
 
         # val is ( keynum, group_count, prev_group, next_group )
-        my( $keynum, $group_count ) = split $sep => $entry_group_val, 2;
+        my( $keynum, $group_count ) = split $sep => $entry_group_val;
         my( $group_rec )            = $ds->retrieve( $keynum );
 
         # make group_rec data into a hash
         my %entries = map { split $sep } split "\n" => ${$group_rec->data};
 
         my $vec = '';
-        if( my $try = entries{ $index_entry } ) {
+        if( my $try = $entries{ $index_entry } ) {
             my( undef, $bstr ) = split ' ' => $try;  # $try is "count bitstring"
             $vec = str2bit uncompress $bstr;
         }
@@ -416,13 +416,17 @@ sub add_kw {
         my $ep = (split ' ' => $entry_point)[1];
 
         # val is ( count, string of space-sep entry point characters )
-        my( $count, $ep_chars ) = split $sep => $dbm{ $index_key };
+        my $index_key_val = $dbm{ $index_key };
+        my( $count, $ep_chars );
+          ( $count, $ep_chars ) = split $sep => $index_key_val if $index_key_val;
 
         # if entry point not in the list
-        if( not defined $ep_chars || index $ep_chars, $ep < 0 ) {
+        if( ! defined $ep_chars || index( $ep_chars, $ep ) < 0 ) {
 
             # insert it in the list (1 is for our 1 index entry)
-            my @eps            = sort $ep, split ' ' => $ep_chars;
+            my @eps;
+               @eps = split ' ' => $ep_chars if $ep_chars;
+               @eps = sort $ep, @eps;
             $dbm{ $index_key } = join $sep => 1, join ' ' => @eps;
 
             # get prev/next entry points
@@ -438,7 +442,7 @@ sub add_kw {
             # start getting entry points to insert between
             # 1 is for our 1 index entry
             my @new_ep = ( 1 );
-            my @new_eg = ( 1, $rec->keynum );
+            my @new_eg = ( $rec->keynum, 1 );
 
             # if there's a previous entry point, we start there to find
             # its last group, which will be our prev_group
@@ -451,7 +455,7 @@ sub add_kw {
 
                 my $keynum;
                 my $this_group;
-                while( $next_group ~= /^$prev_ep_key/ ) {
+                while( $next_group =~ /^$prev_ep_key/ ) {
                     $this_group = $next_group;
                     ( $keynum, $count, $prev_group, $next_group ) = split $sep => $dbm{ $this_group };
                 }
@@ -539,11 +543,11 @@ sub add_kw {
             
             # make it our prev group and its old next group our next group
             # 1 is for our 1 index entry
-            $dbm{ $entry_group } = join $sep => 1, $rec->keynum, $this_group, $next_group;
+            $dbm{ $entry_group } = join $sep => $rec->keynum, 1, $this_group, $next_group;
 
             # the next group might be under another entry point
 
-            if( $next_group !~ /^$entry_point ) {
+            if( $next_group !~ /^$entry_point/ ) {
 
                 my $other_ep = "$index_key " . (split ' ' => $next_group)[1];
                 my ( $count, $prev_group, $next_group ) = split $sep => $dbm{ $other_ep };
@@ -574,7 +578,7 @@ sub add_kw {
             }
 
             # update the index key count for our 1 index entry
-            my( $count, $eplist ) = split $sep => $dbm{ $index_key };
+            my( $epcount, $eplist ) = split $sep => $dbm{ $index_key };
             $dbm{ $index_key } = join $sep => ++$count, $eplist;
         }
     }
@@ -737,6 +741,21 @@ sub writelock {
     binmode $fh;
 
     $self->locked( $fh );
+}
+
+#---------------------------------------------------------------------
+# unlock()
+#     closes the file handle -- the "lock token" in the object
+#
+# Private method.
+
+sub unlock {
+    my( $self ) = @_;
+
+    my $file = $self->dbm_lock_file;
+    my $fh   = $self->locked;
+
+    close $fh or croak qq/Problem closing $file: $!/;
 }
 
 1;  # returned

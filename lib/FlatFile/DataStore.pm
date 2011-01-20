@@ -2125,10 +2125,16 @@ sub write_bytes {
 
 sub read_file {
     my( $self, $file ) = @_;
+    untaint path => $file;
 
-    my $fh = $self->locked_for_read( $file );
+    my $fh;
+    open  $fh, '<', $file or croak qq/Can't open $file for read: $!/;
+    flock $fh, LOCK_SH    or croak qq/Can't lock $file shared: $!/;
+    # binmode $fh;  # NO binmode here, please
+
     return <$fh>;
 }
+
 
 #---------------------------------------------------------------------
 # 

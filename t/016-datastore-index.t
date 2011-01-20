@@ -30,7 +30,7 @@ BEGIN {
     }
 }
 NOW:  { delete_tempfiles( $dir ) }
-END   { delete_tempfiles( $dir ) }
+#END   { delete_tempfiles( $dir ) }
 
 #---------------------------------------------------------------------
 BEGIN { use_ok('FlatFile::DataStore::Index') };
@@ -72,6 +72,40 @@ my $uri  = join( ';' =>
             eglen => 8,
         },
     });
+
+    for(
+        [qw( ti willie   title 1 1 42 )],
+        [qw( ti the      title 1 2 42 )],
+        [qw( ti elephant title 1 3 42 )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->add_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+    for(
+        [qw( ti willie   title 1 1 256 )],
+        [qw( ti the      title 1 2 999 )],
+        [qw( ti elephant title 1 3 0 )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->add_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
 
 }
 
