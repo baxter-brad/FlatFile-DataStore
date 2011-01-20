@@ -22,7 +22,6 @@ t/015-datastore-dbm.t
 t/201-datastore-errors.t
 t/202-datastore-tiehash-errors.t
 t/203-datastore-dbm-errors.t
-t/204-datastore-index-errors.t
 t/206-preamble-errors.t
 t/207-toc-errors.t
 t/601-preamble.t
