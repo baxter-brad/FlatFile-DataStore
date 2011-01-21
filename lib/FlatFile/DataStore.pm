@@ -1115,7 +1115,7 @@ sub normalize_parms {
 
     my $reftype = ref $parms;
     if( $reftype =~ /Record/ ) {
-        $data_ref  = $parms->data;
+        $data_ref  = $parms->dataref;
         $user_data = $parms->user;
         $preamble  = $parms->preamble;
     }
@@ -1136,7 +1136,7 @@ sub normalize_parms {
         }
         for( $parms->{'record'} ) {
             last unless defined;
-            $data_ref  = $_->data     unless $data_ref;
+            $data_ref  = $_->dataref  unless $data_ref;
             $user_data = $_->user     unless defined $user_data;
             $preamble  = $_->preamble unless $preamble;
         }

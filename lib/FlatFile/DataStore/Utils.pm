@@ -164,7 +164,7 @@ sub validate {
             my $status   = $status{ $rec->indicator };
             my $user     = $rec->user;
             my $reclen   = $rec->reclen;
-            my $md5      = md5_hex( ${$rec->data} );
+            my $md5      = md5_hex( $rec->data );
 
             print $histfh "$transnum $keynum $status $user $reclen $md5\n";
         }
@@ -205,7 +205,7 @@ sub validate {
             my $status   = $status{ $rec->indicator };
             my $user     = $rec->user;
             my $reclen   = $rec->reclen;
-            my $md5      = md5_hex( ${$rec->data} );
+            my $md5      = md5_hex( $rec->data );
 
             print $transfh "$transnum $keynum $status $user $reclen $md5\n";
 
@@ -327,7 +327,7 @@ sub migrate {
             my $from_rec       = $from_ds->read_record( $datafh, $seekpos );
             my $keynum         = $from_rec->keynum;
             my $reclen         = $from_rec->reclen;
-            my $from_data_ref  = $from_rec->data;
+            my $from_data_ref  = $from_rec->dataref;
             my $from_user_data = $from_rec->user;
             my $indicator      = $from_rec->indicator;
             my $transind       = $from_rec->transind;
@@ -490,7 +490,7 @@ sub migrate_nohist {
     for my $keynum ( 0 .. $from_ds->lastkeynum ) {
 
         my $from_rec       = $from_ds->retrieve( $keynum );
-        my $from_data_ref  = $from_rec->data;
+        my $from_data_ref  = $from_rec->dataref;
         my $from_user_data = $from_rec->user;
 
         # cases: (here we're always retrieving current records)
