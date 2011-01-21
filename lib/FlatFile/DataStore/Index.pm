@@ -360,8 +360,8 @@ sub add_kw {
     if( my $entry_group_val = $dbm{ $entry_group } ) {
 
         # val is ( keynum, group_count, prev_group, next_group )
-        my( $keynum, $group_count ) = split $sep => $entry_group_val;
-        my( $group_rec )            = $ds->retrieve( $keynum );
+        my( $keynum, $group_count, $prev_group, $next_group ) = split $sep => $entry_group_val;
+        my( $group_rec ) = $ds->retrieve( $keynum );
 
         # make group_rec data into a hash
         my %entries = map { split $sep } split "\n" => ${$group_rec->data};
@@ -389,6 +389,9 @@ sub add_kw {
         # update the entry point count and index key count
         # (we may have added an index entry)
         if( my $diff = $newcount - $group_count ) {
+
+            # save the newcount in the entry group
+            $dbm{ $entry_group } = join $sep => $keynum, $newcount, $prev_group, $next_group;
 
             # val is ( count, prev_group, next_group )
             my( $count, $prev_group, $next_group ) = split $sep => $dbm{ $entry_point };
@@ -511,10 +514,6 @@ sub add_kw {
             # ready now to add these to the dbm file
             $dbm{ $entry_point } = join $sep => @new_ep;
             $dbm{ $entry_group } = join $sep => @new_eg;
-
-            # update the index key count for our 1 index entry
-            my( $count, $eplist ) = split $sep => $dbm{ $index_key };
-            $dbm{ $index_key } = join $sep => ++$count, $eplist;
         }
 
         # else if the entry point is already in the entry points list
@@ -524,63 +523,95 @@ sub add_kw {
             # locate groups to insert between
             my( $count, $prev_group, $next_group ) = split $sep => $dbm{ $entry_point };
 
-            # add 1 for the index entry we're adding
-            $dbm{ $entry_point } = join $sep => ++$count, $prev_group, $next_group;
-
             my $keynum;
             my $this_group;
 
-            # entry point's next group is never null
-            while( $next_group gt $entry_group ) { 
-                $this_group = $next_group;
-                ( $keynum, $count, $prev_group, $next_group ) = split $sep => $dbm{ $this_group };
-            }
+            # if we want to insert after the entry point (i.e., become first group)
+            if( $next_group gt $entry_group ) {
+                # make it's next group our group
+                # add 1 for the index entry we're adding
+                $dbm{ $entry_point } = join $sep => ++$count, $prev_group, $entry_group;
 
-            # at this point, $this_group is the group we want to insert after
+                # make it's prev group our prev group and its old next group our next group
+                # 1 is for our 1 index entry
+                $dbm{ $entry_group } = join $sep => $rec->keynum, 1, $prev_group, $next_group;
 
-            # change its next group to our group
-            $dbm{ $this_group } = join $sep => $keynum, $count, $prev_group, $entry_group;
-            
-            # make it our prev group and its old next group our next group
-            # 1 is for our 1 index entry
-            $dbm{ $entry_group } = join $sep => $rec->keynum, 1, $this_group, $next_group;
+                # save the next group for processing after
+                my $save_group = $next_group;
 
-            # the next group might be under another entry point
-
-            if( $next_group !~ /^$entry_point/ ) {
-
-                my $other_ep = "$index_key " . (split ' ' => $next_group)[1];
-                my ( $count, $prev_group, $next_group ) = split $sep => $dbm{ $other_ep };
-
-                # make its prev_group our group
-                $dbm{ $other_ep } = join $sep => $count, $entry_group, $next_group;
-
-                # we also need to change the first group of the next entry point
-                my $keynum;
-                my $this_group = $next_group;
+                # now get the entry point's prev group and make it point to us
+                $this_group = $prev_group;
                 ( $keynum, $count, $prev_group, $next_group ) = split $sep => $dbm{ $this_group };
 
-                # make its prev group our group, too
-                $dbm{ $this_group } = join $sep => $keynum, $count, $entry_group, $next_group;
-            }
+                # change its next group to our group
+                $dbm{ $this_group } = join $sep => $keynum, $count, $prev_group, $entry_group;
 
-            # else the next group is still under our entry point
-
-            else {
-
-                # get the next group
-                $this_group = $next_group;
+                # now get the saved next group (it's always under this entry point)
+                $this_group = $save_group;
                 ( $keynum, $count, $prev_group, $next_group ) = split $sep => $dbm{ $this_group };
 
                 # change its prev group to our group
                 $dbm{ $this_group } = join $sep => $keynum, $count, $entry_group, $next_group;
 
             }
+            # else if we're not inserting after the entry point, find the group to insert after
+            else {
+                # go ahead and update the entry point
+                # add 1 for the index entry we're adding
+                $dbm{ $entry_point } = join $sep => ++$count, $prev_group, $next_group;
 
-            # update the index key count for our 1 index entry
-            my( $epcount, $eplist ) = split $sep => $dbm{ $index_key };
-            $dbm{ $index_key } = join $sep => ++$count, $eplist;
+                # entry point's next group is never null
+                while( $next_group lt $entry_group ) { 
+                    $this_group = $next_group;
+                    ( $keynum, $count, $prev_group, $next_group ) = split $sep => $dbm{ $this_group };
+                }
+
+                # at this point, $this_group is the group we want to insert after
+
+                # change its next group to our group
+                $dbm{ $this_group } = join $sep => $keynum, $count, $prev_group, $entry_group;
+                
+                # make it our prev group and its old next group our next group
+                # 1 is for our 1 index entry
+                $dbm{ $entry_group } = join $sep => $rec->keynum, 1, $this_group, $next_group;
+
+                # the next group might be under another entry point
+
+                if( $next_group !~ /^$entry_point/ ) {
+
+                    my $other_ep = "$index_key " . (split ' ' => $next_group)[1];
+                    my ( $count, $prev_group, $next_group ) = split $sep => $dbm{ $other_ep };
+
+                    # make its prev_group our group
+                    $dbm{ $other_ep } = join $sep => $count, $entry_group, $next_group;
+
+                    # we also need to change the first group of the next entry point
+                    my $keynum;
+                    my $this_group = $next_group;
+                    ( $keynum, $count, $prev_group, $next_group ) = split $sep => $dbm{ $this_group };
+
+                    # make its prev group our group, too
+                    $dbm{ $this_group } = join $sep => $keynum, $count, $entry_group, $next_group;
+                }
+
+                # else the next group is still under our entry point
+
+                else {
+
+                    # get the next group
+                    $this_group = $next_group;
+                    ( $keynum, $count, $prev_group, $next_group ) = split $sep => $dbm{ $this_group };
+
+                    # change its prev group to our group
+                    $dbm{ $this_group } = join $sep => $keynum, $count, $entry_group, $next_group;
+
+                }
+            }
         }
+
+        # update the index key count for our 1 index entry
+        my( $epcount, $eplist ) = split $sep => $dbm{ $index_key };
+        $dbm{ $index_key } = join $sep => ++$count, $eplist;
     }
 
     untie %dbm;

@@ -107,6 +107,44 @@ my $uri  = join( ';' =>
             });
     }
 
+    for(
+        [qw( ti war   title 12 13 1 )],
+        [qw( ti and   title 13 22 1 )],
+        [qw( ti peace title 14 31 1 )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->add_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+    for(
+        [qw( ti war      title 22 1  10  )],
+        [qw( ti and      title 23 2  10  )],
+        [qw( ti peace    title 24 3  10  )],
+        [qw( ti willie   title 2  1  156 )],
+        [qw( ti the      title 2  2  199 )],
+        [qw( ti elephant title 2  3  44  )],
+        [qw( ti elephants title 1  1 44  )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->add_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
 }
 
 __END__
