@@ -132,7 +132,7 @@ sub init {
     my $transbase = $ds->transbase;
 
     my $recsep = $ds->recsep;
-    $string =~ s/$recsep$//;  # chompish
+    $string =~ s/\Q$recsep\E$//;  # chompish
     $self->string( $string );
 
     my @fields = split " ", $string;

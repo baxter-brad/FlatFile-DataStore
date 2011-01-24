@@ -211,7 +211,7 @@ sub init {
         local $Data::Dumper::Terse     = 1;
         local $Data::Dumper::Indent    = 0;
 
-        $config_rec = $ds->create({ data => Dumper $config });
+        $config_rec = $ds->create({ data => Dumper( $config )."\n" });
     }
 
     # here is where we get the config of an existing index
