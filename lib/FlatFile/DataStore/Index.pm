@@ -18,22 +18,51 @@ datastore index.
         dir    => $dir,
         uri    => $uri,
         config => {
-            enc  => 'utf-8',             # character encoding
-            tags => {                    # index tags
-                ti => {                  # keys are actual tags
-                    label => 'title',    # label is required
-                    eplen => 1,          # will override the global
-                    eglen => 5,          # ditto
+            encoding => 'utf-8',             # index's character encoding
+            kw => {                          # keyword index
+                tags => {                    # index tags
+                    ti => {                  # keys are actual tags
+                        label => 'title',    # label is required
+                        eplen => 1,          # will override the defaults
+                        eglen => 5,          # ditto
+                    },
+                    au => {
+                        label => 'author',
+                    },
+                    su => {
+                        label => 'subject',
+                    },
+                    dt => {
+                        label => 'date',
+                        eplen => 1,
+                        eglen => 10,
+                    },
                 },
-                au => {
-                    label => 'author',
-                },
-                su => {
-                    label => 'subject',
-                },
+                eplen => 1,  # keyword default for entry point key length
+                eglen => 8,  # keyword default for entry group key length
             },
-            eplen => 1,  # global setting for entry point key length
-            eglen => 8,  # global setting for entry group key length
+            ph => {                          # phrase index
+                tags => {
+                    tp => {
+                        label => 'title phrase',
+                    },
+                    ap => {
+                        label => 'author phrase',
+                    },
+                    sp => {
+                        label => 'subject phrase',
+                    },
+                    dp => {
+                        label => 'date phrase',
+                        eplen => 4,
+                        eglen => 10,
+                    },
+                },
+                eplen => 1,   # phrase defaults ...
+                eglen => 25,
+            },
+            eplen => 1,  # global defaults ...
+            eglen => 8,
         },
     });
 
@@ -44,49 +73,143 @@ datastore index.
         dir  = $dir,
     });
 
-    # add/delete a keyword entry
+    # add/delete a keyword item
 
     $index->add_kw({
-        tag   => 'ti',
-        kw    => $keyword,
-        field => $field,
-        occ   => $occurrence,
-        pos   => $position,
-        });
+        tag     => 'ti',
+        keyword => $keyword,
+        field   => $field,
+        occ     => $occurrence,
+        pos     => $position,
+        num     => $keynum,
+    });
 
     $index->delete_kw({
-        tag   => 'ti',
-        kw    => $keyword,
-        field => $field,
-        occ   => $occurrence,
-        pos   => $position,
-        });
+        tag     => 'ti',
+        keyword => $keyword,
+        field   => $field,
+        occ     => $occurrence,
+        pos     => $position,
+        num     => $keynum,
+    });
 
-    # add/delete a phrase entry
+    # add/delete a phrase item
 
     $index->add_ph({
-        tag   => '_ti',
-        ph    => $phrase,
-        });
+        tag    => 'tp',
+        phrase => $phrase,
+        num    => $keynum,
+    });
 
     $index->delete_ph({
-        tag   => 'ti',
-        ph    => $phrase,
-        });
+        tag    => 'ti',
+        phrase => $phrase,
+        num    => $keynum,
+    });
 
     # get a bitstring group for a keyword
 
-    my $group     = $index->get_kw({
-        tag => 'ti',
-        kw  => $keyword,
-        });
+    my $group = $index->get_kw_group({
+        tag     => 'ti',
+        keyword => $keyword,
+    });
+
+    # combine the bitstring group into one bitstring
+
+    my $bitstring = $index->combine_group({
+        group => $group
+    });
+
+    # get a bitstring for a keyword
+    # XXX is this just a wrapper around get_kw_group()/combine_group()?
+
+    $bitstring = $index->get_kw_bitstring({
+        tag     => 'ti',
+        keyword => $keyword,
+    });
 
     # get a bitstring for a phrase
 
-    my $bitstring = $index->get_ph({
-        tag => '_ti',
-        ph  => $phrase,
-        });
+    $bitstring = $index->get_ph_bitstring
+        tag    => 'tp',
+        phrase => $phrase,
+    });
+
+    #-----------------------------------------------------------------
+    # initial load of index data
+    # (index must be empty)
+
+    # file name (will be opened using index's encoding)
+
+    $index->initial_load({
+        filename => $load_file,
+    });
+
+    # or specify the (input) encoding
+
+    $index->initial_load({
+        filename => $load_file,
+        encoding => 'iso-8859-1',
+    });
+
+    # or file handle, already open
+
+    $index->initial_load({
+        fh => $load_fh,
+    });
+
+    # or string data (may be scalar ref)
+    # will not be decoded by default
+
+    $index->initial_load({
+        string => $load_data,
+    });
+
+    # or specify an encoding if needed
+
+    $index->initial_load({
+        string => $load_data,
+        encoding => 'utf-8',
+    });
+
+    #-----------------------------------------------------------------
+    # apply a batch of index entries
+    # (index may be empty or not)
+
+    # file name (will be opened using index's encoding)
+
+    $index->apply({
+        filename => $load_file,
+    });
+
+    # or specify the (input) encoding
+    # this will not change the index's (output) encoding
+
+    $index->apply({
+        filename => $load_file,
+        encoding => 'iso-8859-1',
+    });
+
+    # or file handle, already open
+
+    $index->apply({
+        fh => $load_fh,
+    });
+
+    # or string data (may be scalar ref)
+    # will not be decoded by default
+
+    $index->apply({
+        string => $load_data,
+    });
+
+    # or specify an (input) encoding if needed
+    # this will not change the index's (output) encoding
+
+    $index->apply({
+        string => $load_data,
+        encoding => 'utf-8',
+    });
 
 =head1 DESCRIPTION
 
@@ -127,10 +250,6 @@ my $default_eglen = 8;
 
 #---------------------------------------------------------------------
 
-=head1 DESCRIPTION
-
-Returns a reference to the FlatFile::DataStore::Index object.
-
 =head2 Class Methods
 
 =cut
@@ -151,6 +270,7 @@ sub locked        {for($_[0]->{locked       }){$_=$_[1]if@_>1;return$_}}
 =head3 new()
 
 Create a new index object.
+Returns a reference to the FlatFile::DataStore::Index object.
 
 The parms C<name> and C<dir> are always required.
 
@@ -283,9 +403,20 @@ else if entry group doesn't exist
 
 =cut
 
+sub add_kw {
+    my( $self, $parms ) = @_;
+
+    my $num = $parms->{'num'};
+    croak qq/Missing: num/ unless defined $num;
+
+    # returned:
+    $self->add_item( $num, $self->get_kw_keys( $parms ) );
+}
+
 sub get_kw_keys {
     my( $self, $parms ) = @_;
 
+    # return values:
     my $index_key;
     my $entry_point;
     my $entry_group;
@@ -300,19 +431,26 @@ sub get_kw_keys {
 
         croak qq/Missing: tag/ unless defined;
 
-        my $taginfo = $config->{'tags'}{ $_ };
+        my $taginfo = $config->{'kw'}{'tags'}{ $_ };
 
-        croak qq/Unrecognized tag: $_/ unless $taginfo;
+        croak qq/Unrecognized keyword index tag: $_/ unless $taginfo;
 
-        $eplen = $taginfo->{'eplen'}||$config->{'eplen'}||$default_eplen;
-        $eglen = $taginfo->{'eglen'}||$config->{'eglen'}||$default_eglen;
+        $eplen = $taginfo->{'eplen'} ||
+            $config->{'kw'}{'eplen'} ||
+            $config->{'eplen'}       ||
+            $default_eplen;
+        $eglen = $taginfo->{'eglen'} ||
+            $config->{'kw'}{'eglen'} ||
+            $config->{'eglen'}       ||
+            $default_eglen;
 
         $index_key = $_;
     }
 
     # should be decoded already (i.e., in perl's internal format)
-    for( $parms->{'kw'} ) {
-        croak qq/Missing: kw/ unless defined;
+    for( $parms->{'keyword'} ) {
+        croak qq/Missing: keyword/ unless defined;
+        croak qq/Keyword may not contain spaces: $_/ if /$Sp/;
         my $ep = substr $_, 0, $eplen;
         my $eg = substr $_, 0, $eglen;
         $entry_point = "$index_key $ep";
@@ -320,21 +458,24 @@ sub get_kw_keys {
         $index_entry = "$index_key $_";
     }
 
-    # ascii, preferably 0-9 even
+    # ascii, maybe 0-9 even
     for( $parms->{'field'} ) {
-        croak qq/Missing: field/ unless defined;
+        croak qq/Missing: field/    unless defined;
+        croak qq/Invalid field: $_/ unless /^[0-9A-Za-z]+$/;
         $index_entry .= " $_";
     }
 
     # 0-9
     for( $parms->{'occ'} ) {
-        croak qq/Missing: occ/ unless defined;
+        croak qq/Missing: occ/    unless defined;
+        croak qq/Invalid occ: $_/ unless /^[0-9]+$/;
         $index_entry .= " $_";
     }
 
     # 0-9
     for( $parms->{'pos'} ) {
-        croak qq/Missing: pos/ unless defined;
+        croak qq/Missing: pos/    unless defined;
+        croak qq/Invalid pos: $_/ unless /^[0-9]+$/;
         $index_entry .= " $_";
     }
 
@@ -342,20 +483,75 @@ sub get_kw_keys {
     ( $index_key, $entry_point, $entry_group, $index_entry );
 }
 
-sub add_kw {
+sub add_ph {
     my( $self, $parms ) = @_;
+
+    my $num = $parms->{'num'};
+    croak qq/Missing: num/ unless defined $num;
+
+    # returned:
+    $self->add_item( $num, $self->get_ph_keys( $parms ) );
+}
+
+sub get_ph_keys {
+    my( $self, $parms ) = @_;
+
+    # return values:
+    my $index_key;
+    my $entry_point;
+    my $entry_group;
+    my $index_entry;
+
+    my $eplen;
+    my $eglen;
+    my $config = $self->config;
+
+    # ascii
+    for( $parms->{'tag'} ) {
+
+        croak qq/Missing: tag/ unless defined;
+
+        my $taginfo = $config->{'ph'}{'tags'}{ $_ };
+
+        croak qq/Unrecognized phrase index tag: $_/ unless $taginfo;
+
+        $eplen = $taginfo->{'eplen'} ||
+            $config->{'ph'}{'eplen'} ||
+            $config->{'eplen'}       ||
+            $default_eplen;
+        $eglen = $taginfo->{'eglen'} ||
+            $config->{'ph'}{'eglen'} ||
+            $config->{'eglen'}       ||
+            $default_eglen;
+
+        $index_key = $_;
+    }
+
+    # should be decoded already (i.e., in perl's internal format)
+    for( $parms->{'phrase'} ) {
+        croak qq/Missing: phrase/ unless defined;
+        croak qq/Phrase may not contain double spaces: $_/ if /$Sep/;
+        my $ep = substr $_, 0, $eplen;
+        my $eg = substr $_, 0, $eglen;
+        $entry_point = "$index_key $ep";
+        $entry_group = "$index_key $ep $eg";
+        $index_entry = "$index_key $_";
+    }
+
+    # returned
+    ( $index_key, $entry_point, $entry_group, $index_entry );
+}
+
+# Private subroutine.
+
+sub add_item {
+    my( $self, $num, $index_key, $entry_point, $entry_group, $index_entry ) = @_;
 
     my $enc   = $self->config->{'enc'};
     my $ds    = $self->datastore;
 
     my $dir   = $ds->dir;
     my $name  = $ds->name;
-
-    my $num   = $parms->{'num'};
-    croak qq/Missing: num/ unless defined $num;
-
-    my( $index_key, $entry_point, $entry_group, $index_entry ) =
-        $self->get_kw_keys( $parms );
 
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
@@ -1152,7 +1348,7 @@ sub delete_kw {
     # add a phrase
 
     $index->add_ph({
-        tag   => '_ti',
+        tag   => 'tp',
         ph    => $phrase,
         num   => $keynum,
         });
@@ -1186,13 +1382,7 @@ sub delete_ph {
 
 =head2 get_kw_group()
 
-
     # get a bitstring group for a keyword
-
-    my $group = $index->get_kw_group({
-        tag => 'ti',
-        kw  => $keyword,
-        });
 
 =cut
 
@@ -1202,15 +1392,18 @@ sub get_kw_group {
 
 #---------------------------------------------------------------------
 
+=head2 combine_group()
+
+    # combine a bitstring group into a single bitstring
+
+=cut
+
+#---------------------------------------------------------------------
+
 =head2 get_kw_bitstring()
 
 
     # get a bitstring for a keyword
-
-    my $group = $index->get_kw_bitsring({
-        tag => 'ti',
-        kw  => $keyword,
-        });
 
 =cut
 
@@ -1223,11 +1416,6 @@ sub get_kw_bitstring {
 =head2 get_ph_bitstring()
 
     # get a bitstring for a phrase
-
-    my $bitstring = $index->get_ph_bitsring({
-        tag => '_ti',
-        ph  => $phrase,
-        });
 
 =cut
 
@@ -1295,7 +1483,14 @@ sub unlock {
 #---------------------------------------------------------------------
 # debug()
 # one-liner:
-# /usr/local/bin/perl -MSDBM_File -e'sub max{$_[$_[0]<$_[1]]}tie%h,"SDBM_File","example",256|2,0666;for(keys%h){$x=max($x,length$_)}for(sort keys%h){printf" %-${x}s | %6s | %${x}s | %${x}s | %s\n",$_,split"  ",$h{$_}}'
+# /usr/local/bin/perl -MSDBM_File -e'
+# sub max { $_[ $_[0] < $_[1] ] }
+# tie %h, "SDBM_File", "example", 256|2, 0666;
+# for( keys %h ){ $x = max( $x, length $_ ) }
+# for(sort keys %h){
+#     printf" %-${x}s | %6s | %${x}s | %${x}s | %s\n",
+#         $_, split "  ", $h{$_}}
+# '
 
 sub debug {
     my( $self, $parms ) = @_;
