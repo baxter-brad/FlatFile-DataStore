@@ -59,7 +59,7 @@ my $uri  = join( ';' =>
                 ti => {
                     label => 'title',
                     eplen => 1,
-                    eglen => 5,
+                    eglen => 8,
                 },
                 au => {
                     label => 'author',
@@ -144,6 +144,206 @@ my $uri  = join( ';' =>
             num   => $num,
             });
     }
+
+    for(
+        [qw( ti    www         title   3  1  11 )],
+        # [   'ti', "\x{263a}", 'title', 3, 1, 11  ],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->add_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+    for(
+        [qw( su war      subject 22 1  10  )],
+        [qw( su and      subject 23 2  10  )],
+        [qw( su peace    subject 24 3  10  )],
+        [qw( su willie   subject 2  1  156 )],
+        [qw( su the      subject 2  2  199 )],
+        [qw( su elephant subject 2  3  44  )],
+        [qw( su elephants subject 1  1 44  )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->add_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+$index->debug();
+
+    for(
+        [qw( su war      subject 22 1  10  )],
+        # [qw( su and      subject 23 2  10  )],
+        # [qw( su peace    subject 24 3  10  )],
+        # [qw( su willie   subject 2  1  156 )],
+        # [qw( su the      subject 2  2  199 )],
+        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su elephants subject 1  1 44  )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->delete_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+$index->debug();
+
+    for(
+        # [qw( su war      subject 22 1  10  )],
+        [qw( su and      subject 23 2  10  )],
+        # [qw( su peace    subject 24 3  10  )],
+        # [qw( su willie   subject 2  1  156 )],
+        # [qw( su the      subject 2  2  199 )],
+        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su elephants subject 1  1 44  )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->delete_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+$index->debug();
+
+    for(
+        # [qw( su war      subject 22 1  10  )],
+        # [qw( su and      subject 23 2  10  )],
+        [qw( su peace    subject 24 3  10  )],
+        # [qw( su willie   subject 2  1  156 )],
+        # [qw( su the      subject 2  2  199 )],
+        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su elephants subject 1  1 44  )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->delete_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+$index->debug();
+
+    for(
+        # [qw( su war      subject 22 1  10  )],
+        # [qw( su and      subject 23 2  10  )],
+        # [qw( su peace    subject 24 3  10  )],
+        [qw( su willie   subject 2  1  156 )],
+        # [qw( su the      subject 2  2  199 )],
+        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su elephants subject 1  1 44  )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->delete_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+$index->debug();
+
+    for(
+        # [qw( su war      subject 22 1  10  )],
+        # [qw( su and      subject 23 2  10  )],
+        # [qw( su peace    subject 24 3  10  )],
+        # [qw( su willie   subject 2  1  156 )],
+        [qw( su the      subject 2  2  199 )],
+        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su elephants subject 1  1 44  )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->delete_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+$index->debug();
+
+    for(
+        # [qw( su war      subject 22 1  10  )],
+        # [qw( su and      subject 23 2  10  )],
+        # [qw( su peace    subject 24 3  10  )],
+        # [qw( su willie   subject 2  1  156 )],
+        # [qw( su the      subject 2  2  199 )],
+        [qw( su elephant subject 2  3  44  )],
+        # [qw( su elephants subject 1  1 44  )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->delete_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+$index->debug();
+
+    for(
+        # [qw( su war      subject 22 1  10  )],
+        # [qw( su and      subject 23 2  10  )],
+        # [qw( su peace    subject 24 3  10  )],
+        # [qw( su willie   subject 2  1  156 )],
+        # [qw( su the      subject 2  2  199 )],
+        # [qw( su elephant subject 2  3  44  )],
+        [qw( su elephants subject 1  1 44  )],
+    ) {
+        my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
+            
+        $index->delete_kw({
+            tag   => $tag,
+            kw    => $kw,
+            field => $field,
+            occ   => $occ,
+            pos   => $pos,
+            num   => $num,
+            });
+    }
+
+$index->debug();
 
 }
 

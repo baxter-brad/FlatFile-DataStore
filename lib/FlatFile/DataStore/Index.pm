@@ -250,56 +250,36 @@ sub init {
 
 =for comment
 
-Things that may be touched:
-- the group of index entries in the datastore
-  - we may add a new group
-  - we may add a new member of a group
-  - we may flip a bit on in an existing group member
-- the entry group in the dbm file
-  - we may add a new entry group, with a new datastore keynum
-  - we may update the entry count in an existing entry group
-- the entry point in the dbm file
-  - we may add a new entry point when we add a new entry group
-  - we may update the entry count in an existing entry point
-- the index key in the dbm file
-  - we may add a new index key, with the new entry point we just added
-  - we may add a new entry point to the entry point list of the index key
+given: index key,   e.g., 'ti'
+       entry point, e.g., 'ti a'
+       entry group, e.g., 'ti a apple'
+       index entry, e.g., 'ti apple title 1 2 3 45'
 
-Steps (hopefully in the order of most likelihood over time):
-- construct an entry group key: tag entry_point entry_group,
-  and entry point key: tag entry_point, and an index key: tag
-  - look for that in the dbm file
-  - if it's there, get the keynum, entry_count, prev_group, next_group, i.e.,
-    if there is already a group of index entries in the datastore
-    - merge this entry into that group, i.e.,
-      - retrieve the datastore record for the group
-      - scan for "tag kw field occ pos" in the group
-      - if found, flip on the bit for num
-      - else if not found, insert an entry with the bit flipped on
-      - recalculate the sum of counts for the entry group
-        - update the entry count for the entry group in the dbm file
-        - update the entry count for the entry point in the dbm file
-  - else if it's not there (i.e., there isn't already a group of entries)
-    - create a new datastore record for the group
-    - fill it with this one entry with the bit flipped on
-    - calculate the sum of counts for the entry group (i.e., 1)
-
-    (at this juncture I need the entry point in order to track down
-    the prev and next groups, so I start checking at the index key)
-
-    - if the index key isn't in the dbm file
-      - add the index key to the dbm file with this entry point in its list
-    - else if there is an index key but the entry point isn't in the index key list
-      - insert the entry point in the list
-      - add an entry point in the dbm file
-        - the entry count is the same as for the new group, i.e., 1
-        - the prev_group is the last group of the prev entry point
-        - the next_group is the first group of the next entry point
-    - add the entry group to the dbm file
-      - the keynum is from the new datastore record
-      - the entry count is as calculated, i.e., 1
-      - the prev_group is the prev group for this entry point
-      - the next_group is the next group for this entry point
+if entry group exists
+    - index key exists with at least one element in its eplist
+    - entry point exists with at least this one entry group under it
+    - an index entry record exists
+    if it contains our index entry
+        + we turn on our bit (e.g., number 45)
+    else if it doesn't contain our index entry
+        + we create a new index entry with our bit turned on
+    + we get the diff between the entry count in the record before and after
+        - the diff is either 0 or 1
+    + we save the new index entry record
+    if diff is 1
+        + we up the entry group count by 1
+        + we up the entry point count by 1
+        + we up the index key count by 1
+else if entry group doesn't exist
+    - an index entry record doesn't exist
+    + we create an index entry record with our index entry in it
+    if index key exists
+        if entry point is in the index key's eplist
+            - entry point exists
+        else if entry point isn't in the eplist
+            - entry point doesn't exist
+    else if index key doesn't exist
+        - entry point doesn't exist
 
 =cut
 
@@ -693,11 +673,14 @@ sub add_kw {
 }
 
 #---------------------------------------------------------------------
-# dbm: tied dbm hash ref
-# enc: character encoding of the dbm file (keys and values)
-# key: key whose value we want (not encoded yet)
+# get_vals( $dbm, $enc, $key )
+#
+# $dbm: tied dbm hash ref
+# $enc: character encoding of the dbm file (keys and values)
+# $key: key whose value we want (not encoded yet)
 #
 # returns array of values (by splitting on $Sep)
+# (returning extra null strings so missing values are defined)
 
 sub get_vals {
     my( $dbm, $enc, $key ) = @_;
@@ -706,24 +689,21 @@ sub get_vals {
 
     if( my $val = $dbm->{ $key } ) {
 
-# {
-#     no warnings;
-#     print " ".(caller)[2]." ";
-#     print "get_vals: [$key] => [".(join"|",split $Sep, $val)."]\n";
-# }
-
         $val = Encode::decode( $enc, $val );
-        return split( $Sep => $val ), '', '', '', '';
+        my @vals = split( $Sep => $val );
+        return @vals;
     }
 
     return;
 }
 
 #---------------------------------------------------------------------
-# dbm: tied dbm hash ref
-# enc: character encoding of the dbm file (keys and values)
-# key: key whose value we're setting (key not encoded yet)
-# vals: values we're storing (vals not encoded yet)
+# set_vals( $dbm, $enc, $key, @vals )
+#
+# $dbm: tied dbm hash ref
+# $enc: character encoding of the dbm file (keys and values)
+# $key: key whose value we're setting (key not encoded yet)
+# @vals: values we're storing (vals not encoded yet)
 #
 # no useful return value
 #
@@ -734,16 +714,232 @@ sub set_vals {
 
     $key = Encode::encode( $enc, $key );
 
+    for( @vals ) {
+        $_ = '' unless defined;
+    }
+
     my $val = join $Sep => @vals;
        $val = Encode::encode( $enc, $val );
 
-# {
-#     no warnings;
-#     print " ".(caller)[2]." ";
-#     print "set_vals: [$key] => [".(join"|",@vals)."]\n";
-# }
-
     $dbm->{ $key } = $val;
+}
+
+#---------------------------------------------------------------------
+# delete_key( $dbm, $enc, $key )
+#
+# $dbm: tied dbm hash ref
+# $enc: character encoding of the dbm file (keys and values)
+# $key: key whose value we're setting (key not encoded yet)
+#
+# Private subroutine.
+
+sub delete_key {
+    my( $dbm, $enc, $key ) = @_;
+
+    $key = Encode::encode( $enc, $key );
+
+    delete $dbm->{ $key };
+}
+
+#---------------------------------------------------------------------
+# delete_entry_group( $dbm, $enc, $entry_group, $entry_point, $index_key );
+# dbm: tied dbm hash ref
+# enc: character encoding of the dbm file (keys and values)
+# $entry_group: to delete
+# $entry_point: to delete or update
+# $index_key:   to delete or update
+#
+# Private subroutine.
+#
+
+=for comment
+
+We delete an entry group when an index entry is deleted and it's the
+last index entry in the entry group record.  So the counts for the
+entry point and for the index key (if they are not deleted, too) will
+be decremented by 1 -- not for the entry group we're deleting, but
+for the index entry we deleted.
+
+given: entry_group, prev_group, next_group, entry_point, $index_key
+
++ we delete the entry group
+if entry group is the only group under its entry point
+    - it's the only one if its prev group *and* next group are not under its entry point
+    + we delete entry point, too
+    if entry point is the only one in the index key eplist
+        + we delete the index key, too
+    else if entry point isn't the only one
+        + we decrement the index key count by 1
+        + we remove the entry point from the index key eplist
+
+    if the entry group's next group isn't undef
+        + we set the next group's prev group to the entry group's prev group
+        + we set the next group's entry point's prev group to the entry group's prev group
+    if the entry group's prev group isn't undef
+        + we set the prev group's next group to the entry group's next group
+
+else if entry group isn't the only one under its entry point
+    + we decrement the entry group count by 1
+    + we decrement the index key count by 1
+    + we set the prev group's next group to the entry group's next group
+    + we set the next group's prev group to the entry group's prev group
+
+    if the entry group's next group isn't undef and isn't under it's entry point
+        + we set the next group's entry point's prev group to the entry group's prev group
+    if the entry group's prev group isn't undef and isn't under it's entry point
+        - i.e., it's the first group under its entry point
+        + we set the entry point's next group to the entry group's next group
+
+XXX don't think this is right:
+
+        if the entry group's prev group is the only group under its entry point
+        - it's the only group under its entry point if its prev group is undef or
+          isn't under its entry point and it's next group isn't under its entry point
+          (which we established already)
+        + we set the prev group's entry point's next group to the entry group's next group
+
+=cut
+
+sub delete_entry_group {
+    my( $dbm, $enc, $entry_group, $entry_point, $index_key ) = @_;
+
+    my( $keynum, $eg_count, $eg_prev, $eg_next ) = get_vals( $dbm, $enc, $entry_group );
+    my(          $ep_count, $ep_prev, $ep_next ) = get_vals( $dbm, $enc, $entry_point );
+    my(          $ik_count, $eplist            ) = get_vals( $dbm, $enc, $index_key   );
+
+    my $ep_regx = qr/^$entry_point/;
+    my $ep = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
+
+    delete_key( $dbm, $enc, $entry_group );
+
+#   if entry group is the only group under its entry point
+#       - it's the only one if its prev group *and* next group are not under its entry point
+
+    if( (!$eg_prev || $eg_prev !~ $ep_regx) &&
+        (!$eg_next || $eg_next !~ $ep_regx) ){
+
+#       + we delete entry point, too
+
+        delete_key( $dbm, $enc, $entry_point );
+
+#       if entry point is the only one in the index key eplist
+
+        if( $eplist eq $ep ) {
+
+#           + we delete the index key, too
+
+            delete_key( $dbm, $enc, $index_key );
+
+        }
+
+#       else if entry point isn't the only one
+
+        else {
+
+#           + we decrement the index key count by 1
+#           - the resulting count will be > 0
+
+            --$ik_count;
+
+#           + we remove the entry point from the index key eplist
+            $eplist = join $Sp => grep { $_ ne $ep } split $Sp => $eplist;
+
+            set_vals( $dbm, $enc, $index_key => $ik_count, $eplist )
+
+        }
+
+#       if the entry group's next group isn't undef
+
+        if( $eg_next ) {
+
+#           + we set the next group's prev group to the entry group's prev group
+            
+            my( $ng_num, $ng_count, $ng_prev, $ng_next ) = get_vals( $dbm, $enc, $eg_next );
+            set_vals( $dbm, $enc, $eg_next => $ng_num, $ng_count, $eg_prev, $ng_next );
+
+#           + we set the next group's entry point's prev group to the entry group's prev group
+
+            my $next_ep_key = join( $Sp => (split( $Sp => $eg_next ))[0,1] );
+            my( $nep_count, $nep_prev, $nep_next ) = get_vals( $dbm, $enc, $next_ep_key );
+            set_vals( $dbm, $enc, $next_ep_key => $nep_count, $eg_prev, $nep_next );
+
+        }
+
+#       if the entry group's prev group isn't undef
+
+        if( $eg_prev ) {
+
+#           + we set the prev group's next group to the entry group's next group
+
+            my( $pg_num, $pg_count, $pg_prev, $pg_next ) = get_vals( $dbm, $enc, $eg_prev );
+            set_vals( $dbm, $enc, $eg_prev => $pg_num, $pg_count, $pg_prev, $eg_next);
+
+        }
+    }
+
+
+#   else if entry group isn't the only one under its entry point
+
+    else {
+
+#       + we decrement the entry point count by 1
+
+        set_vals( $dbm, $enc, $entry_point => --$ep_count, $ep_prev, $ep_next );
+
+#       + we decrement the index key count by 1
+
+        set_vals( $dbm, $enc, $index_key => $ik_count - 1, $eplist );
+
+#       + we set the prev group's next group to the entry group's next group
+
+        my( $pg_num, $pg_count, $pg_prev, $pg_next ) = get_vals( $dbm, $enc, $eg_prev );
+        set_vals( $dbm, $enc, $eg_prev => $pg_num, $pg_count, $pg_prev, $eg_next);
+
+#       + we set the next group's prev group to the entry group's prev group
+
+        my( $ng_num, $ng_count, $ng_prev, $ng_next ) = get_vals( $dbm, $enc, $eg_next );
+        set_vals( $dbm, $enc, $eg_next => $ng_num, $ng_count, $eg_prev, $ng_next );
+
+#       if the entry group's next group isn't undef and isn't under its entry point
+
+        if( $eg_next and $eg_next !~ $ep_regx ) {
+
+#           + we set the next group's entry point's prev group to the entry group's prev group
+
+            my $next_ep_key = join( $Sp => (split( $Sp => $eg_next ))[0,1] );
+            my( $nep_count, $nep_prev, $nep_next ) = get_vals( $dbm, $enc, $next_ep_key );
+            set_vals( $dbm, $enc, $next_ep_key => $nep_count, $eg_prev, $nep_next );
+
+        }
+
+#       if the entry group's prev group isn't undef and isn't under it's entry point
+#           - i.e., it's the first group under its entry point
+
+        if( $eg_prev and $eg_prev !~ $ep_regx ) {
+
+#           + we set the entry point's next group to the entry group's next group
+
+            set_vals( $dbm, $enc, $entry_point => $ep_count, $ep_prev, $eg_next );
+
+# XXX don't think this is right ...
+
+# #           if the entry group's prev group is the only group under its entry point
+# #           - it's the only group under its entry point if its prev group is undef or
+# #             isn't under its entry point and it's next group isn't under its entry point
+# #             (which we established already)
+# 
+#             my $prev_ep_key = join( $Sp => (split( $Sp => $eg_prev ))[0,1] );
+#             my( $pep_count, $pep_prev, $pep_next ) = get_vals( $dbm, $enc, $prev_ep_key );
+# 
+#             if( !$pep_prev or $pep_prev !~ /^$index_key $prev_ep_key / ) {
+# 
+# #               + we set the prev group's entry point's next group to the entry group's next group
+# 
+#                 set_vals( $dbm, $enc, $prev_ep_key => $pep_count, $pep_prev, $eg_next );
+# 
+#             }
+        }
+    }
 }
 
 #---------------------------------------------------------------------
@@ -761,10 +957,192 @@ sub set_vals {
         num   => $keynum,
         });
 
+=for comment
+
+given: index key,   e.g., 'ti'
+       entry point, e.g., 'ti a'
+       entry group, e.g., 'ti a apple'
+       index entry, e.g., 'ti apple title 1 2 3 45'
+
+(- assertion, + action)
+
+if entry group exists in the dbm file
+    - index key exists with at least one element in its eplist
+    - entry point exists with at least this one entry group under it
+    - an index entry record exists
+    if the entry group contains our index entry
+        + we turn off our bit (e.g., number 45)
+        if the bit count is zero
+            + we remove the index entry from the record
+            if there are no more index entries in the record
+
+{ inside delete_entry_group() ...
+
+                + we delete the entry group from the dbm file
+                  (no need to delete the record -- it's simply ignored)
+                if there are no more entry groups under the entry point
+                    + we delete the entry point from the dbm file
+                    + we delete the entry point from the eplist in the index key
+                    if there are no more entry points in the index key
+                        + we delete the index key from the dbm file
+                    else if there are still entry points
+                        + we decrement the index key count (for the index entry we removed)
+                else if there are still entry groups
+                    + we decrement the entry point count (for the index entry we removed)
+}
+            else if there are still index entries in the record
+                + we update the record with the remaining entries
+                + we decrement the entry group count (for the index entry we removed)
+                + we decrement the entry point count (for the index entry we removed)
+                + we decrement the index key count (for the index entry we removed)
+        else if the bit count isn't zero
+            + we update the record with the updated index entry
+    else if the entry group doesn't contain our index entry
+        + error
+else if entry group doesn't exist
+    + error
+
 =cut
 
 sub delete_kw {
     my( $self, $parms ) = @_;
+
+    my $enc  = $self->config->{'enc'};
+    my $ds   = $self->datastore;
+
+    my $dir  = $ds->dir;
+    my $name = $ds->name;
+
+    my $num  = $parms->{'num'};
+    croak qq/Missing: num/ unless defined $num;
+
+    my( $index_key, $entry_point, $entry_group, $index_entry ) =
+        $self->get_kw_keys( $parms );
+
+    $self->writelock;
+    tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
+
+    my $dbm = \%dbm;
+
+#   if entry group exists in the dbm file
+
+    if( my @vals = get_vals( $dbm, $enc, $entry_group ) ) {
+
+#       - index key exists with at least one element in its eplist
+#       - entry point exists with at least this one entry group under it
+#       - an index entry record exists
+
+        my( $keynum, $group_count, $prev_group, $next_group ) = @vals;
+
+        my $group_rec = $ds->retrieve( $keynum );
+        my $rec_data  = Encode::decode( $enc, $group_rec->data );
+
+        # make group_rec data into a hash
+        my %entries = map { split $Sep } split "\n" => $rec_data;
+
+#       if the entry group contains our index entry
+
+        my $vec;
+        if( my $try = $entries{ $index_entry } ) {
+            my( $bit_count, $bstr ) = split $Sp => $try;
+            $vec = str2bit uncompress $bstr;
+
+#           + we turn off our bit (e.g., number 45)
+
+            set_bit( $vec, $num, 0 );
+            $bit_count = howmany( $vec );
+
+#           if the bit count is zero
+
+            if( $bit_count == 0 ) {
+
+#               + we remove the index entry from the record
+
+                delete $entries{ $index_entry };
+
+#               if there are no more index entries in the record
+
+                if( not %entries ) {
+
+#                   + we delete the entry group from the dbm file
+#                     (no need to delete the record -- it's simply ignored)
+
+                    delete_entry_group( $dbm, $enc, $entry_group, $entry_point, $index_key );
+
+                }
+
+#               else if there are still index entries in the record
+
+                else {
+
+#                   + we update the record with the remaining entries
+
+                    my $newdata  = '';
+                    for my $key ( sort keys %entries ) {
+                        my $val   = $entries{ $key };
+                        $newdata .= join( $Sep => $key, $val ) . "\n";
+                    }
+                    $newdata = Encode::encode( $enc, $newdata );
+                    $ds->update({ record => $group_rec, data => $newdata });
+
+#                   + we decrement the entry group count (for the index entry we removed)
+
+                    set_vals( $dbm, $enc, $entry_group => $keynum, $group_count - 1, $prev_group, $next_group );
+
+#                   + we decrement the entry point count (for the index entry we removed)
+
+                    my( $ep_count, $ep_prev, $ep_next ) = get_vals( $dbm, $enc, $entry_point );
+                    set_vals( $dbm, $enc, $entry_point => $ep_count - 1, $ep_prev, $ep_next );
+
+#                   + we decrement the index key count (for the index entry we removed)
+
+                    my( $ik_count, $eplist ) = get_vals( $dbm, $enc, $index_key);
+                    set_vals( $dbm, $enc, $index_key => $ik_count - 1, $eplist );
+
+                }
+
+            }
+
+#           else if the bit count isn't zero
+
+            else {
+
+#               + we update the record with the updated index entry
+
+                $entries{ $index_entry } = join $Sp => $bit_count, compress bit2str $vec;
+
+                my $newdata  = '';
+                for my $key ( sort keys %entries ) {
+                    my $val   = $entries{ $key };
+                    $newdata .= join( $Sep => $key, $val ) . "\n";
+                }
+                $newdata = Encode::encode( $enc, $newdata );
+                $ds->update({ record => $group_rec, data => $newdata });
+
+            }
+
+        }
+
+#       else if the entry group doesn't contain our index entry
+
+        else {
+
+#           + error
+
+            croak qq/index entry not found: $index_entry/;
+        }
+
+    }
+
+#   else if entry group doesn't exist
+
+    else {
+
+#       + error
+
+        croak qq/entry group not found: $entry_group/;
+    }
+
 }
 
 #---------------------------------------------------------------------
@@ -914,7 +1292,49 @@ sub unlock {
     close $fh or croak qq/Problem closing $file: $!/;
 }
 
+#---------------------------------------------------------------------
+# debug()
+# one-liner:
+# /usr/local/bin/perl -MSDBM_File -e'sub max{$_[$_[0]<$_[1]]}tie%h,"SDBM_File","example",256|2,0666;for(keys%h){$x=max($x,length$_)}for(sort keys%h){printf" %-${x}s | %6s | %${x}s | %${x}s | %s\n",$_,split"  ",$h{$_}}'
+
+sub debug {
+    my( $self, $parms ) = @_;
+
+    my $enc   = $self->config->{'enc'};
+    my $ds    = $self->datastore;
+
+    my $dir   = $ds->dir;
+    my $name  = $ds->name;
+
+    $self->writelock;
+    tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
+
+    my $max = sub {$_[$_[0]<$_[1]]};
+    my $x = 0;
+    $x = $max->( $x, length ) for keys %dbm;
+    for( sort keys %dbm ) {
+        no warnings 'uninitialized';
+        my @parts = split;
+        # index key
+        if( @parts == 1 ) {
+            printf "%-${x}s | %6s | %6s= | %${x}s |\n", $_, "", split "  ", $dbm{ $_ };
+        }
+        # entry point
+        elsif( @parts == 2 ) {
+            printf "%-${x}s | %6s | %6s+ | %${x}s | %${x}s |\n", $_, "", split "  ", $dbm{ $_ };
+        }
+        # entry group
+        elsif( @parts == 3 ) {
+            printf "%-${x}s | %6s | %6s  | %${x}s | %${x}s |\n", $_, split "  ", $dbm{ $_ };
+        }
+    }
+
+    print "\n";
+
+    untie %dbm;
+    $self->unlock;
+}
+
 1;  # returned
 
 __END__
-
