@@ -54,19 +54,46 @@ my $uri  = join( ';' =>
         dir    => $dir,
         uri    => $uri,
         config => {
-            enc  => 'utf-8',
-            tags => {
-                ti => {
-                    label => 'title',
-                    eplen => 1,
-                    eglen => 8,
+            encoding  => 'utf-8',
+            kw => {
+                tags => {
+                    ti => {
+                        label => 'title',
+                        eplen => 1,
+                        eglen => 5,
+                    },
+                    au => {
+                        label => 'author',
+                    },
+                    su => {
+                        label => 'subject',
+                    },
+                    dt => {
+                        label => 'date',
+                    },
                 },
-                au => {
-                    label => 'author',
+                eplen => 1,
+                eglen => 8,
+            },
+            ph => {
+                tags => {
+                    tp => {
+                        label => 'title phrase',
+                    },
+                    ap => {
+                        label => 'author phrase',
+                    },
+                    sp => {
+                        label => 'subject phrase',
+                    },
+                    dp => {
+                        label => 'date phrase',
+                        eplen => 4,
+                        eglen => 10,
+                    },
                 },
-                su => {
-                    label => 'subject',
-                },
+                eplen => 1,
+                eglen => 25,
             },
             eplen => 1,
             eglen => 8,
@@ -81,12 +108,12 @@ my $uri  = join( ';' =>
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->add_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -98,12 +125,12 @@ my $uri  = join( ';' =>
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->add_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -115,12 +142,12 @@ my $uri  = join( ';' =>
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->add_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -136,12 +163,12 @@ my $uri  = join( ';' =>
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->add_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -152,12 +179,12 @@ my $uri  = join( ';' =>
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->add_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -173,12 +200,12 @@ my $uri  = join( ';' =>
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->add_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -196,12 +223,12 @@ $index->debug();
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->delete_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -219,12 +246,12 @@ $index->debug();
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->delete_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -242,12 +269,12 @@ $index->debug();
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->delete_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -265,12 +292,12 @@ $index->debug();
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->delete_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -288,12 +315,12 @@ $index->debug();
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->delete_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -311,12 +338,12 @@ $index->debug();
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->delete_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
@@ -334,12 +361,12 @@ $index->debug();
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
             
         $index->delete_kw({
-            tag   => $tag,
-            kw    => $kw,
-            field => $field,
-            occ   => $occ,
-            pos   => $pos,
-            num   => $num,
+            tag     => $tag,
+            keyword => $kw,
+            field   => $field,
+            occ     => $occ,
+            pos     => $pos,
+            num     => $num,
             });
     }
 
