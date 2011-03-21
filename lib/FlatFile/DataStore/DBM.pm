@@ -350,10 +350,8 @@ sub STORE {
 
         # hash, e.g., {data=>'record data',user=>'user data'}
         elsif( $reftype eq 'HASH' ) {
-            $record = $ds->retrieve( $keynum );
-            for( $parms->{'data'} ) { $record->data( $_ ) if defined }
-            for( $parms->{'user'} ) { $record->user( $_ ) if defined }
-            $record = $ds->update( $record );
+            $parms->{'record'} = $ds->retrieve( $keynum ) unless $parms->{'record'};
+            $record = $ds->update( $parms );
         }
 
         else {
