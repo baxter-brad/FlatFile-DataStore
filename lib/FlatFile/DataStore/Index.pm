@@ -949,8 +949,8 @@ sub add_item {
 
             # start getting entry points to insert between
             # 1 is for our 1 new index entry
-            my @new_ep = ( '', 1 );  # XXX '' correct for new ep keynum?
-            my @new_eg = ( $rec->keynum, 1 );
+            my $new_ep = { keynum => '',           count => 1 };  # XXX real keynum later
+            my $new_eg = { keynum => $rec->keynum, count => 1 };
 
             # if there's a previous entry point, we start there to find
             # its last group, which will be our prev_group
@@ -968,9 +968,10 @@ sub add_item {
                 }
 
                 # at this point, $this_group is the last group of the prev entry point
+                # we want it as our prev group for both of these:
 
-                push @new_ep, $this_group;  # we want it as our prev group
-                push @new_eg, $this_group;  # for both of these
+                $new_ep->{ prev } = $this_group;
+                $new_eg->{ prev } = $this_group;
 
                 # we also want to change its next group to our new group
                 update_entry_group_kv( $this_group => { next => $entry_group } );
@@ -980,12 +981,12 @@ sub add_item {
             # no previous group
 
             else {
-                push @new_ep, '';
-                push @new_eg, '';
+                $new_ep->{ prev } = '';
+                $new_eg->{ prev } = '';
             }
 
-            # this entry point's next group is our new group
-            push @new_ep, $entry_group;
+            # set this entry point's next group to our new group
+            $new_ep->{ next } = $entry_group;
 
             # if there's a next entry point, make our next group
             # the same as its next group
@@ -996,7 +997,7 @@ sub add_item {
                 my $next_group  = retrieve_entry_point_kv( $next_ep_key => 'next' );
 
                 # that's the next group we want for our group
-                push @new_eg, $next_group;
+                $new_eg->{ next } = $next_group;
 
                 # now make its prev group our group
                 update_entry_point_kv( $next_ep_key => { prev => $entry_group } );
@@ -1009,12 +1010,12 @@ sub add_item {
             # else if there's no next entry point, there's also no next group
 
             else {
-                push @new_eg, '';
+                $new_eg->{ next } = '';
             }
 
             # ready now to add these to the dbm file
-            set_vals( $entry_point => @new_ep );
-            set_vals( $entry_group => @new_eg );
+            update_entry_point_kv( $entry_point => $new_ep );
+            update_entry_group_kv( $entry_group => $new_eg );
         }
 
         # else if the entry point is already in the entry points list
@@ -1059,25 +1060,30 @@ sub add_item {
 
                 # go ahead and update the entry point (with above values)
                 # add 1 for the index entry we're adding
-                set_vals( $entry_point => $ep_keynum, $ep_count + 1, $prev_group, $next_group );
+                update_entry_point_kv( $entry_point => { count => $ep_count + 1 } );
 
                 # entry point's next group is never null
                 my $this_group;
-                my( $eg_keynum, $eg_count );
+
                 while( $next_group lt $entry_group ) {
                     $this_group = $next_group;
-                    ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
-                    last unless $next_group;
+                    $next_group = retrieve_entry_group_kv( $this_group => 'next' );
+                    last unless $next_group;  # XXX need this above, too?
                 }
 
                 # at this point, $this_group is the group we want to insert after
 
                 # change its next group to our group
-                set_vals( $this_group => $eg_keynum, $eg_count, $prev_group, $entry_group );
+                update_entry_group_kv( $this_group => { next => $entry_group } );
 
                 # make it our prev group and its old next group our next group
                 # 1 is for our 1 index entry
-                set_vals( $entry_group => $rec->keynum, 1, $this_group, $next_group );
+                update_entry_group_kv( $entry_group => {
+                    keynum => $rec->keynum,
+                    count  => 1,
+                    prev   => $this_group,
+                    next   => $next_group
+                    } );
 
                 if( $next_group ) {
 
@@ -1089,7 +1095,7 @@ sub add_item {
                         my( $ep_keynum, $ep_count, $prev_group, $next_group ) = get_vals( $other_ep );
 
                         # make its prev_group our group
-                        set_vals( $other_ep => $ep_keynum, $ep_count, $entry_group, $next_group );
+                        update_entry_point_kv( $other_ep => { prev => $entry_group } );
 
                         # we also need to change the first group of the next entry point
                         my( $eg_keynum, $eg_count );
@@ -1097,7 +1103,7 @@ sub add_item {
                         ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
 
                         # make its prev group our group, too
-                        set_vals( $this_group => $eg_keynum, $eg_count, $entry_group, $next_group );
+                        update_entry_group_kv( $this_group => { prev => $entry_group } );
                     }
 
                     # else the next group is still under our entry point
@@ -1110,7 +1116,7 @@ sub add_item {
                         ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
 
                         # change its prev group to our group
-                        set_vals( $this_group => $eg_keynum, $eg_count, $entry_group, $next_group );
+                        update_entry_group_kv( $this_group => { prev => $entry_group } );
                     }
                 }
             }
@@ -1262,7 +1268,7 @@ sub delete_item {
 
 #                   + we decrement the entry group count (for the index entry we removed)
 
-                    set_vals( $entry_group => $eg_keynum, $eg_count - 1, $prev_group, $next_group );
+                    update_entry_group_kv( $entry_group => { count => $eg_count -1 } );
 
 #                   + we decrement the entry point count (for the index entry we removed)
 
@@ -1678,8 +1684,7 @@ sub delete_entry_group {
 
 #           + we set the next group's prev group to the entry group's prev group
 
-            my( $neg_keynum, $neg_count, $neg_prev, $neg_next ) = retrieve_entry_group_kv( $eg_next );
-            set_vals( $eg_next => $neg_keynum, $neg_count, $eg_prev, $neg_next );
+            update_entry_group_kv( $eg_next => { prev => $eg_prev } );
 
 #           + we set the next group's entry point's prev group to the entry group's prev group
 
@@ -1714,13 +1719,11 @@ sub delete_entry_group {
 
 #       + we set the prev group's next group to the entry group's next group
 
-        my( $peg_keynum, $peg_count, $peg_prev, $peg_next ) = retrieve_entry_group_kv( $eg_prev );
-        set_vals( $eg_prev => $peg_keynum, $peg_count, $peg_prev, $eg_next);
+        update_entry_group_kv( $eg_prev => { next => $eg_next } );
 
 #       + we set the next group's prev group to the entry group's prev group
 
-        my( $neg_keynum, $neg_count, $neg_prev, $neg_next ) = retrieve_entry_group_kv( $eg_next );
-        set_vals( $eg_next => $neg_keynum, $neg_count, $eg_prev, $neg_next );
+        update_entry_group_kv( $eg_next => { prev => $eg_prev } );
 
 #       if the entry group's next group isn't undef and isn't under its entry point
 
