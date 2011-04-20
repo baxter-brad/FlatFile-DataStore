@@ -271,8 +271,6 @@ sub datastore     {for($_[0]->{datastore    }){$_=$_[1]if@_>1;return$_}}
 sub dbm_lock_file {for($_[0]->{dbm_lock_file}){$_=$_[1]if@_>1;return$_}}
 sub locked        {for($_[0]->{locked       }){$_=$_[1]if@_>1;return$_}}
 sub dbm           {for($_[0]->{dbm          }){$_=$_[1]if@_>1;return$_}}
-#sub encoding      {for($_[0]->{encoding     }){$_=$_[1]if@_>1;return$_}}
-sub encoding      {for($_[0]->{encoding     }){if(@_>1){$_=$_[1]}}$_}
 
 #---------------------------------------------------------------------
 
@@ -583,7 +581,7 @@ sub get_ph_bitstring {
     local $Enc = $self->config->{'encoding'};
     local $Dbm = \%dbm;
 
-    my $keynum = get_vals( $entry_group );
+    my $keynum = retrieve_entry_group_kv( $entry_group => 'keynum' );
 
     my( $count, $bitstring );
 
@@ -871,8 +869,8 @@ sub add_item {
         my %entries = map { split $Sep } split "\n" => $rec_data;
 
         my $vec = '';
-        if( my $try = $entries{ $index_entry } ) {
-            my( undef, $bstr ) = split $Sp => $try;  # $try is "howmany bitstring"
+        if( exists $entries{ $index_entry } ) {
+            my( undef, $bstr ) = split $Sp => $entries{ $index_entry };  # "howmany bitstring"
             $vec = str2bit uncompress $bstr;
         }
 
@@ -1042,9 +1040,6 @@ sub add_item {
                     next   => $next_group
                     } );
 
-                # save the next group for processing after
-                my $save_group = $next_group;
-
                 # now get the entry point's prev group and make it point to us
                 # change its next group to our group
                 update_entry_group_kv( $prev_group => { next => $entry_group } );
@@ -1063,12 +1058,13 @@ sub add_item {
                 update_entry_point_kv( $entry_point => { count => $ep_count + 1 } );
 
                 # entry point's next group is never null
-                my $this_group;
+                my $this_group;;
+                my $eg_next = $next_group;
 
-                while( $next_group lt $entry_group ) {
-                    $this_group = $next_group;
-                    $next_group = retrieve_entry_group_kv( $this_group => 'next' );
-                    last unless $next_group;  # XXX need this above, too?
+                while( $eg_next lt $entry_group ) {
+                    $this_group = $eg_next;
+                    $eg_next = retrieve_entry_group_kv( $this_group => 'next' );
+                    last unless $eg_next;  # XXX need this above, too?
                 }
 
                 # at this point, $this_group is the group we want to insert after
@@ -1082,28 +1078,24 @@ sub add_item {
                     keynum => $rec->keynum,
                     count  => 1,
                     prev   => $this_group,
-                    next   => $next_group
+                    next   => $eg_next
                     } );
 
-                if( $next_group ) {
+                if( $eg_next ) {
 
                     # the next group might be under another entry point
 
-                    if( $next_group !~ /^$entry_point/ ) {
+                    if( $eg_next !~ /^$entry_point/ ) {
 
-                        my $other_ep = "$index_key " . (split $Sp => $next_group)[1];
-                        my( $ep_keynum, $ep_count, $prev_group, $next_group ) = get_vals( $other_ep );
+                        my $other_ep = "$index_key " . (split $Sp => $eg_next)[1];
+                        $eg_next = retrieve_entry_point_kv( $other_ep => 'next' );
 
                         # make its prev_group our group
                         update_entry_point_kv( $other_ep => { prev => $entry_group } );
 
                         # we also need to change the first group of the next entry point
-                        my( $eg_keynum, $eg_count );
-                        my $this_group = $next_group;
-                        ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
-
                         # make its prev group our group, too
-                        update_entry_group_kv( $this_group => { prev => $entry_group } );
+                        update_entry_group_kv( $eg_next => { prev => $entry_group } );
                     }
 
                     # else the next group is still under our entry point
@@ -1111,12 +1103,8 @@ sub add_item {
                     else {
 
                         # get the next group
-                        my( $eg_keynum, $eg_count );
-                        my $this_group = $next_group;
-                        ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
-
                         # change its prev group to our group
-                        update_entry_group_kv( $this_group => { prev => $entry_group } );
+                        update_entry_group_kv( $eg_next => { prev => $entry_group } );
                     }
                 }
             }
@@ -1198,6 +1186,7 @@ sub delete_item {
     my $ds   = $self->datastore;
     my $dir  = $ds->dir;
     my $name = $ds->name;
+    my $err;
 
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
@@ -1205,15 +1194,14 @@ sub delete_item {
     local $Enc = $self->config->{'encoding'};
     local $Dbm = \%dbm;
 
-#   if entry group exists in the dbm file
+    # if entry group exists in the dbm file
+    if( exists $dbm{ $entry_group } ) {
 
-    if( my @vals = get_vals( $entry_group ) ) {
+        # - index key exists with at least one element in its eplist
+        # - entry point exists with at least this one entry group under it
+        # - an index entry record exists
 
-#       - index key exists with at least one element in its eplist
-#       - entry point exists with at least this one entry group under it
-#       - an index entry record exists
-
-        my( $eg_keynum, $eg_count, $prev_group, $next_group ) = @vals;
+        my( $eg_keynum, $eg_count, $prev_group, $next_group ) = retrieve_entry_group_kv( $entry_group );
 
         my $group_rec = $ds->retrieve( $eg_keynum );
         my $rec_data  = Encode::decode( $Enc, $group_rec->data );
@@ -1221,43 +1209,35 @@ sub delete_item {
         # make group_rec data into a hash
         my %entries = map { split $Sep } split "\n" => $rec_data;
 
-#       if the entry group contains our index entry
-
+        # if the entry group contains our index entry
         my $vec;
-        if( my $try = $entries{ $index_entry } ) {
-            my( $bit_count, $bstr ) = split $Sp => $try;
+        if( exists $entries{ $index_entry } ) {
+            my( $bit_count, $bstr ) = split $Sp => $entries{ $index_entry };
             $vec = str2bit uncompress $bstr;
 
-#           + we turn off our bit (e.g., number 45)
-
+            # + we turn off our bit (e.g., number 45)
             set_bit( $vec, $num, 0 );
             $bit_count = howmany( $vec );
 
-#           if the bit count is zero
-
+            # if the bit count is zero
             if( $bit_count == 0 ) {
 
-#               + we remove the index entry from the record
-
+                # + we remove the index entry from the record
                 delete $entries{ $index_entry };
 
-#               if there are no more index entries in the record
-
+                # if there are no more index entries in the record
                 if( not %entries ) {
 
-#                   + we delete the entry group from the dbm file
-#                     (no need to delete the record -- it's simply ignored)
-
+                    # + we delete the entry group from the dbm file
+                    # (no need to delete the record -- it's simply ignored)
                     delete_entry_group( $entry_group, $entry_point, $index_key );
 
                 }
 
-#               else if there are still index entries in the record
-
+                # else if there are still index entries in the record
                 else {
 
-#                   + we update the record with the remaining entries
-
+                    # + we update the record with the remaining entries
                     my $newdata  = '';
                     for my $key ( sort keys %entries ) {
                         my $val   = $entries{ $key };
@@ -1266,17 +1246,14 @@ sub delete_item {
                     $newdata = Encode::encode( $Enc, $newdata );
                     $ds->update({ record => $group_rec, data => $newdata });
 
-#                   + we decrement the entry group count (for the index entry we removed)
-
+                    # + we decrement the entry group count (for the index entry we removed)
                     update_entry_group_kv( $entry_group => { count => $eg_count -1 } );
 
-#                   + we decrement the entry point count (for the index entry we removed)
-
+                    # + we decrement the entry point count (for the index entry we removed)
                     my $ep_count = retrieve_entry_point_kv( $entry_point => 'count' );
                     update_entry_point_kv( $entry_point => { count => $ep_count - 1 } );
 
-#                   + we decrement the index key count (for the index entry we removed)
-
+                    # + we decrement the index key count (for the index entry we removed)
                     my $ik_count = retrieve_index_key_kv( $index_key => 'count' );
                     update_index_key_kv( $index_key => { count => $ik_count - 1 } );
 
@@ -1284,12 +1261,10 @@ sub delete_item {
 
             }
 
-#           else if the bit count isn't zero
-
+            # else if the bit count isn't zero
             else {
 
-#               + we update the record with the updated index entry
-
+                # + we update the record with the updated index entry
                 $entries{ $index_entry } = join $Sp => $bit_count, compress bit2str $vec;
 
                 my $newdata  = '';
@@ -1304,29 +1279,24 @@ sub delete_item {
 
         }
 
-#       else if the entry group doesn't contain our index entry
-
+        # else if the entry group doesn't contain our index entry
         else {
 
-#           + error
-
-            croak qq/index entry not found: $index_entry/;
+            $err = qq/index entry not found: $index_entry/;
         }
 
     }
 
-#   else if entry group doesn't exist
-
+    # else if entry group doesn't exist
     else {
 
-#       + error
-
-        croak qq/entry group not found: $entry_group/;
+        $err = qq/entry group not found: $entry_group/;
     }
 
     untie %dbm;
     $self->unlock;
 
+    croak $err if $err;
 }
 
 #---------------------------------------------------------------------
@@ -1861,7 +1831,7 @@ sub debug_kv {
     my $mx   = 0;
        $mx   = $max->( $mx, length ) for @keys;
     for my $key ( @keys ) {
-        my @vals     = get_vals( $key );
+        my @vals     = get_vals( $key );  # generic retrieve
         my @keyparts = split $Sp  => $key;
         no warnings 'uninitialized';
         if(    @keyparts == 1 ) { # index key
@@ -1882,3 +1852,4 @@ sub debug_kv {
 1;  # returned
 
 __END__
+
