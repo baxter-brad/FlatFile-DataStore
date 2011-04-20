@@ -243,6 +243,9 @@ our $dbm_package  = "SDBM_File";
 our $dbm_parms    = [ O_CREAT|O_RDWR, 0666 ];
 our $dbm_lock_ext = ".dir";
 
+our $DBM;
+our $ENC;
+
 my $Sp   = ' ';      # one-space separator
 my $Sep  = $Sp x 2;  # two-space separator
 
@@ -479,16 +482,17 @@ get a bitstring group for a keyword
 sub get_kw_group {
     my( $self, $parms ) = @_;
 
-    my $enc   = $self->config->{'encoding'};
-    my $ds    = $self->datastore;
-
-    my $dir   = $ds->dir;
-    my $name  = $ds->name;
+    my $ds   = $self->datastore;
+    my $dir  = $ds->dir;
+    my $name = $ds->name;
 
     my $entry_group = $self->get_kw_keys( $parms );
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
+
+    local $ENC = $self->config->{'encoding'};
+    local $DBM = \%dbm;
 
     untie %dbm;
     $self->unlock;
@@ -522,16 +526,17 @@ get a bitstring for a keyword
 sub get_kw_bitstring {
     my( $self, $parms ) = @_;
 
-    my $enc   = $self->config->{'encoding'};
-    my $ds    = $self->datastore;
-
-    my $dir   = $ds->dir;
-    my $name  = $ds->name;
+    my $ds   = $self->datastore;
+    my $dir  = $ds->dir;
+    my $name = $ds->name;
 
     my $entry_group = $self->get_kw_keys( $parms );
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
+
+    local $ENC = $self->config->{'encoding'};
+    local $DBM = \%dbm;
 
     untie %dbm;
     $self->unlock;
@@ -566,20 +571,19 @@ XXX for that we need to be able to browse
 sub get_ph_bitstring {
     my( $self, $parms ) = @_;
 
-    my $enc   = $self->config->{'encoding'};
-    my $ds    = $self->datastore;
-
-    my $dir   = $ds->dir;
-    my $name  = $ds->name;
+    my $ds   = $self->datastore;
+    my $dir  = $ds->dir;
+    my $name = $ds->name;
 
     my $entry_group = $self->get_ph_keys( $parms );
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
 
-    my $dbm = \%dbm;
+    local $ENC = $self->config->{'encoding'};
+    local $DBM = \%dbm;
 
-    my $keynum = get_vals( $dbm, $enc, $entry_group );
+    my $keynum = get_vals( $entry_group );
 
     my( $count, $bitstring );
 
@@ -844,25 +848,24 @@ else if entry group doesn't exist
 sub add_item {
     my( $self, $num, $index_key, $entry_point, $entry_group, $index_entry ) = @_;
 
-    my $enc   = $self->config->{'encoding'};
-    my $ds    = $self->datastore;
-
-    my $dir   = $ds->dir;
-    my $name  = $ds->name;
+    my $ds   = $self->datastore;
+    my $dir  = $ds->dir;
+    my $name = $ds->name;
 
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
 
     # if the entry group is already in the dbm file
 
-    my $dbm = \%dbm;
+    local $ENC = $self->config->{'encoding'};
+    local $DBM = \%dbm;
 
-    if( my @vals = get_vals( $dbm, $enc, $entry_group ) ) {
+    if( my @vals = get_vals( $entry_group ) ) {
 
         my( $eg_keynum, $eg_count, $prev_group, $next_group ) = @vals;
 
         my $group_rec = $ds->retrieve( $eg_keynum );
-        my $rec_data  = Encode::decode( $enc, $group_rec->data );
+        my $rec_data  = Encode::decode( $ENC, $group_rec->data );
 
         # make group_rec data into a hash
         my %entries = map { split $Sep } split "\n" => $rec_data;
@@ -885,7 +888,7 @@ sub add_item {
             $newdata .= join( $Sep => $key, $val ) . "\n";
             $newcount++;
         }
-        $newdata = Encode::encode( $enc, $newdata );
+        $newdata = Encode::encode( $ENC, $newdata );
         $ds->update({ record => $group_rec, data => $newdata });
 
         # update the entry point count and index key count
@@ -893,20 +896,15 @@ sub add_item {
         if( my $diff = $newcount - $eg_count ) {
 
             # save the newcount in the entry group
-            set_vals( $dbm, $enc, $entry_group =>
-                $eg_keynum, $newcount, $prev_group, $next_group );
+            set_vals( $entry_group => $eg_keynum, $newcount, $prev_group, $next_group );
 
             # add to the entry point count
-            my( $ep_keynum, $count, $prev_group, $next_group ) =
-                get_vals( $dbm, $enc, $entry_point );
-            set_vals( $dbm, $enc, $entry_point =>
-                $ep_keynum, $count + $diff, $prev_group, $next_group );
+            my( $ep_keynum, $count, $prev_group, $next_group ) = get_vals( $entry_point );
+            set_vals( $entry_point => $ep_keynum, $count + $diff, $prev_group, $next_group );
 
             # add to the index key count
-            my( $ik_keynum, $ik_count, $eplist ) =
-                retrieve_index_key_kv( $dbm, $enc, $index_key );
-            set_vals( $dbm, $enc, $index_key =>
-                $ik_keynum, $ik_count + $diff, $eplist );
+            my( $ik_keynum, $ik_count, $eplist ) = retrieve_index_key_kv( $index_key );
+            set_vals( $index_key => $ik_keynum, $ik_count + $diff, $eplist );
         }
     }
 
@@ -922,13 +920,13 @@ sub add_item {
         my $newdata = join '' => $index_entry, $Sep,
             howmany( $vec ), $Sp, compress( bit2str $vec ), "\n";
 
-        $newdata = Encode::encode( $enc, $newdata );
+        $newdata = Encode::encode( $ENC, $newdata );
         my $rec = $ds->create({ data => $newdata });
 
         my $ep = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
 
         # eplist is string of space-separated entry point characters
-        my( $ik_keynum, $ik_count, $eplist ) = retrieve_index_key_kv( $dbm, $enc, $index_key );
+        my( $ik_keynum, $ik_count, $eplist ) = retrieve_index_key_kv( $index_key );
         $ik_count ||= 0;
         for( $eplist ) { $_ = '' unless defined }
 
@@ -940,8 +938,7 @@ sub add_item {
                @eps = split $Sp => $eplist if $eplist;
                @eps = sort $ep, @eps;
 
-            set_vals( $dbm, $enc, $index_key =>
-                $ik_keynum, $ik_count, join $Sp => @eps );
+            set_vals( $index_key => $ik_keynum, $ik_count, join $Sp => @eps );
 
             # get prev/next entry points
             my( $prev_ep, $next_ep );
@@ -965,8 +962,7 @@ sub add_item {
 
                 # keynum and count are for entry point here
                 my $prev_ep_key = "$index_key $prev_ep";
-                my( $ep_keynum, $ep_count, $prev_group, $next_group ) =
-                    get_vals( $dbm, $enc, $prev_ep_key );
+                my( $ep_keynum, $ep_count, $prev_group, $next_group ) = get_vals( $prev_ep_key );
 
                 my( $eg_keynum, $eg_count );
                 my $this_group;
@@ -974,8 +970,7 @@ sub add_item {
                 while( $next_group =~ /^$prev_ep_key/ ) {
                     $this_group = $next_group;
                     # keynum and count are for entry group here
-                    ( $eg_keynum, $eg_count, $prev_group, $next_group ) =
-                        get_vals( $dbm, $enc, $this_group );
+                    ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
                 }
 
                 # at this point, $this_group is the last group of the prev entry point
@@ -985,8 +980,7 @@ sub add_item {
 
                 # we also want to change its next group to our new group
                 # keynum and count are for entry group here, too
-                set_vals( $dbm, $enc, $this_group =>
-                    $eg_keynum, $eg_count, $prev_group, $entry_group );
+                set_vals( $this_group => $eg_keynum, $eg_count, $prev_group, $entry_group );
             }
 
             # else if there's no previous entry point, there's also
@@ -1006,27 +1000,23 @@ sub add_item {
             if( $next_ep ) {
 
                 my $next_ep_key = "$index_key $next_ep";
-                my( $ep_keynum, $ep_count, $prev_group, $next_group ) =
-                    get_vals( $dbm, $enc, $next_ep_key );
+                my( $ep_keynum, $ep_count, $prev_group, $next_group ) = get_vals( $next_ep_key );
 
                 # that's the next group we want for our group
                 push @new_eg, $next_group;
 
                 # now make its prev group our group
-                set_vals( $dbm, $enc, $next_ep_key =>
-                    $ep_keynum, $ep_count, $entry_group, $next_group );
+                set_vals( $next_ep_key => $ep_keynum, $ep_count, $entry_group, $next_group );
 
                 # we also need to change the first group of the next entry point
 
                 my( $eg_keynum, $eg_count );
                 my $this_group = $next_group;
 
-                ( $eg_keynum, $eg_count, $prev_group, $next_group ) =
-                    get_vals( $dbm, $enc, $this_group );
+                ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
 
                 # make its prev group our group, too
-                set_vals( $dbm, $enc, $this_group =>
-                    $eg_keynum, $eg_count, $entry_group, $next_group );
+                set_vals( $this_group => $eg_keynum, $eg_count, $entry_group, $next_group );
             }
 
             # else if there's no next entry point, there's also no next group
@@ -1036,8 +1026,8 @@ sub add_item {
             }
 
             # ready now to add these to the dbm file
-            set_vals( $dbm, $enc, $entry_point => @new_ep );
-            set_vals( $dbm, $enc, $entry_group => @new_eg );
+            set_vals( $entry_point => @new_ep );
+            set_vals( $entry_group => @new_eg );
         }
 
         # else if the entry point is already in the entry points list
@@ -1045,8 +1035,7 @@ sub add_item {
         else {
 
             # locate groups to insert between
-            my( $ep_keynum, $ep_count, $prev_group, $next_group ) =
-                get_vals( $dbm, $enc, $entry_point );
+            my( $ep_keynum, $ep_count, $prev_group, $next_group ) = get_vals( $entry_point );
 
             # if we want to insert after the entry point (i.e., become first group)
 
@@ -1054,13 +1043,11 @@ sub add_item {
 
                 # make its next group our group
                 # add 1 for the index entry we're adding
-                set_vals( $dbm, $enc, $entry_point =>
-                    $ep_keynum, $ep_count + 1, $prev_group, $entry_group );
+                set_vals( $entry_point => $ep_keynum, $ep_count + 1, $prev_group, $entry_group );
 
                 # make its prev group our prev group and its old next group our next group
                 # 1 is for our 1 index entry
-                set_vals( $dbm, $enc, $entry_group =>
-                    $rec->keynum, 1, $prev_group, $next_group );
+                set_vals( $entry_group => $rec->keynum, 1, $prev_group, $next_group );
 
                 # save the next group for processing after
                 my $save_group = $next_group;
@@ -1069,20 +1056,17 @@ sub add_item {
                 my $this_group = $prev_group;
                 my( $eg_keynum, $eg_count );
                 ( $eg_keynum, $eg_count, $prev_group, $next_group ) =
-                    get_vals( $dbm, $enc, $this_group );
+                    get_vals( $this_group );
 
                 # change its next group to our group
-                set_vals( $dbm, $enc, $this_group =>
-                    $eg_keynum, $eg_count, $prev_group, $entry_group );
+                set_vals( $this_group => $eg_keynum, $eg_count, $prev_group, $entry_group );
 
                 # now get the saved next group (it's always under this entry point)
                 $this_group = $save_group;
-                ( $eg_keynum, $eg_count, $prev_group, $next_group ) =
-                    get_vals( $dbm, $enc, $this_group );
+                ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
 
                 # change its prev group to our group
-                set_vals( $dbm, $enc, $this_group =>
-                    $eg_keynum, $eg_count, $entry_group, $next_group );
+                set_vals( $this_group => $eg_keynum, $eg_count, $entry_group, $next_group );
             }
 
             # else if we're not inserting after the entry point, find the group to insert after
@@ -1091,29 +1075,25 @@ sub add_item {
 
                 # go ahead and update the entry point (with above values)
                 # add 1 for the index entry we're adding
-                set_vals( $dbm, $enc, $entry_point =>
-                    $ep_keynum, $ep_count + 1, $prev_group, $next_group );
+                set_vals( $entry_point => $ep_keynum, $ep_count + 1, $prev_group, $next_group );
 
                 # entry point's next group is never null
                 my $this_group;
                 my( $eg_keynum, $eg_count );
                 while( $next_group lt $entry_group ) {
                     $this_group = $next_group;
-                    ( $eg_keynum, $eg_count, $prev_group, $next_group ) =
-                        get_vals( $dbm, $enc, $this_group );
+                    ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
                     last unless $next_group;
                 }
 
                 # at this point, $this_group is the group we want to insert after
 
                 # change its next group to our group
-                set_vals( $dbm, $enc, $this_group =>
-                    $eg_keynum, $eg_count, $prev_group, $entry_group );
+                set_vals( $this_group => $eg_keynum, $eg_count, $prev_group, $entry_group );
 
                 # make it our prev group and its old next group our next group
                 # 1 is for our 1 index entry
-                set_vals( $dbm, $enc, $entry_group =>
-                    $rec->keynum, 1, $this_group, $next_group );
+                set_vals( $entry_group => $rec->keynum, 1, $this_group, $next_group );
 
                 if( $next_group ) {
 
@@ -1122,22 +1102,18 @@ sub add_item {
                     if( $next_group !~ /^$entry_point/ ) {
 
                         my $other_ep = "$index_key " . (split $Sp => $next_group)[1];
-                        my( $ep_keynum, $ep_count, $prev_group, $next_group ) =
-                            get_vals( $dbm, $enc, $other_ep );
+                        my( $ep_keynum, $ep_count, $prev_group, $next_group ) = get_vals( $other_ep );
 
                         # make its prev_group our group
-                        set_vals( $dbm, $enc, $other_ep =>
-                            $ep_keynum, $ep_count, $entry_group, $next_group );
+                        set_vals( $other_ep => $ep_keynum, $ep_count, $entry_group, $next_group );
 
                         # we also need to change the first group of the next entry point
                         my( $eg_keynum, $eg_count );
                         my $this_group = $next_group;
-                        ( $eg_keynum, $eg_count, $prev_group, $next_group ) =
-                            get_vals( $dbm, $enc, $this_group );
+                        ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
 
                         # make its prev group our group, too
-                        set_vals( $dbm, $enc, $this_group =>
-                            $eg_keynum, $eg_count, $entry_group, $next_group );
+                        set_vals( $this_group => $eg_keynum, $eg_count, $entry_group, $next_group );
                     }
 
                     # else the next group is still under our entry point
@@ -1147,20 +1123,18 @@ sub add_item {
                         # get the next group
                         my( $eg_keynum, $eg_count );
                         my $this_group = $next_group;
-                        ( $eg_keynum, $eg_count, $prev_group, $next_group ) =
-                            get_vals( $dbm, $enc, $this_group );
+                        ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
 
                         # change its prev group to our group
-                        set_vals( $dbm, $enc, $this_group =>
-                            $eg_keynum, $eg_count, $entry_group, $next_group );
+                        set_vals( $this_group => $eg_keynum, $eg_count, $entry_group, $next_group );
                     }
                 }
             }
         }
 
         # update the index key count for our 1 index entry
-        ( $ik_keynum, $ik_count, $eplist ) = retrieve_index_key_kv( $dbm, $enc, $index_key );
-        set_vals( $dbm, $enc, $index_key => $ik_keynum, $ik_count + 1, $eplist );
+        ( $ik_keynum, $ik_count, $eplist ) = retrieve_index_key_kv( $index_key );
+        set_vals( $index_key => $ik_keynum, $ik_count + 1, $eplist );
     }
 
     untie %dbm;
@@ -1231,20 +1205,19 @@ else if entry group doesn't exist
 sub delete_item {
     my( $self, $num, $index_key, $entry_point, $entry_group, $index_entry ) = @_;
 
-    my $enc   = $self->config->{'encoding'};
-    my $ds    = $self->datastore;
-
-    my $dir   = $ds->dir;
-    my $name  = $ds->name;
+    my $ds   = $self->datastore;
+    my $dir  = $ds->dir;
+    my $name = $ds->name;
 
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
 
-    my $dbm = \%dbm;
+    local $ENC = $self->config->{'encoding'};
+    local $DBM = \%dbm;
 
 #   if entry group exists in the dbm file
 
-    if( my @vals = get_vals( $dbm, $enc, $entry_group ) ) {
+    if( my @vals = get_vals( $entry_group ) ) {
 
 #       - index key exists with at least one element in its eplist
 #       - entry point exists with at least this one entry group under it
@@ -1253,7 +1226,7 @@ sub delete_item {
         my( $eg_keynum, $eg_count, $prev_group, $next_group ) = @vals;
 
         my $group_rec = $ds->retrieve( $eg_keynum );
-        my $rec_data  = Encode::decode( $enc, $group_rec->data );
+        my $rec_data  = Encode::decode( $ENC, $group_rec->data );
 
         # make group_rec data into a hash
         my %entries = map { split $Sep } split "\n" => $rec_data;
@@ -1285,7 +1258,7 @@ sub delete_item {
 #                   + we delete the entry group from the dbm file
 #                     (no need to delete the record -- it's simply ignored)
 
-                    delete_entry_group( $dbm, $enc, $entry_group, $entry_point, $index_key );
+                    delete_entry_group( $entry_group, $entry_point, $index_key );
 
                 }
 
@@ -1300,22 +1273,22 @@ sub delete_item {
                         my $val   = $entries{ $key };
                         $newdata .= join( $Sep => $key, $val ) . "\n";
                     }
-                    $newdata = Encode::encode( $enc, $newdata );
+                    $newdata = Encode::encode( $ENC, $newdata );
                     $ds->update({ record => $group_rec, data => $newdata });
 
 #                   + we decrement the entry group count (for the index entry we removed)
 
-                    set_vals( $dbm, $enc, $entry_group => $eg_keynum, $eg_count - 1, $prev_group, $next_group );
+                    set_vals( $entry_group => $eg_keynum, $eg_count - 1, $prev_group, $next_group );
 
 #                   + we decrement the entry point count (for the index entry we removed)
 
-                    my( $ep_keynum, $ep_count, $ep_prev, $ep_next ) = get_vals( $dbm, $enc, $entry_point );
-                    set_vals( $dbm, $enc, $entry_point => $ep_keynum, $ep_count - 1, $ep_prev, $ep_next );
+                    my( $ep_keynum, $ep_count, $ep_prev, $ep_next ) = get_vals( $entry_point );
+                    set_vals( $entry_point => $ep_keynum, $ep_count - 1, $ep_prev, $ep_next );
 
 #                   + we decrement the index key count (for the index entry we removed)
 
-                    my( $ik_keynum, $ik_count, $eplist ) = retrieve_index_key_kv( $dbm, $enc, $index_key);
-                    set_vals( $dbm, $enc, $index_key => $ik_keynum, $ik_count - 1, $eplist );
+                    my( $ik_keynum, $ik_count, $eplist ) = retrieve_index_key_kv( $index_key);
+                    set_vals( $index_key => $ik_keynum, $ik_count - 1, $eplist );
 
                 }
 
@@ -1334,7 +1307,7 @@ sub delete_item {
                     my $val   = $entries{ $key };
                     $newdata .= join( $Sep => $key, $val ) . "\n";
                 }
-                $newdata = Encode::encode( $enc, $newdata );
+                $newdata = Encode::encode( $ENC, $newdata );
                 $ds->update({ record => $group_rec, data => $newdata });
 
             }
@@ -1373,13 +1346,13 @@ sub delete_item {
 # $field is one of keynum, count, eplist
 #
 sub retrieve_index_key_kv {
-    my( $dbm, $enc, $key, $field ) = @_;
-    my @vals = &get_vals;  # & intentional
+    my( $key, $field ) = @_;
+    my @vals = get_vals( $key );
     while( @vals < 3 ) { push @vals, '' }
     return @vals unless $field;
     for( $field ) {
         /keynum/ and return $vals[0];
-        /count / and return $vals[1];
+        /count/  and return $vals[1];
         /eplist/ and return $vals[2];
     }
     croak /Unrecognized field: $field/;
@@ -1387,10 +1360,16 @@ sub retrieve_index_key_kv {
 
 #---------------------------------------------------------------------
 #
-# =head2 get_vals( $dbm, $enc, $key )
+# =head2 retrieve_entry_point_kv()
+sub retrieve_entry_point_kv {
+}
+
+#---------------------------------------------------------------------
 #
-#     $dbm: tied dbm hash ref
-#     $enc: character encoding of the dbm file (keys and values)
+# =head2 get_vals( $key )
+#
+#     $DBM: tied dbm hash ref
+#     $ENC: character encoding of the dbm file (keys and values)
 #     $key: key whose value we want (not encoded yet)
 #
 # returns array of values (by splitting on $Sep)
@@ -1401,13 +1380,13 @@ sub retrieve_index_key_kv {
 #
 
 sub get_vals {
-    my( $dbm, $enc, $key ) = @_;
+    my( $key ) = @_;
 
-    $key = Encode::encode( $enc, $key );
+    $key = Encode::encode( $ENC, $key );
 
-    if( my $val = $dbm->{ $key } ) {
+    if( my $val = $DBM->{ $key } ) {
 
-        $val = Encode::decode( $enc, $val );
+        $val = Encode::decode( $ENC, $val );
         my @vals = split( $Sep => $val );
         return @vals if wantarray;
         return $vals[0];  # scalar context
@@ -1418,10 +1397,10 @@ sub get_vals {
 
 #---------------------------------------------------------------------
 #
-# =head2 set_vals( $dbm, $enc, $key, @vals )
+# =head2 set_vals( $key, @vals )
 #
-#     $dbm: tied dbm hash ref
-#     $enc: character encoding of the dbm file (keys and values)
+#     $DBM: tied dbm hash ref
+#     $ENC: character encoding of the dbm file (keys and values)
 #     $key: key whose value we're setting (key not encoded yet)
 #     @vals: values we're storing (vals not encoded yet)
 #
@@ -1433,26 +1412,26 @@ sub get_vals {
 #
 
 sub set_vals {
-    my( $dbm, $enc, $key, @vals ) = @_;
+    my( $key, @vals ) = @_;
 
-    $key = Encode::encode( $enc, $key );
+    $key = Encode::encode( $ENC, $key );
 
     for( @vals ) {
         $_ = '' unless defined;
     }
 
     my $val = join $Sep => @vals;
-       $val = Encode::encode( $enc, $val );
+       $val = Encode::encode( $ENC, $val );
 
-    $dbm->{ $key } = $val;
+    $DBM->{ $key } = $val;
 }
 
 #---------------------------------------------------------------------
 #
-# =head2 delete_key( $dbm, $enc, $key )
+# =head2 delete_key( $key )
 #
-#     $dbm: tied dbm hash ref
-#     $enc: character encoding of the dbm file (keys and values)
+#     $DBM: tied dbm hash ref
+#     $ENC: character encoding of the dbm file (keys and values)
 #     $key: key whose value we're setting (key not encoded yet)
 #
 # no useful return value  XXX right?
@@ -1463,19 +1442,19 @@ sub set_vals {
 #
 
 sub delete_key {
-    my( $dbm, $enc, $key ) = @_;
+    my( $key ) = @_;
 
-    $key = Encode::encode( $enc, $key );
+    $key = Encode::encode( $ENC, $key );
 
-    delete $dbm->{ $key };
+    delete $DBM->{ $key };
 }
 
 #---------------------------------------------------------------------
 #
-# =head2 delete_entry_group( $dbm, $enc, $entry_group, $entry_point, $index_key );
+# =head2 delete_entry_group( $entry_group, $entry_point, $index_key );
 #
-#     $dbm: tied dbm hash ref
-#     $enc: character encoding of the dbm file (keys and values)
+#     $DBM: tied dbm hash ref
+#     $ENC: character encoding of the dbm file (keys and values)
 #     $entry_group: to delete
 #     $entry_point: to delete or update
 #     $index_key:   to delete or update
@@ -1526,18 +1505,18 @@ else if entry group isn't the only one under its entry point
 =cut
 
 sub delete_entry_group {
-    my( $dbm, $enc, $entry_group, $entry_point, $index_key ) = @_;
+    my( $entry_group, $entry_point, $index_key ) = @_;
 
-    my( $eg_keynum, $eg_count, $eg_prev, $eg_next ) = get_vals( $dbm, $enc, $entry_group );
-    my( $ep_keynum, $ep_count, $ep_prev, $ep_next ) = get_vals( $dbm, $enc, $entry_point );
-    my( $ik_keynum, $ik_count, $eplist            ) = retrieve_index_key_kv( $dbm, $enc, $index_key );
+    my( $eg_keynum, $eg_count, $eg_prev, $eg_next ) = get_vals( $entry_group );
+    my( $ep_keynum, $ep_count, $ep_prev, $ep_next ) = get_vals( $entry_point );
+    my( $ik_keynum, $ik_count, $eplist            ) = retrieve_index_key_kv( $index_key );
 
     my $ep_regx = qr/^$entry_point/;
     my $ep = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
 
 #   + we delete the entry group
 
-    delete_key( $dbm, $enc, $entry_group );
+    delete_key( $entry_group );
 
 #   if entry group is the only group under its entry point
 #       - it's the only one if its prev group *and* next group are not under its entry point
@@ -1547,7 +1526,7 @@ sub delete_entry_group {
 
 #       + we delete entry point, too
 
-        delete_key( $dbm, $enc, $entry_point );
+        delete_key( $entry_point );
 
 #       if entry point is the only one in the index key eplist
 
@@ -1555,7 +1534,7 @@ sub delete_entry_group {
 
 #           + we delete the index key, too
 
-            delete_key( $dbm, $enc, $index_key );
+            delete_key( $index_key );
 
         }
 
@@ -1571,7 +1550,7 @@ sub delete_entry_group {
 #           + we remove the entry point from the index key eplist
             $eplist = join $Sp => grep { $_ ne $ep } split $Sp => $eplist;
 
-            set_vals( $dbm, $enc, $index_key => $ik_keynum, $ik_count, $eplist )
+            set_vals( $index_key => $ik_keynum, $ik_count, $eplist )
 
         }
 
@@ -1581,14 +1560,14 @@ sub delete_entry_group {
 
 #           + we set the next group's prev group to the entry group's prev group
 
-            my( $neg_keynum, $neg_count, $neg_prev, $neg_next ) = get_vals( $dbm, $enc, $eg_next );
-            set_vals( $dbm, $enc, $eg_next => $neg_keynum, $neg_count, $eg_prev, $neg_next );
+            my( $neg_keynum, $neg_count, $neg_prev, $neg_next ) = get_vals( $eg_next );
+            set_vals( $eg_next => $neg_keynum, $neg_count, $eg_prev, $neg_next );
 
 #           + we set the next group's entry point's prev group to the entry group's prev group
 
             my $next_ep_key = join( $Sp => (split( $Sp => $eg_next ))[0,1] );
-            my( $nep_keynum, $nep_count, $nep_prev, $nep_next ) = get_vals( $dbm, $enc, $next_ep_key );
-            set_vals( $dbm, $enc, $next_ep_key => $nep_keynum, $nep_count, $eg_prev, $nep_next );
+            my( $nep_keynum, $nep_count, $nep_prev, $nep_next ) = get_vals( $next_ep_key );
+            set_vals( $next_ep_key => $nep_keynum, $nep_count, $eg_prev, $nep_next );
 
         }
 
@@ -1598,8 +1577,8 @@ sub delete_entry_group {
 
 #           + we set the prev group's next group to the entry group's next group
 
-            my( $peg_keynum, $peg_count, $peg_prev, $peg_next ) = get_vals( $dbm, $enc, $eg_prev );
-            set_vals( $dbm, $enc, $eg_prev => $peg_keynum, $peg_count, $peg_prev, $eg_next);
+            my( $peg_keynum, $peg_count, $peg_prev, $peg_next ) = get_vals( $eg_prev );
+            set_vals( $eg_prev => $peg_keynum, $peg_count, $peg_prev, $eg_next);
 
         }
     }
@@ -1611,21 +1590,21 @@ sub delete_entry_group {
 
 #       + we decrement the entry point count by 1
 
-        set_vals( $dbm, $enc, $entry_point => $ep_keynum, --$ep_count, $ep_prev, $ep_next );
+        set_vals( $entry_point => $ep_keynum, --$ep_count, $ep_prev, $ep_next );
 
 #       + we decrement the index key count by 1
 
-        set_vals( $dbm, $enc, $index_key => $ik_keynum, $ik_count - 1, $eplist );
+        set_vals( $index_key => $ik_keynum, $ik_count - 1, $eplist );
 
 #       + we set the prev group's next group to the entry group's next group
 
-        my( $peg_keynum, $peg_count, $peg_prev, $peg_next ) = get_vals( $dbm, $enc, $eg_prev );
-        set_vals( $dbm, $enc, $eg_prev => $peg_keynum, $peg_count, $peg_prev, $eg_next);
+        my( $peg_keynum, $peg_count, $peg_prev, $peg_next ) = get_vals( $eg_prev );
+        set_vals( $eg_prev => $peg_keynum, $peg_count, $peg_prev, $eg_next);
 
 #       + we set the next group's prev group to the entry group's prev group
 
-        my( $neg_keynum, $neg_count, $neg_prev, $neg_next ) = get_vals( $dbm, $enc, $eg_next );
-        set_vals( $dbm, $enc, $eg_next => $neg_keynum, $neg_count, $eg_prev, $neg_next );
+        my( $neg_keynum, $neg_count, $neg_prev, $neg_next ) = get_vals( $eg_next );
+        set_vals( $eg_next => $neg_keynum, $neg_count, $eg_prev, $neg_next );
 
 #       if the entry group's next group isn't undef and isn't under its entry point
 
@@ -1634,8 +1613,8 @@ sub delete_entry_group {
 #           + we set the next group's entry point's prev group to the entry group's prev group
 
             my $next_ep_key = join( $Sp => (split( $Sp => $eg_next ))[0,1] );
-            my( $nep_keynum, $nep_count, $nep_prev, $nep_next ) = get_vals( $dbm, $enc, $next_ep_key );
-            set_vals( $dbm, $enc, $next_ep_key => $nep_keynum, $nep_count, $eg_prev, $nep_next );
+            my( $nep_keynum, $nep_count, $nep_prev, $nep_next ) = get_vals( $next_ep_key );
+            set_vals( $next_ep_key => $nep_keynum, $nep_count, $eg_prev, $nep_next );
 
         }
 
@@ -1646,7 +1625,7 @@ sub delete_entry_group {
 
 #           + we set the entry point's next group to the entry group's next group
 
-            set_vals( $dbm, $enc, $entry_point => $ep_keynum, $ep_count, $ep_prev, $eg_next );
+            set_vals( $entry_point => $ep_keynum, $ep_count, $ep_prev, $eg_next );
 
         }
     }
@@ -1742,12 +1721,11 @@ sub unlock {
 sub debug_kv {
     my( $self, $title, $force ) = @_;
 
-    $title  ||= '';
-    $force  ||= 0;
-    my $enc   = $self->config->{'encoding'};
-    my $ds    = $self->datastore;
-    my $dir   = $ds->dir;
-    my $name  = $ds->name;
+    $title ||= '';
+    $force ||= 0;
+    my $ds   = $self->datastore;
+    my $dir  = $ds->dir;
+    my $name = $ds->name;
 
     # guard against accidental use against a big index
     croak qq/Index too big for debug_kv()/ if $ds->howmany > 100 and !$force;
@@ -1757,13 +1735,15 @@ sub debug_kv {
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
 
-    my $dbm  = \%dbm;
+    local $ENC = $self->config->{'encoding'};
+    local $DBM = \%dbm;
+
     my @keys = sort keys %dbm;
     my $max  = sub {$_[$_[0]<$_[1]]};
     my $mx   = 0;
        $mx   = $max->( $mx, length ) for @keys;
     for my $key ( @keys ) {
-        my @vals     = get_vals( $dbm, $enc, $key );
+        my @vals     = get_vals( $key );
         my @keyparts = split $Sp  => $key;
         no warnings 'uninitialized';
         if(    @keyparts == 1 ) { # index key
