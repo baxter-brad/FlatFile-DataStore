@@ -860,9 +860,9 @@ sub add_item {
     local $Enc = $self->config->{'encoding'};
     local $Dbm = \%dbm;
 
-    if( my @vals = get_vals( $entry_group ) ) {
+    if( exists $dbm{ $entry_group } ) {
 
-        my( $eg_keynum, $eg_count, $prev_group, $next_group ) = @vals;
+        my( $eg_keynum, $eg_count ) = retrieve_entry_group_kv( $entry_group => 'keynum', 'count' );
 
         my $group_rec = $ds->retrieve( $eg_keynum );
         my $rec_data  = Encode::decode( $Enc, $group_rec->data );
@@ -896,7 +896,7 @@ sub add_item {
         if( my $diff = $newcount - $eg_count ) {
 
             # save the newcount in the entry group
-            set_vals( $entry_group => $eg_keynum, $newcount, $prev_group, $next_group );
+            update_entry_group_kv( $entry_group => { count => $newcount } );
 
             # add to the entry point count
             my $ep_count = retrieve_entry_point_kv( $entry_point => 'count' );
@@ -957,17 +957,14 @@ sub add_item {
 
             if( $prev_ep ) {
 
-                # keynum and count are for entry point here
                 my $prev_ep_key = "$index_key $prev_ep";
-                my( $ep_keynum, $ep_count, $prev_group, $next_group ) = retrieve_entry_point_kv( $prev_ep_key );
+                my $next_group  = retrieve_entry_point_kv( $prev_ep_key => 'next' );
 
-                my( $eg_keynum, $eg_count );
                 my $this_group;
 
                 while( $next_group =~ /^$prev_ep_key/ ) {
                     $this_group = $next_group;
-                    # keynum and count are for entry group here
-                    ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
+                    $next_group = retrieve_entry_group_kv( $this_group => 'next' );
                 }
 
                 # at this point, $this_group is the last group of the prev entry point
@@ -976,8 +973,7 @@ sub add_item {
                 push @new_eg, $this_group;  # for both of these
 
                 # we also want to change its next group to our new group
-                # keynum and count are for entry group here, too
-                set_vals( $this_group => $eg_keynum, $eg_count, $prev_group, $entry_group );
+                update_entry_group_kv( $this_group => { next => $entry_group } );
             }
 
             # else if there's no previous entry point, there's also
@@ -997,23 +993,17 @@ sub add_item {
             if( $next_ep ) {
 
                 my $next_ep_key = "$index_key $next_ep";
-                my( $ep_keynum, $ep_count, $prev_group, $next_group ) = retrieve_entry_point_kv( $next_ep_key );
+                my $next_group  = retrieve_entry_point_kv( $next_ep_key => 'next' );
 
                 # that's the next group we want for our group
                 push @new_eg, $next_group;
 
                 # now make its prev group our group
-                set_vals( $next_ep_key => $ep_keynum, $ep_count, $entry_group, $next_group );
+                update_entry_point_kv( $next_ep_key => { prev => $entry_group } );
 
                 # we also need to change the first group of the next entry point
-
-                my( $eg_keynum, $eg_count );
-                my $this_group = $next_group;
-
-                ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
-
                 # make its prev group our group, too
-                set_vals( $this_group => $eg_keynum, $eg_count, $entry_group, $next_group );
+                update_entry_group_kv( $next_group => { prev => $entry_group } );
             }
 
             # else if there's no next entry point, there's also no next group
@@ -1032,7 +1022,7 @@ sub add_item {
         else {
 
             # locate groups to insert between
-            my( $ep_keynum, $ep_count, $prev_group, $next_group ) = get_vals( $entry_point );
+            my( $ep_keynum, $ep_count, $prev_group, $next_group ) = retrieve_entry_point_kv( $entry_point );
 
             # if we want to insert after the entry point (i.e., become first group)
 
@@ -1040,30 +1030,27 @@ sub add_item {
 
                 # make its next group our group
                 # add 1 for the index entry we're adding
-                set_vals( $entry_point => $ep_keynum, $ep_count + 1, $prev_group, $entry_group );
+                update_entry_point_kv( $entry_point => { count => $ep_count + 1, next => $entry_group } );
 
                 # make its prev group our prev group and its old next group our next group
                 # 1 is for our 1 index entry
-                set_vals( $entry_group => $rec->keynum, 1, $prev_group, $next_group );
+                update_entry_group_kv( $entry_group => {
+                    keynum => $rec->keynum,
+                    count  => 1,
+                    prev   => $prev_group,
+                    next   => $next_group
+                    } );
 
                 # save the next group for processing after
                 my $save_group = $next_group;
 
                 # now get the entry point's prev group and make it point to us
-                my $this_group = $prev_group;
-                my( $eg_keynum, $eg_count );
-                ( $eg_keynum, $eg_count, $prev_group, $next_group ) =
-                    get_vals( $this_group );
-
                 # change its next group to our group
-                set_vals( $this_group => $eg_keynum, $eg_count, $prev_group, $entry_group );
+                update_entry_group_kv( $prev_group => { next => $entry_group } );
 
-                # now get the saved next group (it's always under this entry point)
-                $this_group = $save_group;
-                ( $eg_keynum, $eg_count, $prev_group, $next_group ) = get_vals( $this_group );
-
+                # now get the next group (it's always under this entry point)
                 # change its prev group to our group
-                set_vals( $this_group => $eg_keynum, $eg_count, $entry_group, $next_group );
+                update_entry_group_kv( $next_group => { prev => $entry_group } );
             }
 
             # else if we're not inserting after the entry point, find the group to insert after
