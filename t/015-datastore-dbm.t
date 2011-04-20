@@ -111,11 +111,17 @@ is( $dshash{ $id }->user, $user_data, "href user data" );
 
  $id++;
  $record->data( $record_data );
- $record->user( $user_data );
+ $record->user( $user_data );  # XXX wrong, user() is readonly
  $record = $dshash{ $id } = $record;
 
 is( $dshash{ $id }->data, $record_data, "object record data" );
 is( $dshash{ $id }->user, $user_data, "object user data" );
+
+ # update
+ $dshash{ $id } = { data => "xxx", user => "yyy" };
+
+is( $dshash{ $id }->data, "xxx", "object record data (update)" );
+is( $dshash{ $id }->user, "yyy", "object user data (update)" );
 
 }
 

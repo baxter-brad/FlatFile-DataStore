@@ -687,6 +687,9 @@ newline.  Also keep in mind that the file is opened in binmode,
 so you will be reading bytes (octets), not necessarily characters.
 Decoding these octets is up to you.
 
+XXX ("opened in binmode"?) does that make the example wrong
+    wrt non-unix OS's
+
 =cut
 
 sub locate_record_data {
