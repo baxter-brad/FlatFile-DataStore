@@ -485,7 +485,6 @@ sub get_kw_group {
     my $dir  = $ds->dir;
     my $name = $ds->name;
 
-    #XXX# my $entry_group = $self->get_kw_keys( $parms );
     my $keys        = $self->get_kw_keys( $parms );
     my $entry_group = $keys->{'entry_group'};
     my $truncated   = $keys->{'truncated'};
@@ -537,7 +536,6 @@ sub get_kw_bitstring {
     my $dir  = $ds->dir;
     my $name = $ds->name;
 
-    #XXX# my $entry_group = $self->get_kw_keys( $parms );
     my $keys        = $self->get_kw_keys( $parms );
     my $entry_group = $keys->{'entry_group'};
     my $truncated   = $keys->{'truncated'};
@@ -575,8 +573,9 @@ find our phrase in the group
 return the count and bitstring in array context
 return the bitstring in scalar context
 
-XXX what's missing here is truncation
-XXX for that we need to be able to browse
+if truncation is present, we loop through all
+matches. at the end, we 'or' the bitstrings and
+get a resulting count.
 
 =cut
 
@@ -587,10 +586,20 @@ sub get_ph_bitstring {
     my $dir  = $ds->dir;
     my $name = $ds->name;
 
-    #XXX# my $entry_group = $self->get_ph_keys( $parms );
     my $keys        = $self->get_ph_keys( $parms );
     my $entry_group = $keys->{'entry_group'};
     my $truncated   = $keys->{'truncated'};
+
+    my $match_tag     = quotemeta $parms->{'tag'};
+    my $match_phrase  = quotemeta $parms->{'phase'};
+       $match_phrase .= '.*' if $truncated;
+
+    my $matchrx = qr{^
+        $match_tag    $Sp
+        $match_phrase $Sep
+        ([0-9]+)      $Sp   # count
+        (.*)                # bitstring
+        $}x;
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
@@ -598,39 +607,37 @@ sub get_ph_bitstring {
     local $Enc = $self->config->{'encoding'};
     local $Dbm = \%dbm;
 
-    my $keynum = retrieve_entry_group_kv( $entry_group => 'keynum' );
+    my @matches;
 
-    my( $count, $bitstring );
+    if( my $keynum = retrieve_entry_group_kv( $entry_group => 'keynum' ) ) {
 
-    for( $keynum ) {
-        last unless defined;
+        for( $keynum ) {
 
-        my( $fh, $pos, $len ) = $ds->locate_record_data( $_ );
+            my( $count, $bitstring );
+            my( $fh, $pos, $len ) = $ds->locate_record_data( $_ );
 
-        my $matchrx = qr/^
-            $parms->{'tag'}    $Sp
-            $parms->{'phrase'} $Sep
-            ([0-9]+)           $Sp   # count
-            (.*)                     # bitstring
-            $/x;
-
-        my $got;
-        while( <$fh> ) {
-            last if ($got += length) > $len;
-            if( /$matchrx/ ) {
-                ( $count, $bitstring ) = ( $1, $2 );
-                last;
+            my $got;
+            while( <$fh> ) {
+                last if ($got += length) > $len;
+                if( /$matchrx/ ) {
+                    #XXX# ( $count, $bitstring ) = ( $1, $2 );
+                    push @matches, [ $1, $2 ];
+                    last unless $truncated;
+                }
+                last if $got == $len;
             }
-            last if $got == $len;
+            close $fh;
         }
-        close $fh;
     }
+
+    #XXX# resume
+    #XXX# this subroutine is in mid-modification -- need to add a loop
+    #XXX# for truncation to retrieve multiple entry_groups
 
     untie %dbm;
     $self->unlock;
 
-    return( $count, $bitstring ) if wantarray;
-    $bitstring;  # if want scalar
+    return \@matches;
 }
 
 #---------------------------------------------------------------------
@@ -749,9 +756,6 @@ sub get_kw_keys {
         index_entry => $index_entry,
         truncated   => $truncated,
     };
-    #XXX# return $index_key, $entry_point, $entry_group, $index_entry
-    #XXX#     if wantarray;
-    #XXX# $entry_group;  # returned in scalar context
 }
 
 #---------------------------------------------------------------------
@@ -825,9 +829,6 @@ sub get_ph_keys {
         index_entry => $index_entry,
         truncated   => $truncated,
     };
-    #XXX# return $index_key, $entry_point, $entry_group, $index_entry
-    #XXX#     if wantarray;
-    #XXX# $entry_group;  # returned in scalar context
 }
 
 #---------------------------------------------------------------------
@@ -879,7 +880,6 @@ else if entry group doesn't exist
 =cut
 
 sub add_item {
-    #XXX# my( $self, $num, $index_key, $entry_point, $entry_group, $index_entry ) = @_;
     my( $self, $num, $keys ) = @_;
 
     my $index_key   = $keys->{'index_key'};
@@ -903,47 +903,86 @@ sub add_item {
 
         my( $eg_keynum, $eg_count ) = retrieve_entry_group_kv( $entry_group => 'keynum', 'count' );
 
+        if( my $ik_keynum = retrieve_index_key_kv( $index_key => 'keynum' ) ) {
+            my $ik_rec = $ds->retrieve( $ik_keynum );
+            my( $ik_howmany, $ik_bitstring ) = split $Sp => $ik_rec->data;
+            my $ik_vec = str2bit uncompress $ik_bitstring;
+            set_bit( $ik_vec, $num );
+            my $new_bitstring = compress bit2str $ik_vec;
+            if( $new_bitstring ne $ik_bitstring ) {
+                $ds->update({
+                    record => $ik_rec,
+                    data   => howmany( $ik_vec ).$Sp.$new_bitstring
+                    });
+            }
+        }
+
+        if( my $ep_keynum = retrieve_entry_point_kv( $entry_point => 'keynum' ) ) {
+            my $ep_rec = $ds->retrieve( $ep_keynum );
+            my( $ep_howmany, $ep_bitstring ) = split $Sp => $ep_rec->data;
+            my $ep_vec = str2bit uncompress $ep_bitstring;
+            set_bit( $ep_vec, $num );
+            my $new_bitstring = compress bit2str $ep_vec;
+            if( $new_bitstring ne $ep_bitstring ) {
+                $ds->update({
+                    record => $ep_rec,
+                    data   => howmany( $ep_vec ).$Sp.$new_bitstring
+                    });
+            }
+        }
+
         my $group_rec = $ds->retrieve( $eg_keynum );
         my $rec_data  = Encode::decode( $Enc, $group_rec->data );
 
         # make group_rec data into a hash
         my %entries = map { split $Sep } split "\n" => $rec_data;
 
-        my $vec = '';
+        my $ie_changed;
         if( exists $entries{ $index_entry } ) {
-            my( undef, $bstr ) = split $Sp => $entries{ $index_entry };  # "howmany bitstring"
-            $vec = str2bit uncompress $bstr;
+            my( $ie_howmany, $ie_bitstring ) = split $Sp => $entries{ $index_entry };
+            my $ie_vec = str2bit uncompress $ie_bitstring;
+            set_bit( $ie_vec, $num );
+            my $new_bitstring = compress bit2str $ie_vec;
+            if( $new_bitstring ne $ie_bitstring ) {
+                $entries{ $index_entry } = join $Sp => howmany( $ie_vec ), $new_bitstring;
+                $ie_changed++;
+            }
+        }
+        else {
+            my $ie_vec = '';
+            set_bit( $ie_vec, $num );
+            $entries{ $index_entry } = join $Sp => howmany( $ie_vec ), compress bit2str $ie_vec;
+            $ie_changed++;
         }
 
-        # update vector (or create a new one)
-        set_bit( $vec, $num );
-        $entries{ $index_entry } = join $Sp => howmany( $vec ), compress bit2str $vec;
+        if( $ie_changed ) {
 
-        # recreate record data and update group counts
-        my $newdata  = '';
-        my $newcount = 0;
-        for my $key ( sort keys %entries ) {
-            my $val   = $entries{ $key };
-            $newdata .= join( $Sep => $key, $val ) . "\n";
-            $newcount++;
-        }
-        $newdata = Encode::encode( $Enc, $newdata );
-        $ds->update({ record => $group_rec, data => $newdata });
+            # recreate record data and update group counts
+            my $newdata  = '';
+            my $newcount = 0;
+            for my $key ( sort keys %entries ) {
+                my $val   = $entries{ $key };
+                $newdata .= join( $Sep => $key, $val ) . "\n";
+                $newcount++;
+            }
+            $newdata = Encode::encode( $Enc, $newdata );
+            $ds->update({ record => $group_rec, data => $newdata });
 
-        # update the entry point count and index key count
-        # (we may have added an index entry)
-        if( my $diff = $newcount - $eg_count ) {
+            # update the entry point count and index key count
+            # (we may have added an index entry)
+            if( my $diff = $newcount - $eg_count ) {
 
-            # save the newcount in the entry group
-            update_entry_group_kv( $entry_group => { count => $newcount } );
+                # save the newcount in the entry group
+                update_entry_group_kv( $entry_group => { count => $newcount } );
 
-            # add to the entry point count
-            my $ep_count = retrieve_entry_point_kv( $entry_point => 'count' );
-            update_entry_point_kv( $entry_point => { count => $ep_count + $diff } );
+                # add to the entry point count
+                my $ep_count = retrieve_entry_point_kv( $entry_point => 'count' );
+                update_entry_point_kv( $entry_point => { count => $ep_count + $diff } );
 
-            # add to the index key count
-            my $ik_count = retrieve_index_key_kv( $index_key => 'count' );
-            update_index_key_kv( $index_key => { count => $ik_count + $diff } );
+                # add to the index key count
+                my $ik_count = retrieve_index_key_kv( $index_key => 'count' );
+                update_index_key_kv( $index_key => { count => $ik_count + $diff } );
+            }
         }
     }
 
@@ -952,21 +991,50 @@ sub add_item {
     else {
 
         # initialize a bit vector
-        my $vec = '';
-        set_bit( $vec, $num );
+        my $ie_vec = '';
+        set_bit( $ie_vec, $num );
 
         # create a new datastore record
         my $newdata = join '' => $index_entry, $Sep,
-            howmany( $vec ), $Sp, compress( bit2str $vec ), "\n";
+            howmany( $ie_vec ), $Sp, compress( bit2str $ie_vec ), "\n";
 
         $newdata = Encode::encode( $Enc, $newdata );
-        my $rec = $ds->create({ data => $newdata });
+        my $eg_rec = $ds->create({ data => $newdata });
+
+        # (these are updated at the end of this block ...)
+        my( $ik_keynum, $ik_count, $eplist );
+
+        if( exists $dbm{ $index_key } ) {
+            ( $ik_keynum, $ik_count, $eplist ) = retrieve_index_key_kv( $index_key );
+            my $ik_rec = $ds->retrieve( $ik_keynum );
+            my( $ik_howmany, $ik_bitstring ) = split $Sp => $ik_rec->data;
+            my $ik_vec = str2bit uncompress $ik_bitstring;
+            set_bit( $ik_vec, $num );
+            my $new_bitstring = compress bit2str $ik_vec;
+            if( $new_bitstring ne $ik_bitstring ) {
+                $ds->update({
+                    record => $ik_rec,
+                    data   => howmany( $ik_vec ).$Sp.$new_bitstring
+                    });
+            }
+        }
+        else {  # set up for new index key entry
+            my $ik_vec = '';
+            set_bit( $ik_vec, $num );
+            my $ik_rec = $ds->create({
+                data => howmany( $ik_vec ).$Sp.compress( bit2str $ik_vec )
+                });
+            $ik_keynum = $ik_rec->keynum;
+            $ik_count  = 0;
+            $eplist    = '';
+        }
+
+        #XXX# my $eplist = retrieve_index_key_kv( $index_key => 'eplist' );
+        my $ep = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
 
         # eplist is string of space-separated entry point characters
-        my $eplist = retrieve_index_key_kv( $index_key => 'eplist' );
-        my $ep     = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
-
         # if entry point not in the list
+
         if( index( $eplist, $ep ) < 0 ) {
 
             # insert it in the list
@@ -974,7 +1042,8 @@ sub add_item {
                @eps = split $Sp => $eplist if $eplist;
                @eps = sort $ep, @eps;
 
-            update_index_key_kv( $index_key => { eplist => join $Sp => @eps } );
+            #XXX# update_index_key_kv( $index_key => { eplist => join $Sp => @eps } );
+            $eplist = join $Sp => @eps;
 
             # get prev/next entry points
             my( $prev_ep, $next_ep );
@@ -986,11 +1055,19 @@ sub add_item {
                 }
             }
 
-            # start getting entry points to insert between
-            # 1 is for our 1 new index entry
-            my $new_ep = { keynum => '',           count => 1 };  # XXX real keynum later
-            my $new_eg = { keynum => $rec->keynum, count => 1 };
+            # set up entry point datastore record (bitstring)
+            my $ep_vec = '';
+            set_bit( $ep_vec, $num );
+            my $ep_rec = $ds->create({
+                data => howmany( $ep_vec ).$Sp.compress( bit2str $ep_vec )
+                });
 
+            # start building new entry point and entry group entries
+            # 1 is for our 1 new index entry
+            my $new_ep = { keynum => $ep_rec->keynum, count => 1 };
+            my $new_eg = { keynum => $eg_rec->keynum, count => 1 };
+
+            # start getting entry points to insert between
             # if there's a previous entry point, we start there to find
             # its last group, which will be our prev_group
 
@@ -1064,6 +1141,19 @@ sub add_item {
             # locate groups to insert between
             my( $ep_keynum, $ep_count, $prev_group, $next_group ) = retrieve_entry_point_kv( $entry_point );
 
+            # see if we need to update the entry point bitstring
+            my $ep_rec = $ds->retrieve( $ep_keynum );
+            my( $ep_howmany, $ep_bitstring ) = split $Sp => $ep_rec->data;
+            my $ep_vec = str2bit uncompress $ep_bitstring;
+            set_bit( $ep_vec, $num );
+            my $new_bitstring = compress bit2str $ep_vec;
+            if( $new_bitstring ne $ep_bitstring ) {
+                $ds->update({
+                    record => $ep_rec,
+                    data   => howmany( $ep_vec ).$Sp.$new_bitstring
+                    });
+            }
+
             # if we want to insert after the entry point (i.e., become first group)
 
             if( $next_group gt $entry_group ) {
@@ -1075,7 +1165,7 @@ sub add_item {
                 # make its prev group our prev group and its old next group our next group
                 # 1 is for our 1 index entry
                 update_entry_group_kv( $entry_group => {
-                    keynum => $rec->keynum,
+                    keynum => $eg_rec->keynum,
                     count  => 1,
                     prev   => $prev_group,
                     next   => $next_group
@@ -1116,7 +1206,7 @@ sub add_item {
                 # make it our prev group and its old next group our next group
                 # 1 is for our 1 index entry
                 update_entry_group_kv( $entry_group => {
-                    keynum => $rec->keynum,
+                    keynum => $eg_rec->keynum,
                     count  => 1,
                     prev   => $this_group,
                     next   => $eg_next
@@ -1152,8 +1242,13 @@ sub add_item {
         }
 
         # update the index key count for our 1 index entry
-        my $ik_count = retrieve_index_key_kv( $index_key => 'count' );
-        update_index_key_kv( $index_key => { count => $ik_count + 1 } );
+        #XXX# my $ik_count = retrieve_index_key_kv( $index_key => 'count' );
+        #XXX# update_index_key_kv( $index_key => { count => $ik_count + 1 } );
+        update_index_key_kv( $index_key => {
+            keynum => $ik_keynum,
+            count  => $ik_count + 1,
+            eplist => $eplist,
+            } );
     }
 
     untie %dbm;
@@ -1222,7 +1317,6 @@ else if entry group doesn't exist
 =cut
 
 sub delete_item {
-    #XXX# my( $self, $num, $index_key, $entry_point, $entry_group, $index_entry ) = @_;
     my( $self, $num, $keys ) = @_;
 
     my $index_key   = $keys->{'index_key'};
