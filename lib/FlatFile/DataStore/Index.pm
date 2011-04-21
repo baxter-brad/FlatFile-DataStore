@@ -246,8 +246,9 @@ our $dbm_lock_ext = ".dir";
 our $Dbm;
 our $Enc;
 
-my $Sp   = ' ';      # one-space separator
-my $Sep  = $Sp x 2;  # two-space separator
+my $Trunc = '*?'    ;  # truncation characters
+my $Sp    = ' '     ;  # one-space separator
+my $Sep   = $Sp x 2 ;  # two-space separator
 
 my $default_eplen = 1;
 my $default_eglen = 8;
@@ -484,13 +485,19 @@ sub get_kw_group {
     my $dir  = $ds->dir;
     my $name = $ds->name;
 
-    my $entry_group = $self->get_kw_keys( $parms );
+    #XXX# my $entry_group = $self->get_kw_keys( $parms );
+    my $keys        = $self->get_kw_keys( $parms );
+    my $entry_group = $keys->{'entry_group'};
+    my $truncated   = $keys->{'truncated'};
+
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
 
     local $Enc = $self->config->{'encoding'};
     local $Dbm = \%dbm;
+
+    # XXX yada yada
 
     untie %dbm;
     $self->unlock;
@@ -506,6 +513,8 @@ combine a bitstring group into a single bitstring
 
 sub combine_group {
     my( $self, $parms ) = @_;
+
+    # XXX yada yada
 }
 
 #---------------------------------------------------------------------
@@ -528,13 +537,18 @@ sub get_kw_bitstring {
     my $dir  = $ds->dir;
     my $name = $ds->name;
 
-    my $entry_group = $self->get_kw_keys( $parms );
+    #XXX# my $entry_group = $self->get_kw_keys( $parms );
+    my $keys        = $self->get_kw_keys( $parms );
+    my $entry_group = $keys->{'entry_group'};
+    my $truncated   = $keys->{'truncated'};
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
 
     local $Enc = $self->config->{'encoding'};
     local $Dbm = \%dbm;
+
+    # XXX yada yada
 
     untie %dbm;
     $self->unlock;
@@ -573,7 +587,10 @@ sub get_ph_bitstring {
     my $dir  = $ds->dir;
     my $name = $ds->name;
 
-    my $entry_group = $self->get_ph_keys( $parms );
+    #XXX# my $entry_group = $self->get_ph_keys( $parms );
+    my $keys        = $self->get_ph_keys( $parms );
+    my $entry_group = $keys->{'entry_group'};
+    my $truncated   = $keys->{'truncated'};
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
@@ -665,6 +682,7 @@ sub get_kw_keys {
     my $entry_point;
     my $entry_group;
     my $index_entry;
+    my $truncated;
 
     my $eplen;
     my $eglen;
@@ -695,6 +713,7 @@ sub get_kw_keys {
     for( $parms->{'keyword'} ) {
         croak qq/Missing: keyword/ unless defined;
         croak qq/Keyword may not contain spaces: $_/ if /$Sp/;
+        $truncated = 1 if m{\Q $Trunc $}x;
         my $ep = substr $_, 0, $eplen;
         my $eg = substr $_, 0, $eglen;
         $entry_point = "$index_key $ep";
@@ -723,9 +742,16 @@ sub get_kw_keys {
         $index_entry .= " $_";
     }
 
-    return $index_key, $entry_point, $entry_group, $index_entry
-        if wantarray;
-    $entry_group;  # returned in scalar context
+    return {
+        index_key   => $index_key,
+        entry_point => $entry_point,
+        entry_group => $entry_group,
+        index_entry => $index_entry,
+        truncated   => $truncated,
+    };
+    #XXX# return $index_key, $entry_point, $entry_group, $index_entry
+    #XXX#     if wantarray;
+    #XXX# $entry_group;  # returned in scalar context
 }
 
 #---------------------------------------------------------------------
@@ -753,6 +779,7 @@ sub get_ph_keys {
     my $entry_point;
     my $entry_group;
     my $index_entry;
+    my $truncated;
 
     my $eplen;
     my $eglen;
@@ -783,6 +810,7 @@ sub get_ph_keys {
     for( $parms->{'phrase'} ) {
         croak qq/Missing: phrase/ unless defined;
         croak qq/Phrase may not contain double spaces: $_/ if /$Sep/;
+        $truncated = 1 if m{\Q $Trunc $}x;
         my $ep = substr $_, 0, $eplen;
         my $eg = substr $_, 0, $eglen;
         $entry_point = "$index_key $ep";
@@ -790,9 +818,16 @@ sub get_ph_keys {
         $index_entry = "$index_key $_";
     }
 
-    return $index_key, $entry_point, $entry_group, $index_entry
-        if wantarray;
-    $entry_group;  # returned in scalar context
+    return {
+        index_key   => $index_key,
+        entry_point => $entry_point,
+        entry_group => $entry_group,
+        index_entry => $index_entry,
+        truncated   => $truncated,
+    };
+    #XXX# return $index_key, $entry_point, $entry_group, $index_entry
+    #XXX#     if wantarray;
+    #XXX# $entry_group;  # returned in scalar context
 }
 
 #---------------------------------------------------------------------
@@ -844,7 +879,13 @@ else if entry group doesn't exist
 =cut
 
 sub add_item {
-    my( $self, $num, $index_key, $entry_point, $entry_group, $index_entry ) = @_;
+    #XXX# my( $self, $num, $index_key, $entry_point, $entry_group, $index_entry ) = @_;
+    my( $self, $num, $keys ) = @_;
+
+    my $index_key   = $keys->{'index_key'};
+    my $entry_point = $keys->{'entry_point'};
+    my $entry_group = $keys->{'entry_group'};
+    my $index_entry = $keys->{'index_entry'};
 
     my $ds   = $self->datastore;
     my $dir  = $ds->dir;
@@ -1181,7 +1222,13 @@ else if entry group doesn't exist
 =cut
 
 sub delete_item {
-    my( $self, $num, $index_key, $entry_point, $entry_group, $index_entry ) = @_;
+    #XXX# my( $self, $num, $index_key, $entry_point, $entry_group, $index_entry ) = @_;
+    my( $self, $num, $keys ) = @_;
+
+    my $index_key   = $keys->{'index_key'};
+    my $entry_point = $keys->{'entry_point'};
+    my $entry_group = $keys->{'entry_group'};
+    my $index_entry = $keys->{'index_entry'};
 
     my $ds   = $self->datastore;
     my $dir  = $ds->dir;
@@ -1229,9 +1276,10 @@ sub delete_item {
                 if( not %entries ) {
 
                     # + we delete the entry group from the dbm file
-                    # (no need to delete the record -- it's simply ignored)
                     delete_entry_group( $entry_group, $entry_point, $index_key );
 
+                    # (XXX really no need to delete the record -- it's simply ignored)
+                    $ds->delete({ record => $group_rec, data => '' });
                 }
 
                 # else if there are still index entries in the record
