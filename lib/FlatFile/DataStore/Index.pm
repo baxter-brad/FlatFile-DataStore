@@ -589,19 +589,15 @@ sub get_ph_bitstring {
     my $keys        = $self->get_ph_keys( $parms );
     my $entry_group = $keys->{'entry_group'};
     my $truncated   = $keys->{'truncated'};
-    my $tag         = $keys->{'tag'};
-    my $phrase      = $keys->{'phrase'};
+
+    my $tag         = $parms->{'tag'};
+    my $phrase      = $parms->{'phrase'};
 
     my $match_tag     = quotemeta $tag;
     my $match_phrase  = quotemeta $phrase;
        $match_phrase .= '.*' if $truncated;
 
-    my $matchrx = qr{^
-        $match_tag    $Sp
-        $match_phrase $Sep
-        ([0-9]+)      $Sp   # count
-        (.*)                # bitstring
-        $}x;
+    my $matchrx = qr{^$match_tag$Sp$match_phrase$Sep([0-9]+)$Sp(.*)$};
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
@@ -626,9 +622,9 @@ sub get_ph_bitstring {
             if( length $phrase == 0 ) {
 
                 # get the index tag bitstring
-                my $ik_keynum = retrieve_index_key( $index_key => 'keynum' );
+                my $ik_keynum = retrieve_index_key_kv( $index_key => 'keynum' );
                 my $ik_rec = $ds->retrieve( $ik_keynum );
-                push @matches, split $Sp => $ik_rec->data;
+                push @matches, [ split $Sp => $ik_rec->data ];
 
             }
 
@@ -638,11 +634,11 @@ sub get_ph_bitstring {
             elsif( length $phrase <= $eplen ) {
 
                 # get entry point bitstring(s)
-                for my $ep ( split $Sp => retrieve_index_key( $index_key => 'eplist' ) ) {
+                for my $ep ( split $Sp => retrieve_index_key_kv( $index_key => 'eplist' ) ) {
                     if( $ep =~ m{^ $phrase }x ) {
-                        my $ep_keynum = retrieve_entry_point( "$index_key$Sp$ep" => 'keynum' );
+                        my $ep_keynum = retrieve_entry_point_kv( "$index_key$Sp$ep" => 'keynum' );
                         my $ep_rec = $ds->retrieve( $ep_keynum );
-                        push @matches, split $Sp => $ep_rec->data;
+                        push @matches, [ split $Sp => $ep_rec->data ];
                     }
                 }
 
@@ -656,7 +652,7 @@ sub get_ph_bitstring {
 
                 # locate the starting entry point
                 my $ep;
-                for( split $Sp => retrieve_index_key( $index_key => 'eplist' ) ) {
+                for( split $Sp => retrieve_index_key_kv( $index_key => 'eplist' ) ) {
                     if( $phrase =~ m{^ $_ }x ) {
                         $ep = $_;
                         last;
@@ -667,7 +663,7 @@ sub get_ph_bitstring {
                 my $match_key = join $Sp => $index_key, $ep, $phrase;
                 my $found;  # XXX we might not need this -- have to think ...
 
-                my $this_group = retrieve_entry_point_kv( "$index_key$Sp$ep" => 'next' );
+                my $this_group = retrieve_entry_point_kv_kv( "$index_key$Sp$ep" => 'next' );
                 while( $this_group ) {
 
                     if( $match_key =~ m{^ $this_group }x ) {
@@ -701,12 +697,7 @@ sub get_ph_bitstring {
                 my $match_tag     = quotemeta $tag;
                 my $match_phrase  = quotemeta $phrase;
                    $match_phrase .= '.*';  # truncated
-                my $matchrx       = qr{^
-                    $match_tag    $Sp
-                    $match_phrase $Sep
-                    ([0-9]+)      $Sp   # count
-                    (.*)                # bitstring
-                    $}x;
+                my $matchrx       = qr{^$match_tag$Sp$match_phrase$Sep([0-9]+)$Sp(.*)$};
 
                 my $eg_keynum         = retrieve_entry_group_kv( $entry_group => 'keynum' );
                 my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
@@ -715,6 +706,7 @@ sub get_ph_bitstring {
                 my $got;
                 while( <$fh> ) {
                     last if ($got += length) > $len;
+                    chomp;
                     if( /$matchrx/ ) {
                         $found++;
                         push @matches, [ $1, $2 ];  # (count) (bitstring)
@@ -730,15 +722,14 @@ sub get_ph_bitstring {
         }  # if truncated
 
         else {
-            my $eg_keynum = retrieve_entry_group_kv( $entry_group => 'keynum' );
+            if( my $eg_keynum = retrieve_entry_group_kv( $entry_group => 'keynum' ) ) {
 
-            for( $eg_keynum ) {
-
-                my( $fh, $pos, $len ) = $ds->locate_record_data( $_ );
+                my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
 
                 my $got;
                 while( <$fh> ) {
                     last if ($got += length) > $len;
+                    chomp;
                     if( /$matchrx/ ) {
                         push @matches, [ $1, $2 ];
                         last;
@@ -754,15 +745,20 @@ sub get_ph_bitstring {
     $self->unlock;
 
     return                unless @matches;
-    return @{$matches[1]} if     @matches == 1;  # (count, bitstring)
-        
-    my $vec = '';
-    $vec |= str2bit uncompress $_->[1] for @matches;
-    my $count     = howmany          $vec;
-    my $bitstring = compress bit2str $vec;
 
-    return $count, $bitstring;
+    my( $count, $bitstring );
+    if( @matches == 1 ) {
+        ( $count, $bitstring ) = @{$matches[0]};
+    }
+    else {
+        my $vec = '';
+        for( @matches ) { $vec |= str2bit uncompress $_->[1] }
+        $count     = howmany          $vec;
+        $bitstring = compress bit2str $vec;
+    }
 
+    return $count, $bitstring if wantarray;
+    return $bitstring;
 }
 
 #---------------------------------------------------------------------

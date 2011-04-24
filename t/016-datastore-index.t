@@ -749,6 +749,87 @@ tp w willie t |     26 |      1  | tp w war and  |               |
 
 _end_
 
+    $title = "Adding sp www; sp little house on the prairie";
+    for(
+        [ "sp", "www", 30 ],
+        [ "sp", "little house on the prairie", 20 ],
+        [ "sp", "willie the elephant", 40 ],
+    ) {
+        my( $tag, $ph, $num ) = @$_;
+
+        $index->add_ph({
+            tag     => $tag,
+            phrase  => $ph,
+            num     => $num,
+            });
+    }
+
+        $debug = $index->debug_kv( $title );
+    is( $debug, <<_end_, $title );
+
+Adding sp www; sp little house on the prairie
+sp            |     31 |      3= |           l w |
+sp l          |     34 |      1+ |               | sp l little h |
+sp l little h |     33 |      1  |               | sp w willie t |
+sp w          |     32 |      2+ | sp l little h | sp w willie t |
+sp w willie t |     35 |      1  | sp l little h |      sp w www |
+sp w www      |     30 |      1  | sp w willie t |               |
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
+ti w willi    |      1 |      2  |      ti w war |      ti w www |
+ti w www      |     13 |      1  |    ti w willi |               |
+tp            |     27 |      2= |             w |
+tp w          |     28 |      2+ |               | tp w war and  |
+tp w war and  |     29 |      1  |               | tp w willie t |
+tp w willie t |     26 |      1  | tp w war and  |               |
+
+_end_
+
+    my $bitstring;
+    $bitstring = $index->get_ph_bitstring ({
+        tag    => 'tp',
+        phrase => 'war and peace',
+        });
+
+    is( $bitstring, '-A15', 'get_ph_bistring tp: war and peace' );
+
+    $bitstring = $index->get_ph_bitstring ({
+        tag    => 'sp',
+        phrase => 'www',
+        });
+
+    is( $bitstring, '-U11', 'get_ph_bistring sp: www' );
+
+    $bitstring = $index->get_ph_bitstring ({
+        tag    => 'sp',
+        phrase => 'little house on the prairie',
+        });
+
+    is( $bitstring, '-K13', 'get_ph_bistring sp: little house on the prairie' );
+
+    $bitstring = $index->get_ph_bitstring ({
+        tag    => 'sp',
+        phrase => 'willie the elephant',
+        });
+
+    is( $bitstring, '-e17', 'get_ph_bistring sp: willie the elephant' );
+
+    $bitstring = $index->get_ph_bitstring ({
+        tag    => 'sp',
+        phrase => 'w*',
+        });
+
+    is( $bitstring, '-U1917', 'get_ph_bistring sp: w*' );
+
 }
 
 __END__
