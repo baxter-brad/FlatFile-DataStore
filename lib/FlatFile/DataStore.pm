@@ -570,11 +570,18 @@ Returns a Flatfile::DataStore::Record object.
 sub retrieve {
     my( $self, $num, $pos ) = @_;
 
+    for( $num ) {
+        croak qq/Not a number: '$_'/ unless m{^ [0-9]+ $}x;
+    }
+
     my $fnum;
     my $seekpos;
     my $keystring;
 
     if( defined $pos ) {
+        for( $pos ) {
+            croak qq/Not a number: '$_'/ unless m{^ [0-9]+ $}x;
+        }
         $fnum    = $num;
         $seekpos = $pos;
     }
@@ -631,6 +638,10 @@ retrieving the full record data.
 
 sub retrieve_preamble {
     my( $self, $keynum ) = @_;
+
+    for( $keynum ) {
+        croak qq/Not a number: '$_'/ unless m{^ [0-9]+ $}x;
+    }
 
     my $keyseek = $self->keyseek( $keynum );
     my $keyfile = $self->keyfile( $keynum );
@@ -695,12 +706,19 @@ XXX ("opened in binmode"?) does that make the example wrong
 sub locate_record_data {
     my( $self, $num, $pos ) = @_;
 
+    for( $num ) {
+        croak qq/Not a number: '$_'/ unless m{^ [0-9]+ $}x;
+    }
+
     my $fnum;
     my $seekpos;
     my $keystring;
     my $reclen;
 
     if( defined $pos ) {
+        for( $pos ) {
+            croak qq/Not a number: '$_'/ unless m{^ [0-9]+ $}x;
+        }
         $fnum    = $num;
         $seekpos = $pos;
     }
@@ -1219,6 +1237,10 @@ chronological order.
 
 sub history {
     my( $self, $keynum ) = @_;
+
+    for( $keynum ) {
+        croak qq/Not a number: '$_'/ unless m{^ [0-9]+ $}x;
+    }
 
     my @history;
 

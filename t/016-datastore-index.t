@@ -95,7 +95,7 @@ my $uri  = join( ';' =>
                     },
                 },
                 eplen => 1,
-                eglen => 25,
+                eglen => 8,
             },
             eplen => 1,
             eglen => 8,
@@ -124,12 +124,12 @@ my $uri  = join( ';' =>
     is( $debug, <<_end_, $title );
 
 Adding ti willie the elephant
-ti         |        |      3= |      e t w |
-ti e       |        |      1+ |            | ti e eleph |
-ti e eleph |      3 |      1  |            |   ti t the |
-ti t       |        |      1+ | ti e eleph |   ti t the |
-ti t the   |      2 |      1  | ti e eleph | ti w willi |
-ti w       |        |      1+ |   ti t the | ti w willi |
+ti         |      2 |      3= |      e t w |
+ti e       |      7 |      1+ |            | ti e eleph |
+ti e eleph |      6 |      1  |            |   ti t the |
+ti t       |      5 |      1+ | ti e eleph |   ti t the |
+ti t the   |      4 |      1  | ti e eleph | ti w willi |
+ti w       |      3 |      1+ |   ti t the | ti w willi |
 ti w willi |      1 |      1  |   ti t the |            |
 
 _end_
@@ -158,12 +158,12 @@ _end_
     is( $debug, <<_end_, $title );
 
 Adding ti willie the elephant
-ti         |        |      3= |      e t w |
-ti e       |        |      1+ |            | ti e eleph |
-ti e eleph |      3 |      1  |            |   ti t the |
-ti t       |        |      1+ | ti e eleph |   ti t the |
-ti t the   |      2 |      1  | ti e eleph | ti w willi |
-ti w       |        |      1+ |   ti t the | ti w willi |
+ti         |      2 |      3= |      e t w |
+ti e       |      7 |      1+ |            | ti e eleph |
+ti e eleph |      6 |      1  |            |   ti t the |
+ti t       |      5 |      1+ | ti e eleph |   ti t the |
+ti t the   |      4 |      1  | ti e eleph | ti w willi |
+ti w       |      3 |      1+ |   ti t the | ti w willi |
 ti w willi |      1 |      1  |   ti t the |            |
 
 _end_
@@ -191,17 +191,17 @@ _end_
     is( $debug, <<_end_, $title );
 
 Adding ti war and peace
-ti         |        |      6= |  a e p t w |
-ti a       |        |      1+ |            |   ti a and |
-ti a and   |      5 |      1  |            | ti e eleph |
-ti e       |        |      1+ |   ti a and | ti e eleph |
-ti e eleph |      3 |      1  |   ti a and | ti p peace |
-ti p       |        |      1+ | ti e eleph | ti p peace |
-ti p peace |      6 |      1  | ti e eleph |   ti t the |
-ti t       |        |      1+ | ti p peace |   ti t the |
-ti t the   |      2 |      1  | ti p peace |   ti w war |
-ti w       |        |      2+ |   ti t the |   ti w war |
-ti w war   |      4 |      1  |   ti t the | ti w willi |
+ti         |      2 |      6= |  a e p t w |
+ti a       |     10 |      1+ |            |   ti a and |
+ti a and   |      9 |      1  |            | ti e eleph |
+ti e       |      7 |      1+ |   ti a and | ti e eleph |
+ti e eleph |      6 |      1  |   ti a and | ti p peace |
+ti p       |     12 |      1+ | ti e eleph | ti p peace |
+ti p peace |     11 |      1  | ti e eleph |   ti t the |
+ti t       |      5 |      1+ | ti p peace |   ti t the |
+ti t the   |      4 |      1  | ti p peace |   ti w war |
+ti w       |      3 |      2+ |   ti t the |   ti w war |
+ti w war   |      8 |      1  |   ti t the | ti w willi |
 ti w willi |      1 |      1  |   ti w war |            |
 
 _end_
@@ -233,17 +233,17 @@ _end_
     is( $debug, <<_end_, $title );
 
 Adding ti war and peace, ti willie the elephant, ti elephants
-ti         |        |     13= |  a e p t w |
-ti a       |        |      2+ |            |   ti a and |
-ti a and   |      5 |      2  |            | ti e eleph |
-ti e       |        |      3+ |   ti a and | ti e eleph |
-ti e eleph |      3 |      3  |   ti a and | ti p peace |
-ti p       |        |      2+ | ti e eleph | ti p peace |
-ti p peace |      6 |      2  | ti e eleph |   ti t the |
-ti t       |        |      2+ | ti p peace |   ti t the |
-ti t the   |      2 |      2  | ti p peace |   ti w war |
-ti w       |        |      4+ |   ti t the |   ti w war |
-ti w war   |      4 |      2  |   ti t the | ti w willi |
+ti         |      2 |     13= |  a e p t w |
+ti a       |     10 |      2+ |            |   ti a and |
+ti a and   |      9 |      2  |            | ti e eleph |
+ti e       |      7 |      3+ |   ti a and | ti e eleph |
+ti e eleph |      6 |      3  |   ti a and | ti p peace |
+ti p       |     12 |      2+ | ti e eleph | ti p peace |
+ti p peace |     11 |      2  | ti e eleph |   ti t the |
+ti t       |      5 |      2+ | ti p peace |   ti t the |
+ti t the   |      4 |      2  | ti p peace |   ti w war |
+ti w       |      3 |      4+ |   ti t the |   ti w war |
+ti w war   |      8 |      2  |   ti t the | ti w willi |
 ti w willi |      1 |      2  |   ti w war |            |
 
 _end_
@@ -269,19 +269,19 @@ _end_
     is( $debug, <<_end_, $title );
 
 Adding ti www
-ti         |        |     14= |  a e p t w |
-ti a       |        |      2+ |            |   ti a and |
-ti a and   |      5 |      2  |            | ti e eleph |
-ti e       |        |      3+ |   ti a and | ti e eleph |
-ti e eleph |      3 |      3  |   ti a and | ti p peace |
-ti p       |        |      2+ | ti e eleph | ti p peace |
-ti p peace |      6 |      2  | ti e eleph |   ti t the |
-ti t       |        |      2+ | ti p peace |   ti t the |
-ti t the   |      2 |      2  | ti p peace |   ti w war |
-ti w       |        |      5+ |   ti t the |   ti w war |
-ti w war   |      4 |      2  |   ti t the | ti w willi |
+ti         |      2 |     14= |  a e p t w |
+ti a       |     10 |      2+ |            |   ti a and |
+ti a and   |      9 |      2  |            | ti e eleph |
+ti e       |      7 |      3+ |   ti a and | ti e eleph |
+ti e eleph |      6 |      3  |   ti a and | ti p peace |
+ti p       |     12 |      2+ | ti e eleph | ti p peace |
+ti p peace |     11 |      2  | ti e eleph |   ti t the |
+ti t       |      5 |      2+ | ti p peace |   ti t the |
+ti t the   |      4 |      2  | ti p peace |   ti w war |
+ti w       |      3 |      5+ |   ti t the |   ti w war |
+ti w war   |      8 |      2  |   ti t the | ti w willi |
 ti w willi |      1 |      2  |   ti w war |   ti w www |
-ti w www   |      7 |      1  | ti w willi |            |
+ti w www   |     13 |      1  | ti w willi |            |
 
 _end_
 
@@ -312,31 +312,31 @@ _end_
     is( $debug, <<_end_, $title );
 
 Adding su war and peace, su willie the elephant, su elephants
-su            |        |      7= |     a e p t w |
-su a          |        |      1+ |               |      su a and |
-su a and      |      9 |      1  |               | su e elephant |
-su e          |        |      2+ |      su a and | su e elephant |
-su e elephant |     13 |      2  |      su a and |    su p peace |
-su p          |        |      1+ | su e elephant |    su p peace |
-su p peace    |     10 |      1  | su e elephant |      su t the |
-su t          |        |      1+ |    su p peace |      su t the |
-su t the      |     12 |      1  |    su p peace |      su w war |
-su w          |        |      2+ |      su t the |      su w war |
-su w war      |      8 |      1  |      su t the |   su w willie |
-su w willie   |     11 |      1  |      su w war |               |
-ti            |        |     14= |     a e p t w |
-ti a          |        |      2+ |               |      ti a and |
-ti a and      |      5 |      2  |               |    ti e eleph |
-ti e          |        |      3+ |      ti a and |    ti e eleph |
-ti e eleph    |      3 |      3  |      ti a and |    ti p peace |
-ti p          |        |      2+ |    ti e eleph |    ti p peace |
-ti p peace    |      6 |      2  |    ti e eleph |      ti t the |
-ti t          |        |      2+ |    ti p peace |      ti t the |
-ti t the      |      2 |      2  |    ti p peace |      ti w war |
-ti w          |        |      5+ |      ti t the |      ti w war |
-ti w war      |      4 |      2  |      ti t the |    ti w willi |
+su            |     15 |      7= |     a e p t w |
+su a          |     18 |      1+ |               |      su a and |
+su a and      |     17 |      1  |               | su e elephant |
+su e          |     25 |      2+ |      su a and | su e elephant |
+su e elephant |     24 |      2  |      su a and |    su p peace |
+su p          |     20 |      1+ | su e elephant |    su p peace |
+su p peace    |     19 |      1  | su e elephant |      su t the |
+su t          |     23 |      1+ |    su p peace |      su t the |
+su t the      |     22 |      1  |    su p peace |      su w war |
+su w          |     16 |      2+ |      su t the |      su w war |
+su w war      |     14 |      1  |      su t the |   su w willie |
+su w willie   |     21 |      1  |      su w war |               |
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
 ti w willi    |      1 |      2  |      ti w war |      ti w www |
-ti w www      |      7 |      1  |    ti w willi |               |
+ti w www      |     13 |      1  |    ti w willi |               |
 
 _end_
 
@@ -367,30 +367,30 @@ _end_
     is( $debug, <<_end_, $title );
 
 Deleting su war
-su            |        |      6= |     a e p t w |
-su a          |        |      1+ |               |      su a and |
-su a and      |      9 |      1  |               | su e elephant |
-su e          |        |      2+ |      su a and | su e elephant |
-su e elephant |     13 |      2  |      su a and |    su p peace |
-su p          |        |      1+ | su e elephant |    su p peace |
-su p peace    |     10 |      1  | su e elephant |      su t the |
-su t          |        |      1+ |    su p peace |      su t the |
-su t the      |     12 |      1  |    su p peace |   su w willie |
-su w          |        |      1+ |      su t the |   su w willie |
-su w willie   |     11 |      1  |      su t the |               |
-ti            |        |     14= |     a e p t w |
-ti a          |        |      2+ |               |      ti a and |
-ti a and      |      5 |      2  |               |    ti e eleph |
-ti e          |        |      3+ |      ti a and |    ti e eleph |
-ti e eleph    |      3 |      3  |      ti a and |    ti p peace |
-ti p          |        |      2+ |    ti e eleph |    ti p peace |
-ti p peace    |      6 |      2  |    ti e eleph |      ti t the |
-ti t          |        |      2+ |    ti p peace |      ti t the |
-ti t the      |      2 |      2  |    ti p peace |      ti w war |
-ti w          |        |      5+ |      ti t the |      ti w war |
-ti w war      |      4 |      2  |      ti t the |    ti w willi |
+su            |     15 |      6= |     a e p t w |
+su a          |     18 |      1+ |               |      su a and |
+su a and      |     17 |      1  |               | su e elephant |
+su e          |     25 |      2+ |      su a and | su e elephant |
+su e elephant |     24 |      2  |      su a and |    su p peace |
+su p          |     20 |      1+ | su e elephant |    su p peace |
+su p peace    |     19 |      1  | su e elephant |      su t the |
+su t          |     23 |      1+ |    su p peace |      su t the |
+su t the      |     22 |      1  |    su p peace |   su w willie |
+su w          |     16 |      1+ |      su t the |   su w willie |
+su w willie   |     21 |      1  |      su t the |               |
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
 ti w willi    |      1 |      2  |      ti w war |      ti w www |
-ti w www      |      7 |      1  |    ti w willi |               |
+ti w www      |     13 |      1  |    ti w willi |               |
 
 _end_
 
@@ -420,28 +420,28 @@ _end_
     is( $debug, <<_end_, $title );
 
 Deleting su and
-su            |        |      5= |       e p t w |
-su e          |        |      2+ |               | su e elephant |
-su e elephant |     13 |      2  |               |    su p peace |
-su p          |        |      1+ | su e elephant |    su p peace |
-su p peace    |     10 |      1  | su e elephant |      su t the |
-su t          |        |      1+ |    su p peace |      su t the |
-su t the      |     12 |      1  |    su p peace |   su w willie |
-su w          |        |      1+ |      su t the |   su w willie |
-su w willie   |     11 |      1  |      su t the |               |
-ti            |        |     14= |     a e p t w |
-ti a          |        |      2+ |               |      ti a and |
-ti a and      |      5 |      2  |               |    ti e eleph |
-ti e          |        |      3+ |      ti a and |    ti e eleph |
-ti e eleph    |      3 |      3  |      ti a and |    ti p peace |
-ti p          |        |      2+ |    ti e eleph |    ti p peace |
-ti p peace    |      6 |      2  |    ti e eleph |      ti t the |
-ti t          |        |      2+ |    ti p peace |      ti t the |
-ti t the      |      2 |      2  |    ti p peace |      ti w war |
-ti w          |        |      5+ |      ti t the |      ti w war |
-ti w war      |      4 |      2  |      ti t the |    ti w willi |
+su            |     15 |      5= |       e p t w |
+su e          |     25 |      2+ |               | su e elephant |
+su e elephant |     24 |      2  |               |    su p peace |
+su p          |     20 |      1+ | su e elephant |    su p peace |
+su p peace    |     19 |      1  | su e elephant |      su t the |
+su t          |     23 |      1+ |    su p peace |      su t the |
+su t the      |     22 |      1  |    su p peace |   su w willie |
+su w          |     16 |      1+ |      su t the |   su w willie |
+su w willie   |     21 |      1  |      su t the |               |
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
 ti w willi    |      1 |      2  |      ti w war |      ti w www |
-ti w www      |      7 |      1  |    ti w willi |               |
+ti w www      |     13 |      1  |    ti w willi |               |
 
 _end_
 
@@ -472,26 +472,26 @@ _end_
     is( $debug, <<_end_, $title );
 
 Deleting su peace
-su            |        |      4= |         e t w |
-su e          |        |      2+ |               | su e elephant |
-su e elephant |     13 |      2  |               |      su t the |
-su t          |        |      1+ | su e elephant |      su t the |
-su t the      |     12 |      1  | su e elephant |   su w willie |
-su w          |        |      1+ |      su t the |   su w willie |
-su w willie   |     11 |      1  |      su t the |               |
-ti            |        |     14= |     a e p t w |
-ti a          |        |      2+ |               |      ti a and |
-ti a and      |      5 |      2  |               |    ti e eleph |
-ti e          |        |      3+ |      ti a and |    ti e eleph |
-ti e eleph    |      3 |      3  |      ti a and |    ti p peace |
-ti p          |        |      2+ |    ti e eleph |    ti p peace |
-ti p peace    |      6 |      2  |    ti e eleph |      ti t the |
-ti t          |        |      2+ |    ti p peace |      ti t the |
-ti t the      |      2 |      2  |    ti p peace |      ti w war |
-ti w          |        |      5+ |      ti t the |      ti w war |
-ti w war      |      4 |      2  |      ti t the |    ti w willi |
+su            |     15 |      4= |         e t w |
+su e          |     25 |      2+ |               | su e elephant |
+su e elephant |     24 |      2  |               |      su t the |
+su t          |     23 |      1+ | su e elephant |      su t the |
+su t the      |     22 |      1  | su e elephant |   su w willie |
+su w          |     16 |      1+ |      su t the |   su w willie |
+su w willie   |     21 |      1  |      su t the |               |
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
 ti w willi    |      1 |      2  |      ti w war |      ti w www |
-ti w www      |      7 |      1  |    ti w willi |               |
+ti w www      |     13 |      1  |    ti w willi |               |
 
 _end_
 
@@ -522,24 +522,24 @@ _end_
     is( $debug, <<_end_, $title );
 
 Deleting su willie
-su            |        |      3= |           e t |
-su e          |        |      2+ |               | su e elephant |
-su e elephant |     13 |      2  |               |      su t the |
-su t          |        |      1+ | su e elephant |      su t the |
-su t the      |     12 |      1  | su e elephant |               |
-ti            |        |     14= |     a e p t w |
-ti a          |        |      2+ |               |      ti a and |
-ti a and      |      5 |      2  |               |    ti e eleph |
-ti e          |        |      3+ |      ti a and |    ti e eleph |
-ti e eleph    |      3 |      3  |      ti a and |    ti p peace |
-ti p          |        |      2+ |    ti e eleph |    ti p peace |
-ti p peace    |      6 |      2  |    ti e eleph |      ti t the |
-ti t          |        |      2+ |    ti p peace |      ti t the |
-ti t the      |      2 |      2  |    ti p peace |      ti w war |
-ti w          |        |      5+ |      ti t the |      ti w war |
-ti w war      |      4 |      2  |      ti t the |    ti w willi |
+su            |     15 |      3= |           e t |
+su e          |     25 |      2+ |               | su e elephant |
+su e elephant |     24 |      2  |               |      su t the |
+su t          |     23 |      1+ | su e elephant |      su t the |
+su t the      |     22 |      1  | su e elephant |               |
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
 ti w willi    |      1 |      2  |      ti w war |      ti w www |
-ti w www      |      7 |      1  |    ti w willi |               |
+ti w www      |     13 |      1  |    ti w willi |               |
 
 _end_
 
@@ -569,22 +569,22 @@ _end_
     is( $debug, <<_end_, $title );
 
 Deleting su the
-su            |        |      2= |             e |
-su e          |        |      2+ |               | su e elephant |
-su e elephant |     13 |      2  |               |               |
-ti            |        |     14= |     a e p t w |
-ti a          |        |      2+ |               |      ti a and |
-ti a and      |      5 |      2  |               |    ti e eleph |
-ti e          |        |      3+ |      ti a and |    ti e eleph |
-ti e eleph    |      3 |      3  |      ti a and |    ti p peace |
-ti p          |        |      2+ |    ti e eleph |    ti p peace |
-ti p peace    |      6 |      2  |    ti e eleph |      ti t the |
-ti t          |        |      2+ |    ti p peace |      ti t the |
-ti t the      |      2 |      2  |    ti p peace |      ti w war |
-ti w          |        |      5+ |      ti t the |      ti w war |
-ti w war      |      4 |      2  |      ti t the |    ti w willi |
+su            |     15 |      2= |             e |
+su e          |     25 |      2+ |               | su e elephant |
+su e elephant |     24 |      2  |               |               |
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
 ti w willi    |      1 |      2  |      ti w war |      ti w www |
-ti w www      |      7 |      1  |    ti w willi |               |
+ti w www      |     13 |      1  |    ti w willi |               |
 
 _end_
 
@@ -614,22 +614,22 @@ _end_
     is( $debug, <<_end_, $title );
 
 Deleting su elephant
-su            |        |      1= |             e |
-su e          |        |      1+ |               | su e elephant |
-su e elephant |     13 |      1  |               |               |
-ti            |        |     14= |     a e p t w |
-ti a          |        |      2+ |               |      ti a and |
-ti a and      |      5 |      2  |               |    ti e eleph |
-ti e          |        |      3+ |      ti a and |    ti e eleph |
-ti e eleph    |      3 |      3  |      ti a and |    ti p peace |
-ti p          |        |      2+ |    ti e eleph |    ti p peace |
-ti p peace    |      6 |      2  |    ti e eleph |      ti t the |
-ti t          |        |      2+ |    ti p peace |      ti t the |
-ti t the      |      2 |      2  |    ti p peace |      ti w war |
-ti w          |        |      5+ |      ti t the |      ti w war |
-ti w war      |      4 |      2  |      ti t the |    ti w willi |
+su            |     15 |      1= |             e |
+su e          |     25 |      1+ |               | su e elephant |
+su e elephant |     24 |      1  |               |               |
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
 ti w willi    |      1 |      2  |      ti w war |      ti w www |
-ti w www      |      7 |      1  |    ti w willi |               |
+ti w www      |     13 |      1  |    ti w willi |               |
 
 _end_
 
@@ -660,19 +660,92 @@ _end_
     is( $debug, <<_end_, $title );
 
 Deleting su elephants
-ti         |        |     14= |  a e p t w |
-ti a       |        |      2+ |            |   ti a and |
-ti a and   |      5 |      2  |            | ti e eleph |
-ti e       |        |      3+ |   ti a and | ti e eleph |
-ti e eleph |      3 |      3  |   ti a and | ti p peace |
-ti p       |        |      2+ | ti e eleph | ti p peace |
-ti p peace |      6 |      2  | ti e eleph |   ti t the |
-ti t       |        |      2+ | ti p peace |   ti t the |
-ti t the   |      2 |      2  | ti p peace |   ti w war |
-ti w       |        |      5+ |   ti t the |   ti w war |
-ti w war   |      4 |      2  |   ti t the | ti w willi |
+ti         |      2 |     14= |  a e p t w |
+ti a       |     10 |      2+ |            |   ti a and |
+ti a and   |      9 |      2  |            | ti e eleph |
+ti e       |      7 |      3+ |   ti a and | ti e eleph |
+ti e eleph |      6 |      3  |   ti a and | ti p peace |
+ti p       |     12 |      2+ | ti e eleph | ti p peace |
+ti p peace |     11 |      2  | ti e eleph |   ti t the |
+ti t       |      5 |      2+ | ti p peace |   ti t the |
+ti t the   |      4 |      2  | ti p peace |   ti w war |
+ti w       |      3 |      5+ |   ti t the |   ti w war |
+ti w war   |      8 |      2  |   ti t the | ti w willi |
 ti w willi |      1 |      2  |   ti w war |   ti w www |
-ti w www   |      7 |      1  | ti w willi |            |
+ti w www   |     13 |      1  | ti w willi |            |
+
+_end_
+
+    $title = "Adding tp willie the elephant";
+    for(
+        [ "tp", "willie the elephant", 42 ],
+    ) {
+        my( $tag, $ph, $num ) = @$_;
+
+        $index->add_ph({
+            tag     => $tag,
+            phrase  => $ph,
+            num     => $num,
+            });
+    }
+
+        $debug = $index->debug_kv( $title );
+    is( $debug, <<_end_, $title );
+
+Adding tp willie the elephant
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
+ti w willi    |      1 |      2  |      ti w war |      ti w www |
+ti w www      |     13 |      1  |    ti w willi |               |
+tp            |     27 |      1= |             w |
+tp w          |     28 |      1+ |               | tp w willie t |
+tp w willie t |     26 |      1  |               |               |
+
+_end_
+
+    $title = "Adding tp war and peace";
+    for(
+        [ "tp", "war and peace", 10 ],
+    ) {
+        my( $tag, $ph, $num ) = @$_;
+
+        $index->add_ph({
+            tag     => $tag,
+            phrase  => $ph,
+            num     => $num,
+            });
+    }
+
+        $debug = $index->debug_kv( $title );
+    is( $debug, <<_end_, $title );
+
+Adding tp war and peace
+ti            |      2 |     14= |     a e p t w |
+ti a          |     10 |      2+ |               |      ti a and |
+ti a and      |      9 |      2  |               |    ti e eleph |
+ti e          |      7 |      3+ |      ti a and |    ti e eleph |
+ti e eleph    |      6 |      3  |      ti a and |    ti p peace |
+ti p          |     12 |      2+ |    ti e eleph |    ti p peace |
+ti p peace    |     11 |      2  |    ti e eleph |      ti t the |
+ti t          |      5 |      2+ |    ti p peace |      ti t the |
+ti t the      |      4 |      2  |    ti p peace |      ti w war |
+ti w          |      3 |      5+ |      ti t the |      ti w war |
+ti w war      |      8 |      2  |      ti t the |    ti w willi |
+ti w willi    |      1 |      2  |      ti w war |      ti w www |
+ti w www      |     13 |      1  |    ti w willi |               |
+tp            |     27 |      2= |             w |
+tp w          |     28 |      2+ |               | tp w war and  |
+tp w war and  |     29 |      1  |               | tp w willie t |
+tp w willie t |     26 |      1  | tp w war and  |               |
 
 _end_
 

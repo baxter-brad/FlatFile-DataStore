@@ -231,6 +231,9 @@ use warnings;
 use Encode;
 use Fcntl qw(:DEFAULT :flock);
 use Data::Dumper;
+local $Data::Dumper::Terse  = 1;
+local $Data::Dumper::Indent = 0;
+
 use Carp;
 
 use FlatFile::DataStore;
@@ -331,12 +334,10 @@ sub init {
     if( $config ) {
         croak qq/Index already configured, not allowed: config/ if $config_rec;
 
-        # make config a one-liner
+        # config a one-liner
         local $Data::Dumper::Quotekeys = 0;
         local $Data::Dumper::Pair      = '=>';
         local $Data::Dumper::Useqq     = 1;
-        local $Data::Dumper::Terse     = 1;
-        local $Data::Dumper::Indent    = 0;
 
         $config_rec = $ds->create({ data => Dumper( $config )."\n" });
     }
@@ -489,7 +490,6 @@ sub get_kw_group {
     my $entry_group = $keys->{'entry_group'};
     my $truncated   = $keys->{'truncated'};
 
-
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
 
@@ -589,9 +589,11 @@ sub get_ph_bitstring {
     my $keys        = $self->get_ph_keys( $parms );
     my $entry_group = $keys->{'entry_group'};
     my $truncated   = $keys->{'truncated'};
+    my $tag         = $keys->{'tag'};
+    my $phrase      = $keys->{'phrase'};
 
-    my $match_tag     = quotemeta $parms->{'tag'};
-    my $match_phrase  = quotemeta $parms->{'phase'};
+    my $match_tag     = quotemeta $tag;
+    my $match_phrase  = quotemeta $phrase;
        $match_phrase .= '.*' if $truncated;
 
     my $matchrx = qr{^
@@ -609,35 +611,158 @@ sub get_ph_bitstring {
 
     my @matches;
 
-    if( my $keynum = retrieve_entry_group_kv( $entry_group => 'keynum' ) ) {
+    TRY: {
+        my $index_key = $keys->{'index_key'};
+        last TRY unless exists $dbm{ $index_key };
 
-        for( $keynum ) {
+        if( $truncated ) {
+            my $eplen     = $keys->{'eplen'};
+            my $eglen     = $keys->{'eglen'};
 
-            my( $count, $bitstring );
-            my( $fh, $pos, $len ) = $ds->locate_record_data( $_ );
+            $phrase =~ s{ [$Trunc] $}{}x;  # remove truncation char
 
-            my $got;
-            while( <$fh> ) {
-                last if ($got += length) > $len;
-                if( /$matchrx/ ) {
-                    #XXX# ( $count, $bitstring ) = ( $1, $2 );
-                    push @matches, [ $1, $2 ];
-                    last unless $truncated;
-                }
-                last if $got == $len;
+            # if phrase was "*", i.e., "find all"
+
+            if( length $phrase == 0 ) {
+
+                # get the index tag bitstring
+                my $ik_keynum = retrieve_index_key( $index_key => 'keynum' );
+                my $ik_rec = $ds->retrieve( $ik_keynum );
+                push @matches, split $Sp => $ik_rec->data;
+
             }
-            close $fh;
-        }
-    }
 
-    #XXX# resume
-    #XXX# this subroutine is in mid-modification -- need to add a loop
-    #XXX# for truncation to retrieve multiple entry_groups
+            # else if phrase was "z*", i.e., "find all beginning with z"
+            # (or "zz*" if eplen == 2, etc.)
+
+            elsif( length $phrase <= $eplen ) {
+
+                # get entry point bitstring(s)
+                for my $ep ( split $Sp => retrieve_index_key( $index_key => 'eplist' ) ) {
+                    if( $ep =~ m{^ $phrase }x ) {
+                        my $ep_keynum = retrieve_entry_point( "$index_key$Sp$ep" => 'keynum' );
+                        my $ep_rec = $ds->retrieve( $ep_keynum );
+                        push @matches, split $Sp => $ep_rec->data;
+                    }
+                }
+
+            }
+
+            # else if phrase is shorter than our entry group length,
+            # then we know that every index entry in every matching
+            # entry group will match our phrase
+
+            elsif( length $phrase < $eglen ) {
+
+                # locate the starting entry point
+                my $ep;
+                for( split $Sp => retrieve_index_key( $index_key => 'eplist' ) ) {
+                    if( $phrase =~ m{^ $_ }x ) {
+                        $ep = $_;
+                        last;
+                    }
+                }
+
+                # start traversing entry groups
+                my $match_key = join $Sp => $index_key, $ep, $phrase;
+                my $found;  # XXX we might not need this -- have to think ...
+
+                my $this_group = retrieve_entry_point_kv( "$index_key$Sp$ep" => 'next' );
+                while( $this_group ) {
+
+                    if( $match_key =~ m{^ $this_group }x ) {
+                        $found++;
+                        my( $eg_keynum, $this_group ) = retrieve_entry_group_kv( $this_group, 'keynum', 'next' );
+                        my $eg_rec = $ds->retrieve( $eg_keynum );
+
+                        # loop through the index entries in this group
+                        # we want every index entry, because we know
+                        # they all match our phrase
+
+                        for( split "\n" => $eg_rec->data ) {
+                            if( m{ $Sep ([0-9]+) $Sp (.*) $}x ) {
+                                push @matches, [ $1, $2 ];  # (count) (bitstring)
+                            }
+                        }
+                    }
+                    else {
+                        last if $found;  # short circuit the rest
+                    }
+
+                }
+
+            }
+
+            # else phrase is longer than our entry group length,
+            # so we need to get the one matching entry group and
+            # find every matching index entry in it
+
+            else {
+                my $match_tag     = quotemeta $tag;
+                my $match_phrase  = quotemeta $phrase;
+                   $match_phrase .= '.*';  # truncated
+                my $matchrx       = qr{^
+                    $match_tag    $Sp
+                    $match_phrase $Sep
+                    ([0-9]+)      $Sp   # count
+                    (.*)                # bitstring
+                    $}x;
+
+                my $eg_keynum         = retrieve_entry_group_kv( $entry_group => 'keynum' );
+                my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
+
+                my $found;
+                my $got;
+                while( <$fh> ) {
+                    last if ($got += length) > $len;
+                    if( /$matchrx/ ) {
+                        $found++;
+                        push @matches, [ $1, $2 ];  # (count) (bitstring)
+                    }
+                    else {
+                        last if $found;  # short circuit the rest
+                    }
+                    last if $got == $len;
+                }
+                close $fh;
+            }
+
+        }  # if truncated
+
+        else {
+            my $eg_keynum = retrieve_entry_group_kv( $entry_group => 'keynum' );
+
+            for( $eg_keynum ) {
+
+                my( $fh, $pos, $len ) = $ds->locate_record_data( $_ );
+
+                my $got;
+                while( <$fh> ) {
+                    last if ($got += length) > $len;
+                    if( /$matchrx/ ) {
+                        push @matches, [ $1, $2 ];
+                        last;
+                    }
+                    last if $got == $len;
+                }
+                close $fh;
+            }
+        }
+    }  # TRY
 
     untie %dbm;
     $self->unlock;
 
-    return \@matches;
+    return                unless @matches;
+    return @{$matches[1]} if     @matches == 1;  # (count, bitstring)
+        
+    my $vec = '';
+    $vec |= str2bit uncompress $_->[1] for @matches;
+    my $count     = howmany          $vec;
+    my $bitstring = compress bit2str $vec;
+
+    return $count, $bitstring;
+
 }
 
 #---------------------------------------------------------------------
@@ -690,9 +815,9 @@ sub get_kw_keys {
     my $entry_group;
     my $index_entry;
     my $truncated;
-
     my $eplen;
     my $eglen;
+
     my $config = $self->config;
 
     # ascii
@@ -720,7 +845,7 @@ sub get_kw_keys {
     for( $parms->{'keyword'} ) {
         croak qq/Missing: keyword/ unless defined;
         croak qq/Keyword may not contain spaces: $_/ if /$Sp/;
-        $truncated = 1 if m{\Q $Trunc $}x;
+        $truncated = 1 if m{ [$Trunc] $}x;
         my $ep = substr $_, 0, $eplen;
         my $eg = substr $_, 0, $eglen;
         $entry_point = "$index_key $ep";
@@ -755,6 +880,8 @@ sub get_kw_keys {
         entry_group => $entry_group,
         index_entry => $index_entry,
         truncated   => $truncated,
+        eplen       => $eplen,
+        eglen       => $eglen,
     };
 }
 
@@ -784,9 +911,9 @@ sub get_ph_keys {
     my $entry_group;
     my $index_entry;
     my $truncated;
-
     my $eplen;
     my $eglen;
+
     my $config = $self->config;
 
     # ascii
@@ -814,7 +941,7 @@ sub get_ph_keys {
     for( $parms->{'phrase'} ) {
         croak qq/Missing: phrase/ unless defined;
         croak qq/Phrase may not contain double spaces: $_/ if /$Sep/;
-        $truncated = 1 if m{\Q $Trunc $}x;
+        $truncated = 1 if m{ [$Trunc] $}x;
         my $ep = substr $_, 0, $eplen;
         my $eg = substr $_, 0, $eglen;
         $entry_point = "$index_key $ep";
@@ -828,6 +955,8 @@ sub get_ph_keys {
         entry_group => $entry_group,
         index_entry => $index_entry,
         truncated   => $truncated,
+        eplen       => $eplen,
+        eglen       => $eglen,
     };
 }
 
@@ -1173,7 +1302,8 @@ sub add_item {
 
                 # now get the entry point's prev group and make it point to us
                 # change its next group to our group
-                update_entry_group_kv( $prev_group => { next => $entry_group } );
+                update_entry_group_kv( $prev_group => { next => $entry_group } )
+                    if $prev_group;
 
                 # now get the next group (it's always under this entry point)
                 # change its prev group to our group
@@ -1450,11 +1580,11 @@ sub delete_item {
 #     if no @fields, returns all fields
 # (globals $Dbm and $Enc must be set for get_vals())
 #
+
 sub retrieve_index_key_kv {
     my( $key, @fields ) = @_;
 
     my @vals = get_vals( $key );
-    while( @vals < 3 ) { push @vals, '' }
     return @vals unless @fields;
 
     my @ret;
@@ -1466,6 +1596,31 @@ sub retrieve_index_key_kv {
     }
     return @ret if wantarray;
     return $ret[0];
+}
+
+#---------------------------------------------------------------------
+#
+# =head2 update_index_key_kv( $key, $fields )
+#
+# $key    is index key, e.g., 'ti', 'au', etc.
+# $fields is href with keys 'keynum', 'count', and/or 'eplist'
+# (globals $Dbm and $Enc must be set for g/set_vals())
+#
+sub update_index_key_kv {
+    my( $key, $fields ) = @_;
+
+    my @vals = get_vals( $key );
+
+    while( my( $field, $val ) = each %$fields ) {
+        $field =~ m{^ keynum $}x and do{ $vals[0] = $val; next };
+        $field =~ m{^ count  $}x and do{ $vals[1] = $val; next };
+        $field =~ m{^ eplist $}x and do{ $vals[2] = $val; next };
+        croak /Unrecognized field: $field/;
+    }
+
+die "caller: ".(caller)[2] if $key eq '';  # debug
+
+    set_vals( $key => @vals );
 }
 
 #---------------------------------------------------------------------
@@ -1482,7 +1637,7 @@ sub retrieve_entry_point_kv {
     my( $key, @fields ) = @_;
 
     my @vals = get_vals( $key );
-    while( @vals < 4 ) { push @vals, '' }
+    while( @vals < 3 ) { push @vals, '' }
     return @vals unless @fields;
 
     my @ret;
@@ -1495,6 +1650,34 @@ sub retrieve_entry_point_kv {
     }
     return @ret if wantarray;
     return $ret[0];
+}
+
+#---------------------------------------------------------------------
+#
+# =head2 update_entry_point_kv( $key, $field )
+#
+# $key    is entry point key, e.g., 'ti w', 'au s', etc.
+# $fields is href with keys 'keynum', 'count', 'prev', and/or 'next'
+# (globals $Dbm and $Enc must be set for g/set_vals())
+#
+
+sub update_entry_point_kv {
+    my( $key, $fields ) = @_;
+
+    my @vals = get_vals( $key );
+    while( @vals < 4 ) { push @vals, '' }
+
+    while( my( $field, $val ) = each %$fields ) {
+        $field =~ m{^ keynum $}x and do{ $vals[0] = $val; next };
+        $field =~ m{^ count  $}x and do{ $vals[1] = $val; next };
+        $field =~ m{^ prev   $}x and do{ $vals[2] = $val; next };
+        $field =~ m{^ next   $}x and do{ $vals[3] = $val; next };
+        croak /Unrecognized field: $field/;
+    }
+
+die "caller: ".(caller)[2] if $key eq '';  # debug
+
+    set_vals( $key => @vals );
 }
 
 #---------------------------------------------------------------------
@@ -1528,56 +1711,6 @@ sub retrieve_entry_group_kv {
 
 #---------------------------------------------------------------------
 #
-# =head2 update_index_key_kv( $key, $fields )
-#
-# $key    is index key, e.g., 'ti', 'au', etc.
-# $fields is href with keys 'keynum', 'count', and/or 'eplist'
-# (globals $Dbm and $Enc must be set for g/set_vals())
-#
-sub update_index_key_kv {
-    my( $key, $fields ) = @_;
-
-    my @vals = get_vals( $key );
-    while( @vals < 3 ) { push @vals, '' }
-
-    while( my( $field, $val ) = each %$fields ) {
-        $field =~ m{^ keynum $}x and do{ $vals[0] = $val; next };
-        $field =~ m{^ count  $}x and do{ $vals[1] = $val; next };
-        $field =~ m{^ eplist $}x and do{ $vals[2] = $val; next };
-        croak /Unrecognized field: $field/;
-    }
-
-    set_vals( $key => @vals );
-}
-
-#---------------------------------------------------------------------
-#
-# =head2 update_entry_point_kv( $key, $field )
-#
-# $key    is entry point key, e.g., 'ti w', 'au s', etc.
-# $fields is href with keys 'keynum', 'count', 'prev', and/or 'next'
-# (globals $Dbm and $Enc must be set for g/set_vals())
-#
-
-sub update_entry_point_kv {
-    my( $key, $fields ) = @_;
-
-    my @vals = get_vals( $key );
-    while( @vals < 4 ) { push @vals, '' }
-
-    while( my( $field, $val ) = each %$fields ) {
-        $field =~ m{^ keynum $}x and do{ $vals[0] = $val; next };
-        $field =~ m{^ count  $}x and do{ $vals[1] = $val; next };
-        $field =~ m{^ prev   $}x and do{ $vals[2] = $val; next };
-        $field =~ m{^ next   $}x and do{ $vals[3] = $val; next };
-        croak /Unrecognized field: $field/;
-    }
-
-    set_vals( $key => @vals );
-}
-
-#---------------------------------------------------------------------
-#
 # =head2 update_entry_group_kv( $key, $field )
 #
 # $key    is entry group key, e.g., 'ti w war', 'au s smith', etc.
@@ -1589,7 +1722,6 @@ sub update_entry_group_kv {
     my( $key, $fields ) = @_;
 
     my @vals = get_vals( $key );
-    while( @vals < 4 ) { push @vals, '' }
 
     while( my( $field, $val ) = each %$fields ) {
         $field =~ m{^ keynum $}x and do{ $vals[0] = $val; next };
@@ -1598,6 +1730,8 @@ sub update_entry_group_kv {
         $field =~ m{^ next   $}x and do{ $vals[3] = $val; next };
         croak /Unrecognized field: $field/;
     }
+
+die "caller: ".(caller)[2] if $key eq '';  # debug
 
     set_vals( $key => @vals );
 }
@@ -1625,9 +1759,10 @@ sub get_vals {
     if( my $val = $Dbm->{ $key } ) {
 
         $val = Encode::decode( $Enc, $val );
-        my @vals = split( $Sep => $val );
-        return @vals if wantarray;
-        return $vals[0];  # scalar context
+        my $vals = eval $val;
+        croak $@ if $@;
+        return @$vals if wantarray;
+        return $$vals[0];  # scalar context
     }
 
     return;
@@ -1649,6 +1784,7 @@ sub get_vals {
 # =cut
 #
 
+
 sub set_vals {
     my( $key, @vals ) = @_;
 
@@ -1658,7 +1794,7 @@ sub set_vals {
         $_ = '' unless defined;
     }
 
-    my $val = join $Sep => @vals;
+    my $val = Dumper \@vals;
        $val = Encode::encode( $Enc, $val );
 
     $Dbm->{ $key } = $val;
@@ -1972,15 +2108,16 @@ sub debug_kv {
     my $max  = sub {$_[$_[0]<$_[1]]};
     my $mx   = 0;
        $mx   = $max->( $mx, length ) for @keys;
+    my $regx = qr{^ (.+) $Sep (.+) $Sep (.+) (?: $Sep (.+) )* $}x;
     for my $key ( @keys ) {
-        my @vals     = get_vals( $key );  # generic retrieve
+        my @vals     = get_vals( $key, $regx );  # generic retrieve
         my @keyparts = split $Sp  => $key;
         no warnings 'uninitialized';
         if(    @keyparts == 1 ) { # index key
             push @ret, sprintf "%-${mx}s | %6s | %6s= | %${mx}s |\n",           $key, @vals }
         elsif( @keyparts == 2 ) { # entry point
             push @ret, sprintf "%-${mx}s | %6s | %6s+ | %${mx}s | %${mx}s |\n", $key, @vals }
-        elsif( @keyparts == 3 ) { # entry group
+        else { # entry group
             push @ret, sprintf "%-${mx}s | %6s | %6s  | %${mx}s | %${mx}s |\n", $key, @vals }
     }
     push @ret, "\n";
