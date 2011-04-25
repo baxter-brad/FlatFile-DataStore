@@ -1952,111 +1952,83 @@ sub delete_entry_group {
     my $ep_regx = qr/^$entry_point/;
     my $ep = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
 
-#   + we delete the entry group
-
+    # + we delete the entry group
     delete_key( $entry_group );
 
-#   if entry group is the only group under its entry point
-#       - it's the only one if its prev group *and* next group are not under its entry point
+    # if entry group is the only group under its entry point
+    #   - it's the only one if its prev group *and* next group are not under its entry point
 
     if( (!$eg_prev || $eg_prev !~ $ep_regx) &&
         (!$eg_next || $eg_next !~ $ep_regx) ){
 
-#       + we delete entry point, too
-
+        # + we delete entry point, too
         delete_key( $entry_point );
 
-#       if entry point is the only one in the index key eplist
-
+        # if entry point is the only one in the index key eplist
         if( $eplist eq $ep ) {
 
-#           + we delete the index key, too
-
+            # + we delete the index key, too
             delete_key( $index_key );
-
         }
 
-#       else if entry point isn't the only one
-
+        # else if entry point isn't the only one
         else {
 
-#           + we decrement the index key count by 1
-#           - the resulting count will be > 0
-
-#           + we remove the entry point from the index key eplist
+            # + we decrement the index key count by 1
+            # - the resulting count will be > 0
+            # + we remove the entry point from the index key eplist
             $eplist = join $Sp => grep { $_ ne $ep } split $Sp => $eplist;
-
             update_index_key_kv( $index_key => { count => $ik_count - 1, eplist => $eplist } );
-
         }
 
-#       if the entry group's next group isn't undef
-
+        # if the entry group's next group isn't undef
         if( $eg_next ) {
 
-#           + we set the next group's prev group to the entry group's prev group
-
+            # + we set the next group's prev group to the entry group's prev group
             update_entry_group_kv( $eg_next => { prev => $eg_prev } );
 
-#           + we set the next group's entry point's prev group to the entry group's prev group
-
+            # + we set the next group's entry point's prev group to the entry group's prev group
             my $next_ep_key = join( $Sp => (split( $Sp => $eg_next ))[0,1] );
             update_entry_point_kv( $next_ep_key => { prev => $eg_prev } );
-
         }
 
-#       if the entry group's prev group isn't undef
-
+        # if the entry group's prev group isn't undef
         if( $eg_prev ) {
 
-#           + we set the prev group's next group to the entry group's next group
-
+            # + we set the prev group's next group to the entry group's next group
             update_entry_group_kv( $eg_prev => { next => $eg_next } );
-
         }
     }
 
-
-#   else if entry group isn't the only one under its entry point
-
+    # else if entry group isn't the only one under its entry point
     else {
 
-#       + we decrement the entry point count by 1
-
+        # + we decrement the entry point count by 1
         update_entry_point_kv( $entry_point => { count => $ep_count - 1 } );
 
-#       + we decrement the index key count by 1
-
+        # + we decrement the index key count by 1
         update_index_key_kv( $index_key => { count => $ik_count - 1 } );
 
-#       + we set the prev group's next group to the entry group's next group
-
+        # + we set the prev group's next group to the entry group's next group
         update_entry_group_kv( $eg_prev => { next => $eg_next } );
 
-#       + we set the next group's prev group to the entry group's prev group
-
+        # + we set the next group's prev group to the entry group's prev group
         update_entry_group_kv( $eg_next => { prev => $eg_prev } );
 
-#       if the entry group's next group isn't undef and isn't under its entry point
-
+        # if the entry group's next group isn't undef and isn't under its entry point
         if( $eg_next and $eg_next !~ $ep_regx ) {
 
-#           + we set the next group's entry point's prev group to the entry group's prev group
-
+            # + we set the next group's entry point's prev group to the entry group's prev group
             my $next_ep_key = join( $Sp => (split( $Sp => $eg_next ))[0,1] );
             update_entry_point_kv( $next_ep_key => { prev => $eg_prev } );
-
         }
 
-#       if the entry group's prev group isn't undef and isn't under it's entry point
-#           - i.e., it's the first group under its entry point
-
+        # if the entry group's prev group isn't undef and isn't under it's entry point
+        # - i.e., it's the first group under its entry point
         if( $eg_prev and $eg_prev !~ $ep_regx ) {
 
-#           + we set the entry point's next group to the entry group's next group
-
+            # + we set the entry point's next group to the entry group's next group
             update_entry_point_kv( $entry_point => { next => $eg_next } );
-
         }
     }
 }
