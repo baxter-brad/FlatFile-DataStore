@@ -1033,6 +1033,20 @@ sub add_item {
 
         my( $eg_keynum, $eg_count ) = retrieve_entry_group_kv( $entry_group => 'keynum', 'count' );
 
+        if( my $all_keynum = retrieve_all_star_kv() ) {
+            my $all_rec = $ds->retrieve( $all_keynum );
+            my( $all_howmany, $all_bitstring ) = split $Sp => $all_rec->data;
+            my $all_vec = str2bit uncompress $all_bitstring;
+            set_bit( $all_vec, $num );
+            my $new_bitstring = compress bit2str $all_vec;
+            if( $new_bitstring ne $all_bitstring ) {
+                $ds->update({
+                    record => $all_rec,
+                    data   => howmany( $all_vec ).$Sp.$new_bitstring
+                    });
+            }
+        }
+
         if( my $ik_keynum = retrieve_index_key_kv( $index_key => 'keynum' ) ) {
             my $ik_rec = $ds->retrieve( $ik_keynum );
             my( $ik_howmany, $ik_bitstring ) = split $Sp => $ik_rec->data;
@@ -1131,6 +1145,29 @@ sub add_item {
         $newdata = Encode::encode( $Enc, $newdata );
         my $eg_rec = $ds->create({ data => $newdata });
 
+        if( exists $dbm{ '*' } ) {
+            my $all_keynum = retrieve_all_star_kv();
+            my $all_rec = $ds->retrieve( $all_keynum );
+            my( $all_howmany, $all_bitstring ) = split $Sp => $all_rec->data;
+            my $all_vec = str2bit uncompress $all_bitstring;
+            set_bit( $all_vec, $num );
+            my $new_bitstring = compress bit2str $all_vec;
+            if( $new_bitstring ne $all_bitstring ) {
+                $ds->update({
+                    record => $all_rec,
+                    data   => howmany( $all_vec ).$Sp.$new_bitstring
+                    });
+            }
+        }
+        else {  # set up for new all star entry
+            my $all_vec = '';
+            set_bit( $all_vec, $num );
+            my $all_rec = $ds->create({
+                data => howmany( $all_vec ).$Sp.compress( bit2str $all_vec )
+                });
+            update_all_star_kv( $all_rec->keynum );
+        }
+
         # (these are updated at the end of this block ...)
         my( $ik_keynum, $ik_count, $eplist );
 
@@ -1159,7 +1196,6 @@ sub add_item {
             $eplist    = '';
         }
 
-        #XXX# my $eplist = retrieve_index_key_kv( $index_key => 'eplist' );
         my $ep = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
 
         # eplist is string of space-separated entry point characters
@@ -1172,7 +1208,6 @@ sub add_item {
                @eps = split $Sp => $eplist if $eplist;
                @eps = sort $ep, @eps;
 
-            #XXX# update_index_key_kv( $index_key => { eplist => join $Sp => @eps } );
             $eplist = join $Sp => @eps;
 
             # get prev/next entry points
@@ -1373,8 +1408,6 @@ sub add_item {
         }
 
         # update the index key count for our 1 index entry
-        #XXX# my $ik_count = retrieve_index_key_kv( $index_key => 'count' );
-        #XXX# update_index_key_kv( $index_key => { count => $ik_count + 1 } );
         update_index_key_kv( $index_key => {
             keynum => $ik_keynum,
             count  => $ik_count + 1,
@@ -1575,6 +1608,22 @@ sub delete_item {
 
 #---------------------------------------------------------------------
 #
+# =head2 retrieve_all_star_kv()
+#
+# returns keynum from '*' key
+#
+# (globals $Dbm and $Enc must be set for get_vals())
+#
+
+sub retrieve_all_star_kv {
+
+    my @vals = get_vals( '*' );
+    return $vals[0];
+
+}
+
+#---------------------------------------------------------------------
+#
 # =head2 retrieve_index_key_kv( $key, @fields )
 #
 # $key    is index key, e.g., 'ti', 'au', etc.
@@ -1598,6 +1647,20 @@ sub retrieve_index_key_kv {
     }
     return @ret if wantarray;
     return $ret[0];
+}
+
+#---------------------------------------------------------------------
+#
+# =head2 update_all_star_kv( $keynum )
+#
+# update '*' keynum
+#
+# (globals $Dbm and $Enc must be set for g/set_vals())
+#
+sub update_all_star_kv {
+    my( $keynum ) = @_;
+
+    set_vals( '*' => $keynum );
 }
 
 #---------------------------------------------------------------------
@@ -1785,7 +1848,6 @@ sub get_vals {
 #
 # =cut
 #
-
 
 sub set_vals {
     my( $key, @vals ) = @_;
@@ -2115,7 +2177,9 @@ sub debug_kv {
         my @vals     = get_vals( $key, $regx );  # generic retrieve
         my @keyparts = split $Sp  => $key;
         no warnings 'uninitialized';
-        if(    @keyparts == 1 ) { # index key
+        if(    $key eq '*' ) { # all star
+            push @ret, sprintf "%-${mx}s | %6s |\n",                            $key, @vals }
+        elsif( @keyparts == 1 ) { # index key
             push @ret, sprintf "%-${mx}s | %6s | %6s= | %${mx}s |\n",           $key, @vals }
         elsif( @keyparts == 2 ) { # entry point
             push @ret, sprintf "%-${mx}s | %6s | %6s+ | %${mx}s | %${mx}s |\n", $key, @vals }
