@@ -9,6 +9,8 @@ $Data::Dumper::Terse    = 1;
 $Data::Dumper::Indent   = 0;
 $Data::Dumper::Sortkeys = 1;
 
+use Data::Bvec qw( :all );
+
 #---------------------------------------------------------------------
 # tempfiles cleanup
 
@@ -800,35 +802,56 @@ _end_
         phrase => 'war and peace',
         });
 
-    is( $bitstring, '-A15', 'get_ph_bistring tp: war and peace' );
+    my @nums;
+    @nums = bit2num str2bit uncompress $bitstring;
+
+    is( "@nums", '10', 'get_ph_bistring tp: war and peace' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'www',
         });
 
-    is( $bitstring, '-U11', 'get_ph_bistring sp: www' );
+    @nums = bit2num str2bit uncompress $bitstring;
+
+    is( "@nums", '30', 'get_ph_bistring sp: www' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'little house on the prairie',
         });
 
-    is( $bitstring, '-K13', 'get_ph_bistring sp: little house on the prairie' );
+    @nums = bit2num str2bit uncompress $bitstring;
+
+    is( "@nums", '20', 'get_ph_bistring sp: little house on the prairie' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'willie the elephant',
         });
 
-    is( $bitstring, '-e17', 'get_ph_bistring sp: willie the elephant' );
+    @nums = bit2num str2bit uncompress $bitstring;
+
+    is( "@nums", '40', 'get_ph_bistring sp: willie the elephant' );
+
+    $bitstring = $index->get_ph_bitstring ({
+        tag    => 'sp',
+        phrase => '*',
+        });
+
+    @nums = bit2num str2bit uncompress $bitstring;
+
+    is( "@nums", '20 30 40', 'get_ph_bistring sp: *' );
+
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'w*',
         });
 
-    is( $bitstring, '-U1917', 'get_ph_bistring sp: w*' );
+    @nums = bit2num str2bit uncompress $bitstring;
+
+    is( "@nums", '30 40', 'get_ph_bistring sp: w*' );
 
 }
 

@@ -319,6 +319,7 @@ sub init {
        $ds_parms->{'uri'} = $uri if $uri;
 
     my $ds = FlatFile::DataStore->new( $ds_parms );
+    my $nl = $ds->recsep;  # "newline" for datastore
 
     # config is required to configure a new index
 
@@ -339,7 +340,7 @@ sub init {
         local $Data::Dumper::Pair      = '=>';
         local $Data::Dumper::Useqq     = 1;
 
-        $config_rec = $ds->create({ data => Dumper( $config )."\n" });
+        $config_rec = $ds->create({ data => Dumper( $config ).$nl });
     }
 
     # here is where we get the config of an existing index
@@ -585,6 +586,7 @@ sub get_ph_bitstring {
     my $ds   = $self->datastore;
     my $dir  = $ds->dir;
     my $name = $ds->name;
+    my $nl   = $ds->recsep;  # "newline" for datastore
 
     my $keys        = $self->get_ph_keys( $parms );
     my $entry_group = $keys->{'entry_group'};
@@ -675,7 +677,7 @@ sub get_ph_bitstring {
                         # we want every index entry, because we know
                         # they all match our phrase
 
-                        for( split "\n" => $eg_rec->data ) {
+                        for( split $nl => $eg_rec->data ) {
                             if( m{ $Sep ([0-9]+) $Sp (.*) $}x ) {
                                 push @matches, [ $1, $2 ];  # (count) (bitstring)
                             }
@@ -704,6 +706,7 @@ sub get_ph_bitstring {
 
                 my $found;
                 my $got;
+                local $/ = $nl;  # $fh is opened in binmode
                 while( <$fh> ) {
                     last if ($got += length) > $len;
                     chomp;
@@ -727,6 +730,7 @@ sub get_ph_bitstring {
                 my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
 
                 my $got;
+                local $/ = $nl;  # $fh is opened in binmode
                 while( <$fh> ) {
                     last if ($got += length) > $len;
                     chomp;
@@ -1015,6 +1019,7 @@ sub add_item {
     my $ds   = $self->datastore;
     my $dir  = $ds->dir;
     my $name = $ds->name;
+    my $nl   = $ds->recsep;  # "newline" for datastore
 
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
@@ -1060,7 +1065,7 @@ sub add_item {
         my $rec_data  = Encode::decode( $Enc, $group_rec->data );
 
         # make group_rec data into a hash
-        my %entries = map { split $Sep } split "\n" => $rec_data;
+        my %entries = map { split $Sep } split $nl => $rec_data;
 
         my $ie_changed;
         if( exists $entries{ $index_entry } ) {
@@ -1087,7 +1092,7 @@ sub add_item {
             my $newcount = 0;
             for my $key ( sort keys %entries ) {
                 my $val   = $entries{ $key };
-                $newdata .= join( $Sep => $key, $val ) . "\n";
+                $newdata .= join( $Sep => $key, $val ) . $nl;
                 $newcount++;
             }
             $newdata = Encode::encode( $Enc, $newdata );
@@ -1121,7 +1126,7 @@ sub add_item {
 
         # create a new datastore record
         my $newdata = join '' => $index_entry, $Sep,
-            howmany( $ie_vec ), $Sp, compress( bit2str $ie_vec ), "\n";
+            howmany( $ie_vec ), $Sp, compress( bit2str $ie_vec ), $nl;
 
         $newdata = Encode::encode( $Enc, $newdata );
         my $eg_rec = $ds->create({ data => $newdata });
@@ -1453,6 +1458,7 @@ sub delete_item {
     my $ds   = $self->datastore;
     my $dir  = $ds->dir;
     my $name = $ds->name;
+    my $nl   = $ds->recsep;  # "newline" for datastore
     my $err;
 
     $self->writelock;
@@ -1474,7 +1480,7 @@ sub delete_item {
         my $rec_data  = Encode::decode( $Enc, $group_rec->data );
 
         # make group_rec data into a hash
-        my %entries = map { split $Sep } split "\n" => $rec_data;
+        my %entries = map { split $Sep } split $nl => $rec_data;
 
         # if the entry group contains our index entry
         my $vec;
@@ -1509,7 +1515,7 @@ sub delete_item {
                     my $newdata  = '';
                     for my $key ( sort keys %entries ) {
                         my $val   = $entries{ $key };
-                        $newdata .= join( $Sep => $key, $val ) . "\n";
+                        $newdata .= join( $Sep => $key, $val ) . $nl;
                     }
                     $newdata = Encode::encode( $Enc, $newdata );
                     $ds->update({ record => $group_rec, data => $newdata });
@@ -1538,7 +1544,7 @@ sub delete_item {
                 my $newdata  = '';
                 for my $key ( sort keys %entries ) {
                     my $val   = $entries{ $key };
-                    $newdata .= join( $Sep => $key, $val ) . "\n";
+                    $newdata .= join( $Sep => $key, $val ) . $nl;
                 }
                 $newdata = Encode::encode( $Enc, $newdata );
                 $ds->update({ record => $group_rec, data => $newdata });
