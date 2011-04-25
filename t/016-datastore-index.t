@@ -45,7 +45,7 @@ my $uri  = join( ';' =>
     qw(
         recsep=%0A
         defaults=medium
-        user=6-%20-%7E
+        user=12-%20-%7E
     )
 );
 

@@ -342,7 +342,7 @@ sub init {
 
         $config_rec = $ds->create({
             data => Dumper( $config ),
-            user => substr( 'config', 0, $ds->userlen ),
+            user => gen_userdata( '[', 'config:', ']', $ds->userlen ),
             });
     }
 
@@ -363,6 +363,17 @@ sub init {
     $self->dbm_lock_file( "$dir/$name$dbm_lock_ext" );
 
     return $self;
+}
+
+sub gen_userdata {
+    my( $beg, $msg, $end, $len ) = @_;
+    return '' unless $len;
+    my $pad = $len-(length($beg)+length($end)+length($msg));
+    my $ret;
+    if(    $pad == 0 ) { $ret = $beg.$msg.$end }
+    elsif( $pad > 0 )  { $ret = $beg.$msg.(' ' x $pad).$end }
+    else               { $ret = substr( $beg.$msg, 0, $pad ).$end }
+    $ret;  # returned
 }
 
 #---------------------------------------------------------------------
@@ -1149,7 +1160,7 @@ sub add_item {
         $newdata = Encode::encode( $Enc, $newdata );
         my $eg_rec = $ds->create({
             data => $newdata,
-            user => substr( $entry_group, 0, $userlen ),
+            user => gen_userdata( '[', "eg:$entry_group", ']', $ds->userlen ),
             });
 
         if( exists $dbm{ '*' } ) {
@@ -1171,7 +1182,7 @@ sub add_item {
             set_bit( $all_vec, $num );
             my $all_rec = $ds->create({
                 data => howmany( $all_vec ).$Sp.compress( bit2str $all_vec ),
-                user => substr( '*', 0, $userlen ),
+                user => gen_userdata( '[', 'all:*', ']', $ds->userlen ),
                 });
             update_all_star_kv( $all_rec->keynum );
         }
@@ -1198,7 +1209,7 @@ sub add_item {
             set_bit( $ik_vec, $num );
             my $ik_rec = $ds->create({
                 data => howmany( $ik_vec ).$Sp.compress( bit2str $ik_vec ),
-                user => substr( $index_key, 0, $userlen ),
+                user => gen_userdata( '[', "ik:$index_key", ']', $ds->userlen ),
                 });
             $ik_keynum = $ik_rec->keynum;
             $ik_count  = 0;
@@ -1234,7 +1245,7 @@ sub add_item {
             set_bit( $ep_vec, $num );
             my $ep_rec = $ds->create({
                 data => howmany( $ep_vec ).$Sp.compress( bit2str $ep_vec ),
-                user => substr( $entry_point, 0, $userlen ),
+                user => gen_userdata( '[', "ep:$entry_point", ']', $ds->userlen ),
                 });
 
             # start building new entry point and entry group entries
