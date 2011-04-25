@@ -137,6 +137,7 @@ my %Optional = qw(
 my %Generated = qw(
     uri         1
     crud        1
+    userlen     1
     dateformat  1
     specs       1
     regx        1
@@ -363,6 +364,7 @@ sub init {
         $self->keylen(     $len                        );
         $self->keybase(    $base                       );
 
+        $self->userlen(    (split /-/, $self->user)[0] );
         $self->dateformat( (split /-/, $self->date)[1] );
         $self->regx(       $self->make_preamble_regx   );
         $self->crud(       $self->make_crud            );
@@ -1372,6 +1374,7 @@ if C<$value> is given.  Otherwise, they just return the value.
  $ds->transbase(   [$value] ); # base   of stored transation number
  $ds->fnumlen(     [$value] ); # length of stored file number
  $ds->fnumbase(    [$value] ); # base   of stored file number
+ $ds->userlen(     [$value] ); # format from uri
  $ds->dateformat(  [$value] ); # format from uri
  $ds->regx(        [$value] ); # capturing regx for preamble string
  $ds->datamax(     [$value] ); # maximum bytes in a data file
@@ -1444,6 +1447,7 @@ sub name        {for($_[0]->{name}        ){$_=$_[1]if@_>1;return$_}}
 sub desc        {for($_[0]->{desc}        ){$_=$_[1]if@_>1;return$_}}
 sub recsep      {for($_[0]->{recsep}      ){$_=$_[1]if@_>1;return$_}}
 sub uri         {for($_[0]->{uri}         ){$_=$_[1]if@_>1;return$_}}
+sub userlen     {for($_[0]->{userlen}     ){$_=$_[1]if@_>1;return$_}}
 sub dateformat  {for($_[0]->{dateformat}  ){$_=$_[1]if@_>1;return$_}}
 sub regx        {for($_[0]->{regx}        ){$_=$_[1]if@_>1;return$_}}
 sub crud        {for($_[0]->{crud}        ){$_=$_[1]if@_>1;return$_}}

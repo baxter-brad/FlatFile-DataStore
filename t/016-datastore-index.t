@@ -45,7 +45,7 @@ my $uri  = join( ';' =>
     qw(
         recsep=%0A
         defaults=medium
-        user=1-%20-%7E
+        user=6-%20-%7E
     )
 );
 
@@ -139,9 +139,9 @@ _end_
 
     $title = "Adding ti willie the elephant";
     for(
-        [qw( ti willie   title 1 1 256 )],
-        [qw( ti the      title 1 2 999 )],
-        [qw( ti elephant title 1 3 0 )],
+        [qw( ti willie   title 1 1 314 )],
+        [qw( ti the      title 1 2 314 )],
+        [qw( ti elephant title 1 3 314 )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
 
@@ -213,13 +213,13 @@ _end_
 
     $title = "Adding ti war and peace, ti willie the elephant, ti elephants";
     for(
-        [qw( ti war      title 22 1  10  )],
-        [qw( ti and      title 23 2  10  )],
-        [qw( ti peace    title 24 3  10  )],
-        [qw( ti willie   title 2  1  156 )],
-        [qw( ti the      title 2  2  199 )],
-        [qw( ti elephant title 2  3  44  )],
-        [qw( ti elephants title 1  1 44  )],
+        [qw( ti war       title 22 1 10 )],
+        [qw( ti and       title 23 2 10 )],
+        [qw( ti peace     title 24 3 10 )],
+        [qw( ti willie    title 2  1 50 )],
+        [qw( ti the       title 2  2 50 )],
+        [qw( ti elephant  title 2  3 50 )],
+        [qw( ti elephants title 1  1 44 )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
 
@@ -296,9 +296,9 @@ _end_
         [qw( su war      subject 22 1  10  )],
         [qw( su and      subject 23 2  10  )],
         [qw( su peace    subject 24 3  10  )],
-        [qw( su willie   subject 2  1  156 )],
-        [qw( su the      subject 2  2  199 )],
-        [qw( su elephant subject 2  3  44  )],
+        [qw( su willie   subject 2  1  314 )],
+        [qw( su the      subject 2  2  314 )],
+        [qw( su elephant subject 2  3  314 )],
         [qw( su elephants subject 1  1 44  )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
@@ -351,9 +351,9 @@ _end_
         [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
         # [qw( su peace    subject 24 3  10  )],
-        # [qw( su willie   subject 2  1  156 )],
-        # [qw( su the      subject 2  2  199 )],
-        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su willie   subject 2  1  314 )],
+        # [qw( su the      subject 2  2  314 )],
+        # [qw( su elephant subject 2  3  314 )],
         # [qw( su elephants subject 1  1 44  )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
@@ -405,9 +405,9 @@ _end_
         # [qw( su war      subject 22 1  10  )],
         [qw( su and      subject 23 2  10  )],
         # [qw( su peace    subject 24 3  10  )],
-        # [qw( su willie   subject 2  1  156 )],
-        # [qw( su the      subject 2  2  199 )],
-        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su willie   subject 2  1  314 )],
+        # [qw( su the      subject 2  2  314 )],
+        # [qw( su elephant subject 2  3  314 )],
         # [qw( su elephants subject 1  1 44  )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
@@ -457,9 +457,9 @@ _end_
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
         [qw( su peace    subject 24 3  10  )],
-        # [qw( su willie   subject 2  1  156 )],
-        # [qw( su the      subject 2  2  199 )],
-        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su willie   subject 2  1  314 )],
+        # [qw( su the      subject 2  2  314 )],
+        # [qw( su elephant subject 2  3  314 )],
         # [qw( su elephants subject 1  1 44  )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
@@ -507,9 +507,9 @@ _end_
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
         # [qw( su peace    subject 24 3  10  )],
-        [qw( su willie   subject 2  1  156 )],
-        # [qw( su the      subject 2  2  199 )],
-        # [qw( su elephant subject 2  3  44  )],
+        [qw( su willie   subject 2  1  314 )],
+        # [qw( su the      subject 2  2  314 )],
+        # [qw( su elephant subject 2  3  314 )],
         # [qw( su elephants subject 1  1 44  )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
@@ -555,9 +555,9 @@ _end_
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
         # [qw( su peace    subject 24 3  10  )],
-        # [qw( su willie   subject 2  1  156 )],
-        [qw( su the      subject 2  2  199 )],
-        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su willie   subject 2  1  314 )],
+        [qw( su the      subject 2  2  314 )],
+        # [qw( su elephant subject 2  3  314 )],
         # [qw( su elephants subject 1  1 44  )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
@@ -601,9 +601,9 @@ _end_
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
         # [qw( su peace    subject 24 3  10  )],
-        # [qw( su willie   subject 2  1  156 )],
-        # [qw( su the      subject 2  2  199 )],
-        [qw( su elephant subject 2  3  44  )],
+        # [qw( su willie   subject 2  1  314 )],
+        # [qw( su the      subject 2  2  314 )],
+        [qw( su elephant subject 2  3  314 )],
         # [qw( su elephants subject 1  1 44  )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;
@@ -647,9 +647,9 @@ _end_
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
         # [qw( su peace    subject 24 3  10  )],
-        # [qw( su willie   subject 2  1  156 )],
-        # [qw( su the      subject 2  2  199 )],
-        # [qw( su elephant subject 2  3  44  )],
+        # [qw( su willie   subject 2  1  314 )],
+        # [qw( su the      subject 2  2  314 )],
+        # [qw( su elephant subject 2  3  314 )],
         [qw( su elephants subject 1  1 44  )],
     ) {
         my( $tag, $kw, $field, $occ, $pos, $num ) = @$_;

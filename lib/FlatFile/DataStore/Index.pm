@@ -340,7 +340,10 @@ sub init {
         local $Data::Dumper::Pair      = '=>';
         local $Data::Dumper::Useqq     = 1;
 
-        $config_rec = $ds->create({ data => Dumper( $config ).$nl });
+        $config_rec = $ds->create({
+            data => Dumper( $config ),
+            user => substr( 'config', 0, $ds->userlen ),
+            });
     }
 
     # here is where we get the config of an existing index
@@ -1016,10 +1019,11 @@ sub add_item {
     my $entry_group = $keys->{'entry_group'};
     my $index_entry = $keys->{'index_entry'};
 
-    my $ds   = $self->datastore;
-    my $dir  = $ds->dir;
-    my $name = $ds->name;
-    my $nl   = $ds->recsep;  # "newline" for datastore
+    my $ds      = $self->datastore;
+    my $dir     = $ds->dir;
+    my $name    = $ds->name;
+    my $nl      = $ds->recsep;  # "newline" for datastore
+    my $userlen = $ds->userlen;
 
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
@@ -1143,7 +1147,10 @@ sub add_item {
             howmany( $ie_vec ), $Sp, compress( bit2str $ie_vec ), $nl;
 
         $newdata = Encode::encode( $Enc, $newdata );
-        my $eg_rec = $ds->create({ data => $newdata });
+        my $eg_rec = $ds->create({
+            data => $newdata,
+            user => substr( $entry_group, 0, $userlen ),
+            });
 
         if( exists $dbm{ '*' } ) {
             my $all_keynum = retrieve_all_star_kv();
@@ -1163,7 +1170,8 @@ sub add_item {
             my $all_vec = '';
             set_bit( $all_vec, $num );
             my $all_rec = $ds->create({
-                data => howmany( $all_vec ).$Sp.compress( bit2str $all_vec )
+                data => howmany( $all_vec ).$Sp.compress( bit2str $all_vec ),
+                user => substr( '*', 0, $userlen ),
                 });
             update_all_star_kv( $all_rec->keynum );
         }
@@ -1189,7 +1197,8 @@ sub add_item {
             my $ik_vec = '';
             set_bit( $ik_vec, $num );
             my $ik_rec = $ds->create({
-                data => howmany( $ik_vec ).$Sp.compress( bit2str $ik_vec )
+                data => howmany( $ik_vec ).$Sp.compress( bit2str $ik_vec ),
+                user => substr( $index_key, 0, $userlen ),
                 });
             $ik_keynum = $ik_rec->keynum;
             $ik_count  = 0;
@@ -1224,7 +1233,8 @@ sub add_item {
             my $ep_vec = '';
             set_bit( $ep_vec, $num );
             my $ep_rec = $ds->create({
-                data => howmany( $ep_vec ).$Sp.compress( bit2str $ep_vec )
+                data => howmany( $ep_vec ).$Sp.compress( bit2str $ep_vec ),
+                user => substr( $entry_point, 0, $userlen ),
                 });
 
             # start building new entry point and entry group entries
