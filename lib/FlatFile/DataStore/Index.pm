@@ -246,9 +246,6 @@ our $dbm_package  = "SDBM_File";
 our $dbm_parms    = [ O_CREAT|O_RDWR, 0666 ];
 our $dbm_lock_ext = ".dir";
 
-our $Dbm;
-our $Enc;
-
 my $Trunc = '*?'    ;  # truncation characters
 my $Sp    = ' '     ;  # one-space separator
 my $Sep   = $Sp x 2 ;  # two-space separator
@@ -271,10 +268,11 @@ my $default_eglen = 8;
 #
 
 sub config        {for($_[0]->{config       }){$_=$_[1]if@_>1;return$_}}
+sub encoding      {for($_[0]->{encoding     }){$_=$_[1]if@_>1;return$_}}
+sub dbm           {for($_[0]->{dbm          }){$_=$_[1]if@_>1;return$_}}
 sub datastore     {for($_[0]->{datastore    }){$_=$_[1]if@_>1;return$_}}
 sub dbm_lock_file {for($_[0]->{dbm_lock_file}){$_=$_[1]if@_>1;return$_}}
 sub locked        {for($_[0]->{locked       }){$_=$_[1]if@_>1;return$_}}
-sub dbm           {for($_[0]->{dbm          }){$_=$_[1]if@_>1;return$_}}
 
 #---------------------------------------------------------------------
 
@@ -359,21 +357,11 @@ sub init {
     # XXX validate config here XXX
 
     $self->config( $config );
+    $self->encoding( $config->{'encoding'} );
     $self->datastore( $ds );
     $self->dbm_lock_file( "$dir/$name$dbm_lock_ext" );
 
     return $self;
-}
-
-sub gen_userdata {
-    my( $beg, $msg, $end, $len ) = @_;
-    return '' unless $len;
-    my $pad = $len-(length($beg)+length($end)+length($msg));
-    my $ret;
-    if(    $pad == 0 ) { $ret = $beg.$msg.$end }
-    elsif( $pad > 0 )  { $ret = $beg.$msg.(' ' x $pad).$end }
-    else               { $ret = substr( $beg.$msg, 0, $pad ).$end }
-    $ret;  # returned
 }
 
 #---------------------------------------------------------------------
@@ -507,12 +495,11 @@ sub get_kw_group {
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-
-    local $Enc = $self->config->{'encoding'};
-    local $Dbm = \%dbm;
+    $self->dbm( \%dbm );
 
     # XXX yada yada
 
+    $self->dbm( '' );
     untie %dbm;
     $self->unlock;
 }
@@ -557,12 +544,11 @@ sub get_kw_bitstring {
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-
-    local $Enc = $self->config->{'encoding'};
-    local $Dbm = \%dbm;
+    $self->dbm( \%dbm );
 
     # XXX yada yada
 
+    $self->dbm( '' );
     untie %dbm;
     $self->unlock;
 }
@@ -617,9 +603,7 @@ sub get_ph_bitstring {
 
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-
-    local $Enc = $self->config->{'encoding'};
-    local $Dbm = \%dbm;
+    $self->dbm( \%dbm );
 
     my @matches;
 
@@ -638,7 +622,7 @@ sub get_ph_bitstring {
             if( length $phrase == 0 ) {
 
                 # get the index tag bitstring
-                my $ik_keynum = retrieve_index_key_kv( $index_key => 'keynum' );
+                my $ik_keynum = $self->retrieve_index_key_kv( $index_key => 'keynum' );
                 my $ik_rec = $ds->retrieve( $ik_keynum );
                 push @matches, [ split $Sp => $ik_rec->data ];
 
@@ -650,9 +634,9 @@ sub get_ph_bitstring {
             elsif( length $phrase <= $eplen ) {
 
                 # get entry point bitstring(s)
-                for my $ep ( split $Sp => retrieve_index_key_kv( $index_key => 'eplist' ) ) {
+                for my $ep ( split $Sp => $self->retrieve_index_key_kv( $index_key => 'eplist' ) ) {
                     if( $ep =~ m{^ $phrase }x ) {
-                        my $ep_keynum = retrieve_entry_point_kv( "$index_key$Sp$ep" => 'keynum' );
+                        my $ep_keynum = $self->retrieve_entry_point_kv( "$index_key$Sp$ep" => 'keynum' );
                         my $ep_rec = $ds->retrieve( $ep_keynum );
                         push @matches, [ split $Sp => $ep_rec->data ];
                     }
@@ -668,7 +652,7 @@ sub get_ph_bitstring {
 
                 # locate the starting entry point
                 my $ep;
-                for( split $Sp => retrieve_index_key_kv( $index_key => 'eplist' ) ) {
+                for( split $Sp => $self->retrieve_index_key_kv( $index_key => 'eplist' ) ) {
                     if( $phrase =~ m{^ $_ }x ) {
                         $ep = $_;
                         last;
@@ -679,12 +663,12 @@ sub get_ph_bitstring {
                 my $match_key = join $Sp => $index_key, $ep, $phrase;
                 my $found;  # XXX we might not need this -- have to think ...
 
-                my $this_group = retrieve_entry_point_kv_kv( "$index_key$Sp$ep" => 'next' );
+                my $this_group = $self->retrieve_entry_point_kv_kv( "$index_key$Sp$ep" => 'next' );
                 while( $this_group ) {
 
                     if( $match_key =~ m{^ $this_group }x ) {
                         $found++;
-                        my( $eg_keynum, $this_group ) = retrieve_entry_group_kv( $this_group, 'keynum', 'next' );
+                        my( $eg_keynum, $this_group ) = $self->retrieve_entry_group_kv( $this_group, 'keynum', 'next' );
                         my $eg_rec = $ds->retrieve( $eg_keynum );
 
                         # loop through the index entries in this group
@@ -715,7 +699,7 @@ sub get_ph_bitstring {
                    $match_phrase .= '.*';  # truncated
                 my $matchrx       = qr{^$match_tag$Sp$match_phrase$Sep([0-9]+)$Sp(.*)$};
 
-                my $eg_keynum         = retrieve_entry_group_kv( $entry_group => 'keynum' );
+                my $eg_keynum         = $self->retrieve_entry_group_kv( $entry_group => 'keynum' );
                 my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
 
                 my $found;
@@ -739,7 +723,7 @@ sub get_ph_bitstring {
         }  # if truncated
 
         else {
-            if( my $eg_keynum = retrieve_entry_group_kv( $entry_group => 'keynum' ) ) {
+            if( my $eg_keynum = $self->retrieve_entry_group_kv( $entry_group => 'keynum' ) ) {
 
                 my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
 
@@ -759,6 +743,7 @@ sub get_ph_bitstring {
         }
     }  # TRY
 
+    $self->dbm( '' );
     untie %dbm;
     $self->unlock;
 
@@ -1030,6 +1015,7 @@ sub add_item {
     my $entry_group = $keys->{'entry_group'};
     my $index_entry = $keys->{'index_entry'};
 
+    my $enc     = $self->encoding;
     my $ds      = $self->datastore;
     my $dir     = $ds->dir;
     my $name    = $ds->name;
@@ -1038,60 +1024,14 @@ sub add_item {
 
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
+    $self->dbm( \%dbm );
 
     # if the entry group is already in the dbm file
-
-    local $Enc = $self->config->{'encoding'};
-    local $Dbm = \%dbm;
-
     if( exists $dbm{ $entry_group } ) {
 
-        my( $eg_keynum, $eg_count ) = retrieve_entry_group_kv( $entry_group => 'keynum', 'count' );
-
-        if( my $all_keynum = retrieve_all_star_kv() ) {
-            my $all_rec = $ds->retrieve( $all_keynum );
-            my( $all_howmany, $all_bitstring ) = split $Sp => $all_rec->data;
-            my $all_vec = str2bit uncompress $all_bitstring;
-            set_bit( $all_vec, $num );
-            my $new_bitstring = compress bit2str $all_vec;
-            if( $new_bitstring ne $all_bitstring ) {
-                $ds->update({
-                    record => $all_rec,
-                    data   => howmany( $all_vec ).$Sp.$new_bitstring
-                    });
-            }
-        }
-
-        if( my $ik_keynum = retrieve_index_key_kv( $index_key => 'keynum' ) ) {
-            my $ik_rec = $ds->retrieve( $ik_keynum );
-            my( $ik_howmany, $ik_bitstring ) = split $Sp => $ik_rec->data;
-            my $ik_vec = str2bit uncompress $ik_bitstring;
-            set_bit( $ik_vec, $num );
-            my $new_bitstring = compress bit2str $ik_vec;
-            if( $new_bitstring ne $ik_bitstring ) {
-                $ds->update({
-                    record => $ik_rec,
-                    data   => howmany( $ik_vec ).$Sp.$new_bitstring
-                    });
-            }
-        }
-
-        if( my $ep_keynum = retrieve_entry_point_kv( $entry_point => 'keynum' ) ) {
-            my $ep_rec = $ds->retrieve( $ep_keynum );
-            my( $ep_howmany, $ep_bitstring ) = split $Sp => $ep_rec->data;
-            my $ep_vec = str2bit uncompress $ep_bitstring;
-            set_bit( $ep_vec, $num );
-            my $new_bitstring = compress bit2str $ep_vec;
-            if( $new_bitstring ne $ep_bitstring ) {
-                $ds->update({
-                    record => $ep_rec,
-                    data   => howmany( $ep_vec ).$Sp.$new_bitstring
-                    });
-            }
-        }
-
+        my( $eg_keynum, $eg_count ) = $self->retrieve_entry_group_kv( $entry_group => 'keynum', 'count' );
         my $group_rec = $ds->retrieve( $eg_keynum );
-        my $rec_data  = Encode::decode( $Enc, $group_rec->data );
+        my $rec_data  = Encode::decode( $enc, $group_rec->data );
 
         # make group_rec data into a hash
         my %entries = map { split $Sep } split $nl => $rec_data;
@@ -1124,7 +1064,7 @@ sub add_item {
                 $newdata .= join( $Sep => $key, $val ) . $nl;
                 $newcount++;
             }
-            $newdata = Encode::encode( $Enc, $newdata );
+            $newdata = Encode::encode( $enc, $newdata );
             $ds->update({ record => $group_rec, data => $newdata });
 
             # update the entry point count and index key count
@@ -1132,15 +1072,15 @@ sub add_item {
             if( my $diff = $newcount - $eg_count ) {
 
                 # save the newcount in the entry group
-                update_entry_group_kv( $entry_group => { count => $newcount } );
+                $self->update_entry_group_kv( $entry_group => { count => $newcount } );
 
                 # add to the entry point count
-                my $ep_count = retrieve_entry_point_kv( $entry_point => 'count' );
-                update_entry_point_kv( $entry_point => { count => $ep_count + $diff } );
+                my $ep_count = $self->retrieve_entry_point_kv( $entry_point => 'count' );
+                $self->update_entry_point_kv( $entry_point => { count => $ep_count + $diff } );
 
                 # add to the index key count
-                my $ik_count = retrieve_index_key_kv( $index_key => 'count' );
-                update_index_key_kv( $index_key => { count => $ik_count + $diff } );
+                my $ik_count = $self->retrieve_index_key_kv( $index_key => 'count' );
+                $self->update_index_key_kv( $index_key => { count => $ik_count + $diff } );
             }
         }
     }
@@ -1157,54 +1097,29 @@ sub add_item {
         my $newdata = join '' => $index_entry, $Sep,
             howmany( $ie_vec ), $Sp, compress( bit2str $ie_vec ), $nl;
 
-        $newdata = Encode::encode( $Enc, $newdata );
+        $newdata = Encode::encode( $enc, $newdata );
         my $eg_rec = $ds->create({
             data => $newdata,
             user => gen_userdata( '[', "eg:$entry_group", ']', $ds->userlen ),
             });
 
-        if( exists $dbm{ '*' } ) {
-            my $all_keynum = retrieve_all_star_kv();
-            my $all_rec = $ds->retrieve( $all_keynum );
-            my( $all_howmany, $all_bitstring ) = split $Sp => $all_rec->data;
-            my $all_vec = str2bit uncompress $all_bitstring;
-            set_bit( $all_vec, $num );
-            my $new_bitstring = compress bit2str $all_vec;
-            if( $new_bitstring ne $all_bitstring ) {
-                $ds->update({
-                    record => $all_rec,
-                    data   => howmany( $all_vec ).$Sp.$new_bitstring
-                    });
-            }
-        }
-        else {  # set up for new all star entry
+        # set up all star entry
+        unless( exists $dbm{ '*' } ) {
             my $all_vec = '';
             set_bit( $all_vec, $num );
             my $all_rec = $ds->create({
                 data => howmany( $all_vec ).$Sp.compress( bit2str $all_vec ),
                 user => gen_userdata( '[', 'all:*', ']', $ds->userlen ),
                 });
-            update_all_star_kv( $all_rec->keynum );
+            $self->update_all_star_kv( $all_rec->keynum );
         }
 
-        # (these are updated at the end of this block ...)
         my( $ik_keynum, $ik_count, $eplist );
 
         if( exists $dbm{ $index_key } ) {
-            ( $ik_keynum, $ik_count, $eplist ) = retrieve_index_key_kv( $index_key );
-            my $ik_rec = $ds->retrieve( $ik_keynum );
-            my( $ik_howmany, $ik_bitstring ) = split $Sp => $ik_rec->data;
-            my $ik_vec = str2bit uncompress $ik_bitstring;
-            set_bit( $ik_vec, $num );
-            my $new_bitstring = compress bit2str $ik_vec;
-            if( $new_bitstring ne $ik_bitstring ) {
-                $ds->update({
-                    record => $ik_rec,
-                    data   => howmany( $ik_vec ).$Sp.$new_bitstring
-                    });
-            }
+            ( $ik_keynum, $ik_count, $eplist ) = $self->retrieve_index_key_kv( $index_key );
         }
-        else {  # set up for new index key entry
+        else {  # set up new index key entry
             my $ik_vec = '';
             set_bit( $ik_vec, $num );
             my $ik_rec = $ds->create({
@@ -1260,13 +1175,13 @@ sub add_item {
             if( $prev_ep ) {
 
                 my $prev_ep_key = "$index_key $prev_ep";
-                my $next_group  = retrieve_entry_point_kv( $prev_ep_key => 'next' );
+                my $next_group  = $self->retrieve_entry_point_kv( $prev_ep_key => 'next' );
 
                 my $this_group;
 
                 while( $next_group =~ /^$prev_ep_key/ ) {
                     $this_group = $next_group;
-                    $next_group = retrieve_entry_group_kv( $this_group => 'next' );
+                    $next_group = $self->retrieve_entry_group_kv( $this_group => 'next' );
                 }
 
                 # at this point, $this_group is the last group of the prev entry point
@@ -1276,7 +1191,7 @@ sub add_item {
                 $new_eg->{ prev } = $this_group;
 
                 # we also want to change its next group to our new group
-                update_entry_group_kv( $this_group => { next => $entry_group } );
+                $self->update_entry_group_kv( $this_group => { next => $entry_group } );
             }
 
             # else if there's no previous entry point, there's also
@@ -1296,17 +1211,17 @@ sub add_item {
             if( $next_ep ) {
 
                 my $next_ep_key = "$index_key $next_ep";
-                my $next_group  = retrieve_entry_point_kv( $next_ep_key => 'next' );
+                my $next_group  = $self->retrieve_entry_point_kv( $next_ep_key => 'next' );
 
                 # that's the next group we want for our group
                 $new_eg->{ next } = $next_group;
 
                 # now make its prev group our group
-                update_entry_point_kv( $next_ep_key => { prev => $entry_group } );
+                $self->update_entry_point_kv( $next_ep_key => { prev => $entry_group } );
 
                 # we also need to change the first group of the next entry point
                 # make its prev group our group, too
-                update_entry_group_kv( $next_group => { prev => $entry_group } );
+                $self->update_entry_group_kv( $next_group => { prev => $entry_group } );
             }
 
             # else if there's no next entry point, there's also no next group
@@ -1316,8 +1231,8 @@ sub add_item {
             }
 
             # ready now to add these to the dbm file
-            update_entry_point_kv( $entry_point => $new_ep );
-            update_entry_group_kv( $entry_group => $new_eg );
+            $self->update_entry_point_kv( $entry_point => $new_ep );
+            $self->update_entry_group_kv( $entry_group => $new_eg );
         }
 
         # else if the entry point is already in the entry points list
@@ -1325,7 +1240,7 @@ sub add_item {
         else {
 
             # locate groups to insert between
-            my( $ep_keynum, $ep_count, $prev_group, $next_group ) = retrieve_entry_point_kv( $entry_point );
+            my( $ep_keynum, $ep_count, $prev_group, $next_group ) = $self->retrieve_entry_point_kv( $entry_point );
 
             # see if we need to update the entry point bitstring
             my $ep_rec = $ds->retrieve( $ep_keynum );
@@ -1346,11 +1261,11 @@ sub add_item {
 
                 # make its next group our group
                 # add 1 for the index entry we're adding
-                update_entry_point_kv( $entry_point => { count => $ep_count + 1, next => $entry_group } );
+                $self->update_entry_point_kv( $entry_point => { count => $ep_count + 1, next => $entry_group } );
 
                 # make its prev group our prev group and its old next group our next group
                 # 1 is for our 1 index entry
-                update_entry_group_kv( $entry_group => {
+                $self->update_entry_group_kv( $entry_group => {
                     keynum => $eg_rec->keynum,
                     count  => 1,
                     prev   => $prev_group,
@@ -1359,12 +1274,12 @@ sub add_item {
 
                 # now get the entry point's prev group and make it point to us
                 # change its next group to our group
-                update_entry_group_kv( $prev_group => { next => $entry_group } )
+                $self->update_entry_group_kv( $prev_group => { next => $entry_group } )
                     if $prev_group;
 
                 # now get the next group (it's always under this entry point)
                 # change its prev group to our group
-                update_entry_group_kv( $next_group => { prev => $entry_group } );
+                $self->update_entry_group_kv( $next_group => { prev => $entry_group } );
             }
 
             # else if we're not inserting after the entry point, find the group to insert after
@@ -1373,7 +1288,7 @@ sub add_item {
 
                 # go ahead and update the entry point (with above values)
                 # add 1 for the index entry we're adding
-                update_entry_point_kv( $entry_point => { count => $ep_count + 1 } );
+                $self->update_entry_point_kv( $entry_point => { count => $ep_count + 1 } );
 
                 # entry point's next group is never null
                 my $this_group;;
@@ -1381,18 +1296,18 @@ sub add_item {
 
                 while( $eg_next lt $entry_group ) {
                     $this_group = $eg_next;
-                    $eg_next = retrieve_entry_group_kv( $this_group => 'next' );
+                    $eg_next = $self->retrieve_entry_group_kv( $this_group => 'next' );
                     last unless $eg_next;  # XXX need this above, too?
                 }
 
                 # at this point, $this_group is the group we want to insert after
 
                 # change its next group to our group
-                update_entry_group_kv( $this_group => { next => $entry_group } );
+                $self->update_entry_group_kv( $this_group => { next => $entry_group } );
 
                 # make it our prev group and its old next group our next group
                 # 1 is for our 1 index entry
-                update_entry_group_kv( $entry_group => {
+                $self->update_entry_group_kv( $entry_group => {
                     keynum => $eg_rec->keynum,
                     count  => 1,
                     prev   => $this_group,
@@ -1406,14 +1321,14 @@ sub add_item {
                     if( $eg_next !~ /^$entry_point/ ) {
 
                         my $other_ep = "$index_key " . (split $Sp => $eg_next)[1];
-                        $eg_next = retrieve_entry_point_kv( $other_ep => 'next' );
+                        $eg_next = $self->retrieve_entry_point_kv( $other_ep => 'next' );
 
                         # make its prev_group our group
-                        update_entry_point_kv( $other_ep => { prev => $entry_group } );
+                        $self->update_entry_point_kv( $other_ep => { prev => $entry_group } );
 
                         # we also need to change the first group of the next entry point
                         # make its prev group our group, too
-                        update_entry_group_kv( $eg_next => { prev => $entry_group } );
+                        $self->update_entry_group_kv( $eg_next => { prev => $entry_group } );
                     }
 
                     # else the next group is still under our entry point
@@ -1422,20 +1337,66 @@ sub add_item {
 
                         # get the next group
                         # change its prev group to our group
-                        update_entry_group_kv( $eg_next => { prev => $entry_group } );
+                        $self->update_entry_group_kv( $eg_next => { prev => $entry_group } );
                     }
                 }
             }
         }
 
         # update the index key count for our 1 index entry
-        update_index_key_kv( $index_key => {
+        $self->update_index_key_kv( $index_key => {
             keynum => $ik_keynum,
             count  => $ik_count + 1,
             eplist => $eplist,
             } );
     }
 
+    # set the bit in the 'ep', 'ik', and 'all' bitstrings
+    # this logic is safe for 'add' (but not for 'delete') ...
+
+    if( my $all_keynum = $self->retrieve_all_star_kv() ) {
+        my $all_rec = $ds->retrieve( $all_keynum );
+        my( $all_howmany, $all_bitstring ) = split $Sp => $all_rec->data;
+        my $all_vec = str2bit uncompress $all_bitstring;
+        set_bit( $all_vec, $num );
+        my $new_bitstring = compress bit2str $all_vec;
+        if( $new_bitstring ne $all_bitstring ) {
+            $ds->update({
+                record => $all_rec,
+                data   => howmany( $all_vec ).$Sp.$new_bitstring
+                });
+        }
+    }
+
+    if( my $ik_keynum = $self->retrieve_index_key_kv( $index_key => 'keynum' ) ) {
+        my $ik_rec = $ds->retrieve( $ik_keynum );
+        my( $ik_howmany, $ik_bitstring ) = split $Sp => $ik_rec->data;
+        my $ik_vec = str2bit uncompress $ik_bitstring;
+        set_bit( $ik_vec, $num );
+        my $new_bitstring = compress bit2str $ik_vec;
+        if( $new_bitstring ne $ik_bitstring ) {
+            $ds->update({
+                record => $ik_rec,
+                data   => howmany( $ik_vec ).$Sp.$new_bitstring
+                });
+        }
+    }
+
+    if( my $ep_keynum = $self->retrieve_entry_point_kv( $entry_point => 'keynum' ) ) {
+        my $ep_rec = $ds->retrieve( $ep_keynum );
+        my( $ep_howmany, $ep_bitstring ) = split $Sp => $ep_rec->data;
+        my $ep_vec = str2bit uncompress $ep_bitstring;
+        set_bit( $ep_vec, $num );
+        my $new_bitstring = compress bit2str $ep_vec;
+        if( $new_bitstring ne $ep_bitstring ) {
+            $ds->update({
+                record => $ep_rec,
+                data   => howmany( $ep_vec ).$Sp.$new_bitstring
+                });
+        }
+    }
+
+    $self->dbm( '' );
     untie %dbm;
     $self->unlock;
 
@@ -1509,6 +1470,7 @@ sub delete_item {
     my $entry_group = $keys->{'entry_group'};
     my $index_entry = $keys->{'index_entry'};
 
+    my $enc  = $self->encoding;
     my $ds   = $self->datastore;
     my $dir  = $ds->dir;
     my $name = $ds->name;
@@ -1517,9 +1479,7 @@ sub delete_item {
 
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-
-    local $Enc = $self->config->{'encoding'};
-    local $Dbm = \%dbm;
+    $self->dbm( \%dbm );
 
     # if entry group exists in the dbm file
     if( exists $dbm{ $entry_group } ) {
@@ -1528,10 +1488,10 @@ sub delete_item {
         # - entry point exists with at least this one entry group under it
         # - an index entry record exists
 
-        my( $eg_keynum, $eg_count, $prev_group, $next_group ) = retrieve_entry_group_kv( $entry_group );
+        my( $eg_keynum, $eg_count, $prev_group, $next_group ) = $self->retrieve_entry_group_kv( $entry_group );
 
         my $group_rec = $ds->retrieve( $eg_keynum );
-        my $rec_data  = Encode::decode( $Enc, $group_rec->data );
+        my $rec_data  = Encode::decode( $enc, $group_rec->data );
 
         # make group_rec data into a hash
         my %entries = map { split $Sep } split $nl => $rec_data;
@@ -1556,7 +1516,7 @@ sub delete_item {
                 if( not %entries ) {
 
                     # + we delete the entry group from the dbm file
-                    delete_entry_group( $entry_group, $entry_point, $index_key );
+                    $self->delete_entry_group( $entry_group, $entry_point, $index_key );
 
                     # (XXX really no need to delete the record -- it's simply ignored)
                     $ds->delete({ record => $group_rec, data => '' });
@@ -1571,19 +1531,19 @@ sub delete_item {
                         my $val   = $entries{ $key };
                         $newdata .= join( $Sep => $key, $val ) . $nl;
                     }
-                    $newdata = Encode::encode( $Enc, $newdata );
+                    $newdata = Encode::encode( $enc, $newdata );
                     $ds->update({ record => $group_rec, data => $newdata });
 
                     # + we decrement the entry group count (for the index entry we removed)
-                    update_entry_group_kv( $entry_group => { count => $eg_count -1 } );
+                    $self->update_entry_group_kv( $entry_group => { count => $eg_count -1 } );
 
                     # + we decrement the entry point count (for the index entry we removed)
-                    my $ep_count = retrieve_entry_point_kv( $entry_point => 'count' );
-                    update_entry_point_kv( $entry_point => { count => $ep_count - 1 } );
+                    my $ep_count = $self->retrieve_entry_point_kv( $entry_point => 'count' );
+                    $self->update_entry_point_kv( $entry_point => { count => $ep_count - 1 } );
 
                     # + we decrement the index key count (for the index entry we removed)
-                    my $ik_count = retrieve_index_key_kv( $index_key => 'count' );
-                    update_index_key_kv( $index_key => { count => $ik_count - 1 } );
+                    my $ik_count = $self->retrieve_index_key_kv( $index_key => 'count' );
+                    $self->update_index_key_kv( $index_key => { count => $ik_count - 1 } );
 
                 }
 
@@ -1600,7 +1560,7 @@ sub delete_item {
                     my $val   = $entries{ $key };
                     $newdata .= join( $Sep => $key, $val ) . $nl;
                 }
-                $newdata = Encode::encode( $Enc, $newdata );
+                $newdata = Encode::encode( $enc, $newdata );
                 $ds->update({ record => $group_rec, data => $newdata });
 
             }
@@ -1621,6 +1581,13 @@ sub delete_item {
         $err = qq/entry group not found: $entry_group/;
     }
 
+    # long way around to updating the collective bitstrings ...
+
+    $self->update_entry_point_ds( $entry_point );
+    $self->update_index_key_ds( $index_key );
+    $self->update_all_star_ds();
+
+    $self->dbm( '' );
     untie %dbm;
     $self->unlock;
 
@@ -1633,12 +1600,11 @@ sub delete_item {
 #
 # returns keynum from '*' key
 #
-# (globals $Dbm and $Enc must be set for get_vals())
-#
 
 sub retrieve_all_star_kv {
+    my( $self ) = @_;
 
-    my @vals = get_vals( '*' );
+    my @vals = $self->get_vals( '*' );
     return $vals[0];
 
 }
@@ -1650,13 +1616,11 @@ sub retrieve_all_star_kv {
 # $key    is index key, e.g., 'ti', 'au', etc.
 # @fields may contain 'keynum', 'count', and/or 'eplist'
 #     if no @fields, returns all fields
-# (globals $Dbm and $Enc must be set for get_vals())
-#
 
 sub retrieve_index_key_kv {
-    my( $key, @fields ) = @_;
+    my( $self, $key, @fields ) = @_;
 
-    my @vals = get_vals( $key );
+    my @vals = $self->get_vals( $key );
     return @vals unless @fields;
 
     my @ret;
@@ -1676,12 +1640,10 @@ sub retrieve_index_key_kv {
 #
 # update '*' keynum
 #
-# (globals $Dbm and $Enc must be set for g/set_vals())
-#
 sub update_all_star_kv {
-    my( $keynum ) = @_;
+    my( $self, $keynum ) = @_;
 
-    set_vals( '*' => $keynum );
+    $self->set_vals( '*' => $keynum );
 }
 
 #---------------------------------------------------------------------
@@ -1690,12 +1652,10 @@ sub update_all_star_kv {
 #
 # $key    is index key, e.g., 'ti', 'au', etc.
 # $fields is href with keys 'keynum', 'count', and/or 'eplist'
-# (globals $Dbm and $Enc must be set for g/set_vals())
-#
 sub update_index_key_kv {
-    my( $key, $fields ) = @_;
+    my( $self, $key, $fields ) = @_;
 
-    my @vals = get_vals( $key );
+    my @vals = $self->get_vals( $key );
 
     while( my( $field, $val ) = each %$fields ) {
         $field =~ m{^ keynum $}x and do{ $vals[0] = $val; next };
@@ -1706,7 +1666,7 @@ sub update_index_key_kv {
 
 die "caller: ".(caller)[2] if $key eq '';  # debug
 
-    set_vals( $key => @vals );
+    $self->set_vals( $key => @vals );
 }
 
 #---------------------------------------------------------------------
@@ -1716,13 +1676,11 @@ die "caller: ".(caller)[2] if $key eq '';  # debug
 # $key   is entry point key, e.g., 'ti w', 'au s', etc.
 # @fields may contain 'keynum', 'count', 'prev', and/or 'next'
 #     if no @fields, returns all fields
-# (globals $Dbm and $Enc must be set for get_vals())
-#
 
 sub retrieve_entry_point_kv {
-    my( $key, @fields ) = @_;
+    my( $self, $key, @fields ) = @_;
 
-    my @vals = get_vals( $key );
+    my @vals = $self->get_vals( $key );
     while( @vals < 3 ) { push @vals, '' }
     return @vals unless @fields;
 
@@ -1744,13 +1702,11 @@ sub retrieve_entry_point_kv {
 #
 # $key    is entry point key, e.g., 'ti w', 'au s', etc.
 # $fields is href with keys 'keynum', 'count', 'prev', and/or 'next'
-# (globals $Dbm and $Enc must be set for g/set_vals())
-#
 
 sub update_entry_point_kv {
-    my( $key, $fields ) = @_;
+    my( $self, $key, $fields ) = @_;
 
-    my @vals = get_vals( $key );
+    my @vals = $self->get_vals( $key );
     while( @vals < 4 ) { push @vals, '' }
 
     while( my( $field, $val ) = each %$fields ) {
@@ -1763,7 +1719,139 @@ sub update_entry_point_kv {
 
 die "caller: ".(caller)[2] if $key eq '';  # debug
 
-    set_vals( $key => @vals );
+    $self->set_vals( $key => @vals );
+}
+
+#---------------------------------------------------------------------
+#
+# =head2 update_entry_point_ds( $ep_key )
+#
+#   for each entry group (eg)
+#       for each index entry (ie)
+#           ep_bitstring = ep_bitstring | ie_bitsting
+#   write ep_rec => count ep_bitstring
+#   return ep_rec
+#
+
+sub update_entry_point_ds {
+    my( $self, $ep_key ) = @_;
+
+    my( $ep_keynum, $next_group ) = $self->retrieve_entry_point_kv( $ep_key => 'keynum', 'next' );
+    return unless $ep_keynum;
+
+    my $ds = $self->datastore;
+    my $nl = $ds->recsep;
+
+    my $ep_vec = '';
+
+    # for each entry group (eg)
+    my $eg_keynum;
+    while( $next_group ) {
+        ( $eg_keynum, $next_group ) = $self->retrieve_entry_group_kv( $next_group => 'keynum', 'next' );
+
+        my $eg_rec = $ds->retrieve( $eg_keynum );
+
+        # for each index entry
+        for my $index_entry ( split $nl => $eg_rec->data ) {
+            my $ie_bitstring = (split $Sp => $index_entry)[-1];
+            my $ie_vec = str2bit uncompress $ie_bitstring;
+            $ep_vec = $ep_vec | $ie_vec;
+        }
+    }
+
+    my $ep_rec = $ds->retrieve( $ep_keynum );
+    $ds->update({
+        record => $ep_rec,
+        data   => howmany( $ep_vec ) . $Sp . compress bit2str $ep_vec,
+        });
+
+    return $ep_rec;
+}
+
+#---------------------------------------------------------------------
+#
+# -head2 update_index_key_ds( $ik_key )
+#
+#   for each entry point (ep)
+#       ik_bitstring = ik_bitstring | ep_bitstring
+#   write ik_rec => count ik_bitstring
+#   return ik_rec
+#
+
+sub update_index_key_ds {
+    my( $self, $ik_key ) = @_;
+
+    my( $ik_keynum, $eplist ) = $self->retrieve_index_key_kv( $ik_key => 'keynum', 'eplist' );
+    return unless $ik_keynum;
+
+    my $ds = $self->datastore;
+
+    my $ik_vec = '';
+
+    # for each entry point
+    for my $ep ( split $Sp => $eplist ) {
+        my $ep_key       = join $Sp => $ik_key, $ep;
+        my $ep_keynum    = $self->retrieve_entry_point_kv( $ep_key => 'keynum' );
+        my $ep_rec       = $ds->retrieve( $ep_keynum );
+        my $ep_bitstring = (split $Sp => $ep_rec->data)[-1];
+        my $ep_vec       = str2bit uncompress $ep_bitstring;
+        $ik_vec = $ik_vec | $ep_vec;
+    }
+
+    my $ik_rec = $ds->retrieve( $ik_keynum );
+    $ds->update({
+        record => $ik_rec,
+        data   => howmany( $ik_vec ) . $Sp . compress bit2str $ik_vec,
+        });
+
+    return $ik_rec;
+}
+
+#---------------------------------------------------------------------
+#
+# =head2 update_all_star_ds( $self )  # XXX self? (make a method)
+#
+#   for each index key (ik)
+#       all_bitstring = all_bitstring | ik_bitstring
+#   write all_rec => count all_bitstring
+#   return all_rec
+#
+
+sub update_all_star_ds {
+    my( $self ) = @_;
+
+    my $all_keynum = $self->retrieve_all_star_kv();
+    return unless $all_keynum;
+
+    my $ds = $self->datastore;
+
+    my @index_keys;
+
+    my $config = $self->config;
+    for( $config->{'kw'}{'tags'}, $config->{'ph'}{'tags'} ) {
+        push @index_keys, keys %$_ if defined;
+    }
+
+    my $all_vec = '';
+
+    # for each index key
+    for my $ik_key ( @index_keys ) {
+        my $ik_keynum    = $self->retrieve_index_key_kv( $ik_key => 'keynum' );
+        next unless $ik_keynum;  # all indexes might not have entries
+
+        my $ik_rec       = $ds->retrieve( $ik_keynum );
+        my $ik_bitstring = (split $Sp => $ik_rec->data)[-1];
+        my $ik_vec       = str2bit uncompress $ik_bitstring;
+        $all_vec = $all_vec | $ik_vec;
+    }
+
+    my $all_rec = $ds->retrieve( $all_keynum );
+    $ds->update({
+        record => $all_rec,
+        data   => howmany( $all_vec ) . $Sp . compress bit2str $all_vec,
+        });
+
+    return $all_rec;
 }
 
 #---------------------------------------------------------------------
@@ -1773,13 +1861,11 @@ die "caller: ".(caller)[2] if $key eq '';  # debug
 # $key   is entry group key, e.g., 'ti w war', 'au s smith', etc.
 # @fields may contain 'keynum', 'count', 'prev', and/or 'next'
 #     if no @fields, returns all fields
-# (globals $Dbm and $Enc must be set for get_vals())
-#
 
 sub retrieve_entry_group_kv {
-    my( $key, @fields ) = @_;
+    my( $self, $key, @fields ) = @_;
 
-    my @vals = get_vals( $key );
+    my @vals = $self->get_vals( $key );
     while( @vals < 4 ) { push @vals, '' }
     return @vals unless @fields;
 
@@ -1801,13 +1887,11 @@ sub retrieve_entry_group_kv {
 #
 # $key    is entry group key, e.g., 'ti w war', 'au s smith', etc.
 # $fields is href with keys 'keynum', 'count', 'prev', and/or 'next'
-# (globals $Dbm and $Enc must be set for g/set_vals())
-#
 
 sub update_entry_group_kv {
-    my( $key, $fields ) = @_;
+    my( $self, $key, $fields ) = @_;
 
-    my @vals = get_vals( $key );
+    my @vals = $self->get_vals( $key );
 
     while( my( $field, $val ) = each %$fields ) {
         $field =~ m{^ keynum $}x and do{ $vals[0] = $val; next };
@@ -1819,15 +1903,13 @@ sub update_entry_group_kv {
 
 die "caller: ".(caller)[2] if $key eq '';  # debug
 
-    set_vals( $key => @vals );
+    $self->set_vals( $key => @vals );
 }
 
 #---------------------------------------------------------------------
 #
 # =head2 get_vals( $key )
 #
-#     $Dbm: tied dbm hash ref
-#     $Enc: character encoding of the dbm file (keys and values)
 #     $key: key whose value we want (not encoded yet)
 #
 # returns array of values (by splitting on $Sep)
@@ -1838,13 +1920,15 @@ die "caller: ".(caller)[2] if $key eq '';  # debug
 #
 
 sub get_vals {
-    my( $key ) = @_;
+    my( $self, $key ) = @_;
 
-    $key = Encode::encode( $Enc, $key );
+    my $enc = $self->encoding;
+    my $dbm = $self->dbm;
+    $key = Encode::encode( $enc, $key );
 
-    if( my $val = $Dbm->{ $key } ) {
+    if( my $val = $dbm->{ $key } ) {
 
-        $val = Encode::decode( $Enc, $val );
+        $val = Encode::decode( $enc, $val );
         my $vals = eval $val;
         croak $@ if $@;
         return @$vals if wantarray;
@@ -1858,8 +1942,6 @@ sub get_vals {
 #
 # =head2 set_vals( $key, @vals )
 #
-#     $Dbm: tied dbm hash ref
-#     $Enc: character encoding of the dbm file (keys and values)
 #     $key: key whose value we're setting (key not encoded yet)
 #     @vals: values we're storing (vals not encoded yet)
 #
@@ -1871,26 +1953,26 @@ sub get_vals {
 #
 
 sub set_vals {
-    my( $key, @vals ) = @_;
+    my( $self, $key, @vals ) = @_;
 
-    $key = Encode::encode( $Enc, $key );
+    my $enc = $self->encoding;
+    my $dbm = $self->dbm;
+    $key = Encode::encode( $enc, $key );
 
     for( @vals ) {
         $_ = '' unless defined;
     }
 
     my $val = Dumper \@vals;
-       $val = Encode::encode( $Enc, $val );
+       $val = Encode::encode( $enc, $val );
 
-    $Dbm->{ $key } = $val;
+    $dbm->{ $key } = $val;
 }
 
 #---------------------------------------------------------------------
 #
 # =head2 delete_key( $key )
 #
-#     $Dbm: tied dbm hash ref
-#     $Enc: character encoding of the dbm file (keys and values)
 #     $key: key whose value we're setting (key not encoded yet)
 #
 # no useful return value  XXX right?
@@ -1901,19 +1983,20 @@ sub set_vals {
 #
 
 sub delete_key {
-    my( $key ) = @_;
+    my( $self, $key ) = @_;
 
-    $key = Encode::encode( $Enc, $key );
+    my $enc = $self->encoding;
+    my $dbm = $self->dbm;
 
-    delete $Dbm->{ $key };
+    $key = Encode::encode( $enc, $key );
+
+    delete $dbm->{ $key };
 }
 
 #---------------------------------------------------------------------
 #
 # =head2 delete_entry_group( $entry_group, $entry_point, $index_key );
 #
-#     $Dbm: tied dbm hash ref
-#     $Enc: character encoding of the dbm file (keys and values)
 #     $entry_group: to delete
 #     $entry_point: to delete or update
 #     $index_key:   to delete or update
@@ -1964,17 +2047,17 @@ else if entry group isn't the only one under its entry point
 =cut
 
 sub delete_entry_group {
-    my( $entry_group, $entry_point, $index_key ) = @_;
+    my( $self, $entry_group, $entry_point, $index_key ) = @_;
 
-    my( $eg_keynum, $eg_count, $eg_prev, $eg_next ) = retrieve_entry_group_kv( $entry_group );
-    my $ep_count = retrieve_entry_point_kv( $entry_point => 'count' );
-    my( $ik_count, $eplist ) = retrieve_index_key_kv( $index_key => 'count', 'eplist' );
+    my( $eg_keynum, $eg_count, $eg_prev, $eg_next ) = $self->retrieve_entry_group_kv( $entry_group );
+    my $ep_count = $self->retrieve_entry_point_kv( $entry_point => 'count' );
+    my( $ik_count, $eplist ) = $self->retrieve_index_key_kv( $index_key => 'count', 'eplist' );
 
     my $ep_regx = qr/^$entry_point/;
     my $ep = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
 
     # + we delete the entry group
-    delete_key( $entry_group );
+    $self->delete_key( $entry_group );
 
     # if entry group is the only group under its entry point
     #   - it's the only one if its prev group *and* next group are not under its entry point
@@ -1983,13 +2066,13 @@ sub delete_entry_group {
         (!$eg_next || $eg_next !~ $ep_regx) ){
 
         # + we delete entry point, too
-        delete_key( $entry_point );
+        $self->delete_key( $entry_point );
 
         # if entry point is the only one in the index key eplist
         if( $eplist eq $ep ) {
 
             # + we delete the index key, too
-            delete_key( $index_key );
+            $self->delete_key( $index_key );
         }
 
         # else if entry point isn't the only one
@@ -1999,25 +2082,25 @@ sub delete_entry_group {
             # - the resulting count will be > 0
             # + we remove the entry point from the index key eplist
             $eplist = join $Sp => grep { $_ ne $ep } split $Sp => $eplist;
-            update_index_key_kv( $index_key => { count => $ik_count - 1, eplist => $eplist } );
+            $self->update_index_key_kv( $index_key => { count => $ik_count - 1, eplist => $eplist } );
         }
 
         # if the entry group's next group isn't undef
         if( $eg_next ) {
 
             # + we set the next group's prev group to the entry group's prev group
-            update_entry_group_kv( $eg_next => { prev => $eg_prev } );
+            $self->update_entry_group_kv( $eg_next => { prev => $eg_prev } );
 
             # + we set the next group's entry point's prev group to the entry group's prev group
             my $next_ep_key = join( $Sp => (split( $Sp => $eg_next ))[0,1] );
-            update_entry_point_kv( $next_ep_key => { prev => $eg_prev } );
+            $self->update_entry_point_kv( $next_ep_key => { prev => $eg_prev } );
         }
 
         # if the entry group's prev group isn't undef
         if( $eg_prev ) {
 
             # + we set the prev group's next group to the entry group's next group
-            update_entry_group_kv( $eg_prev => { next => $eg_next } );
+            $self->update_entry_group_kv( $eg_prev => { next => $eg_next } );
         }
     }
 
@@ -2025,23 +2108,23 @@ sub delete_entry_group {
     else {
 
         # + we decrement the entry point count by 1
-        update_entry_point_kv( $entry_point => { count => $ep_count - 1 } );
+        $self->update_entry_point_kv( $entry_point => { count => $ep_count - 1 } );
 
         # + we decrement the index key count by 1
-        update_index_key_kv( $index_key => { count => $ik_count - 1 } );
+        $self->update_index_key_kv( $index_key => { count => $ik_count - 1 } );
 
         # + we set the prev group's next group to the entry group's next group
-        update_entry_group_kv( $eg_prev => { next => $eg_next } );
+        $self->update_entry_group_kv( $eg_prev => { next => $eg_next } );
 
         # + we set the next group's prev group to the entry group's prev group
-        update_entry_group_kv( $eg_next => { prev => $eg_prev } );
+        $self->update_entry_group_kv( $eg_next => { prev => $eg_prev } );
 
         # if the entry group's next group isn't undef and isn't under its entry point
         if( $eg_next and $eg_next !~ $ep_regx ) {
 
             # + we set the next group's entry point's prev group to the entry group's prev group
             my $next_ep_key = join( $Sp => (split( $Sp => $eg_next ))[0,1] );
-            update_entry_point_kv( $next_ep_key => { prev => $eg_prev } );
+            $self->update_entry_point_kv( $next_ep_key => { prev => $eg_prev } );
         }
 
         # if the entry group's prev group isn't undef and isn't under it's entry point
@@ -2049,9 +2132,24 @@ sub delete_entry_group {
         if( $eg_prev and $eg_prev !~ $ep_regx ) {
 
             # + we set the entry point's next group to the entry group's next group
-            update_entry_point_kv( $entry_point => { next => $eg_next } );
+            $self->update_entry_point_kv( $entry_point => { next => $eg_next } );
         }
     }
+}
+
+#---------------------------------------------------------------------
+#
+# =head2 gen_userdata( $beg, $msg, $end, $len );
+#
+# returns "$beg$msg$end" with $len padding between $msg and $end
+#
+
+sub gen_userdata {
+    my( $beg, $msg, $end, $len ) = @_;
+    return '' unless $len;
+    my $pad = $len-(length($beg)+length($end)+length($msg));
+    return         $beg.$msg.(' 'x$pad) .$end if $pad >= 0;
+    return substr( $beg.$msg, 0,  $pad ).$end;
 }
 
 #---------------------------------------------------------------------
@@ -2146,6 +2244,7 @@ sub debug_kv {
 
     $title ||= '';
     $force ||= 0;
+    my $enc  = $self->encoding;
     my $ds   = $self->datastore;
     my $dir  = $ds->dir;
     my $name = $ds->name;
@@ -2157,9 +2256,7 @@ sub debug_kv {
 
     $self->writelock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-
-    local $Enc = $self->config->{'encoding'};
-    local $Dbm = \%dbm;
+    $self->dbm( \%dbm );
 
     my @keys = sort keys %dbm;
     my $max  = sub {$_[$_[0]<$_[1]]};
@@ -2167,7 +2264,7 @@ sub debug_kv {
        $mx   = $max->( $mx, length ) for @keys;
     my $regx = qr{^ (.+) $Sep (.+) $Sep (.+) (?: $Sep (.+) )* $}x;
     for my $key ( @keys ) {
-        my @vals     = get_vals( $key, $regx );  # generic retrieve
+        my @vals     = $self->get_vals( $key, $regx );  # generic retrieve
         my @keyparts = split $Sp  => $key;
         no warnings 'uninitialized';
         if(    $key eq '*' ) { # all star
@@ -2181,6 +2278,7 @@ sub debug_kv {
     }
     push @ret, "\n";
 
+    $self->dbm( '' );
     untie %dbm;
     $self->unlock;
 
