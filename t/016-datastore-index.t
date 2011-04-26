@@ -4,12 +4,26 @@ use warnings;
 use Test::More 'no_plan';
 use File::Path;
 use URI::Escape;
-use Data::Dumper;
-$Data::Dumper::Terse    = 1;
-$Data::Dumper::Indent   = 0;
-$Data::Dumper::Sortkeys = 1;
+# don't use Data::Dumper;
 
 use Data::Bvec qw( :all );
+
+# not intended to dump perl code ...
+sub dump_kw_group {
+    my( $kw_group ) = @_;
+    my @ret;
+    push @ret, "[\n";
+    for( @$kw_group ) {
+        push @ret, "    [";
+            push @ret, join ',' => $_->[0], $_->[1], $_->[2];
+                push @ret, ",[";
+                    push @ret, join ',' => $_->[3][0], $_->[3][1];
+                push @ret, "]";
+        push @ret, "]\n";
+    }
+    push @ret, "]\n";
+    join '' => @ret;
+}
 
 #---------------------------------------------------------------------
 # tempfiles cleanup
@@ -45,9 +59,17 @@ my $uri  = join( ';' =>
     qw(
         recsep=%0A
         defaults=medium
-        user=12-%20-%7E
+        user=20-%20-%7E
     )
 );
+
+# longest eplen is 1
+# longest eglen is 10
+# user data might look like this: "[eg:dp 2 2011-04-26]"
+#                                  ----+----1----+----2
+# so that's why "user=20-..." above
+# a production index might let user be a single blank,
+# but the above info if helpful for testing
 
 {
     my $title;
@@ -813,7 +835,6 @@ _end_
         tag    => 'tp',
         phrase => 'war and peace',
         });
-die unless $bitstring;
     is( $b2n->($bitstring), '10', 'get_ph_bistring tp: war and peace' );
 
     $bitstring = $index->get_ph_bitstring ({
@@ -846,6 +867,91 @@ die unless $bitstring;
         phrase => 'w*',
         });
     is( $b2n->($bitstring), '30 40', 'get_ph_bistring sp: w*' );
+
+    my $kw_group;
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'willie',
+        });
+
+    # tried to get "[['title',1,1,[1,0]],['title',2,1,[1,1]]]",
+    # by saying 0+$2 and $2*1, but DD wouldn't cooperate
+
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: willie' );
+[
+    [title,1,1,[1,0]]
+    [title,2,1,[1,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'elephant',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: elephant' );
+[
+    [title,1,3,[7,0]]
+    [title,2,3,[7,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'elephants',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: elephants' );
+[
+    [title,1,1,[7,2]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'elephant*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: elephant*' );
+[
+    [title,1,3,[7,0]]
+    [title,2,3,[7,1]]
+    [title,1,1,[7,2]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'e*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: e*' );
+[
+    [title,1,3,[7,0]]
+    [title,2,3,[7,1]]
+    [title,1,1,[7,2]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => '*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: *' );
+[
+    [title,13,22,[10,0]]
+    [title,23,2,[10,1]]
+    [title,1,3,[7,0]]
+    [title,2,3,[7,1]]
+    [title,1,1,[7,2]]
+    [title,14,31,[12,0]]
+    [title,24,3,[12,1]]
+    [title,1,2,[5,0]]
+    [title,2,2,[5,1]]
+    [title,12,13,[9,0]]
+    [title,22,1,[9,1]]
+    [title,1,1,[1,0]]
+    [title,2,1,[1,1]]
+    [title,3,1,[14,0]]
+]
+_end_
 
 }
 

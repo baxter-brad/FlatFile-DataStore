@@ -92,7 +92,6 @@ use URI::Escape;
 use File::Path;
 use Fcntl qw(:DEFAULT :flock);
 use Digest::MD5 qw(md5_hex);
-use Data::Dumper;
 use Carp;
 
 use FlatFile::DataStore::Preamble;

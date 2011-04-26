@@ -231,8 +231,6 @@ use warnings;
 use Encode;
 use Fcntl qw(:DEFAULT :flock);
 use Data::Dumper;
-local $Data::Dumper::Terse  = 1;
-local $Data::Dumper::Indent = 0;
 
 use Carp;
 
@@ -337,6 +335,8 @@ sub init {
         local $Data::Dumper::Quotekeys = 0;
         local $Data::Dumper::Pair      = '=>';
         local $Data::Dumper::Useqq     = 1;
+        local $Data::Dumper::Terse  = 1;
+        local $Data::Dumper::Indent = 0;
 
         $config_rec = $ds->create({
             data => Dumper( $config ),
@@ -525,58 +525,63 @@ sub get_kw_group {
 
             if( length $keyword <= $eglen ) {
 
-                # locate the starting entry point
-                my $ep;
-                for( split $Sp => $self->retrieve_index_key_kv( $index_key => 'eplist' ) ) {
-                    if( $keyword =~ m{^$_} ) {
-                        $ep = $_;
-                        last;
-                    }
+                # locate the starting entry point(s)
+                my $eplist = $self->retrieve_index_key_kv( $index_key => 'eplist' );
+
+                my @eps;
+                if( length $keyword == 0 ) {
+                    @eps = split $Sp => $eplist;
+                }
+                else {
+                    for( split $Sp => $eplist ) { push @eps, $_ if $keyword =~ m{^$_} }
                 }
 
-                # start traversing entry groups
-                my $match_key = join $Sp => $index_key, $ep, $keyword;
-                my $found;
+                for my $ep ( @eps ) {
+                    # start traversing entry groups
+                    my $match_key = qr{^$index_key$Sp$ep$Sp\Q$keyword};
+                    my $found;
 
-                my $next_group = $self->retrieve_entry_point_kv( "$index_key$Sp$ep" => 'next' );
-                while( $next_group ) {
+                    my $next_group = $self->retrieve_entry_point_kv( "$index_key$Sp$ep" => 'next' );
+                    my $eg_keynum;
+                    while( $next_group ) {
 
-                    if( $match_key =~ m{^$next_group} ) {
-                        $found++;
-                        my( $eg_keynum, $next_group ) = $self->retrieve_entry_group_kv( $next_group, 'keynum', 'next' );
-                        my $eg_rec = $ds->retrieve( $eg_keynum );
+                        if( $next_group =~ /$match_key/ ) {
+                            $found++;
+                            ( $eg_keynum, $next_group ) = $self->retrieve_entry_group_kv( $next_group, 'keynum', 'next' );
+                            my $eg_rec = $ds->retrieve( $eg_keynum );
 
-                        # loop through the index entries in this group
-                        # we want every index entry, because we know
-                        # they all match our keyword
+                            # loop through the index entries in this group
+                            # we want every index entry, because we know
+                            # they all match our keyword
 
-                        # XXX would split be better ... ?
-                        my $match_space = quotemeta $Sp;
-                        my $match_sep   = quotemeta $Sep;
-                        my $matchrx = qr{
-                            $match_space ([a-zA-Z0-9]+)  # $1 field
-                            $match_space ([0-9]+)        # $2 occ
-                            $match_space ([0-9]+)        # $3 pos
-                            $match_sep
-                            }x;
+                            # XXX would split be better ... ?
+                            my $match_space = quotemeta $Sp;
+                            my $match_sep   = quotemeta $Sep;
+                            my $matchrx = qr{
+                                $match_space ([a-zA-Z0-9]+)  # $1 field
+                                $match_space ([0-9]+)        # $2 occ
+                                $match_space ([0-9]+)        # $3 pos
+                                $match_sep
+                                }x;
 
-                        my $ie_offset = 0;
-                        for( split $nl => $eg_rec->data ) {
-                            if( /$matchrx/ ) {
-                                push @matches, [ $1, $2, $3, [ $eg_keynum, $ie_offset ] ];
+                            my $ie_offset = 0;
+                            for( split $nl => $eg_rec->data ) {
+                                if( /$matchrx/ ) {
+                                    push @matches, [ $1, $2, $3, [ $eg_keynum, $ie_offset ] ];
+                                }
+                                else {
+                                    croak /Expected a match/;
+                                }
+                                $ie_offset++;
                             }
-                            else {
-                                croak /Expected a match/;
-                            }
-                            $ie_offset++;
                         }
-                    }
-                    else {
-                        last if $found;  # short circuit the rest
-                    }
+                        else {
+                            $next_group = ''; # in case we don't match
+                            last if $found;  # short circuit the rest
+                        }
 
+                    }
                 }
-
             }
 
             # else keyword is longer than our entry group length,
@@ -649,7 +654,6 @@ sub get_kw_group {
                     chomp;
                     if( /$matchrx/ ) {
                         push @matches, [ $1, $2, $3, [ $eg_keynum, $ie_offset ] ];
-                        last;
                     }
                     last if $got == $len;
                     $ie_offset++;
@@ -858,11 +862,11 @@ sub get_ph_bitstring {
                    $match_phrase .= '.*';  # truncated
 
                 my $matchrx = qr{^
-                    $match_tag     $match_space  # tag
-                    $match_phrase                # phrase
+                    $match_tag     $match_space  #    tag
+                    $match_phrase                #    phrase
                     $match_sep
-                    ([0-9]+)       $match_space  # count
-                    (.*)                         # bitstring
+                    ([0-9]+)       $match_space  # $1 count
+                    (.*)                         # $2 bitstring
                     $}x;
 
                 my $eg_keynum         = $self->retrieve_entry_group_kv( $entry_group => 'keynum' );
@@ -876,7 +880,7 @@ sub get_ph_bitstring {
                     chomp;
                     if( /$matchrx/ ) {
                         $found++;
-                        push @matches, [ $1, $2 ];  # (count) (bitstring)
+                        push @matches, [ $1, $2 ];
                     }
                     else {
                         last if $found;  # short circuit the rest
@@ -897,11 +901,11 @@ sub get_ph_bitstring {
                 my $match_phrase  = quotemeta $phrase;
 
                 my $matchrx = qr{^
-                    $match_tag     $match_space  # tag
-                    $match_phrase                # phrase
+                    $match_tag     $match_space  #    tag
+                    $match_phrase                #    phrase
                     $match_sep
-                    ([0-9]+)       $match_space  # count
-                    (.*)                         # bitstring
+                    ([0-9]+)       $match_space  # $1 count
+                    (.*)                         # $2 bitstring
                     $}x;
 
                 my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
@@ -913,7 +917,7 @@ sub get_ph_bitstring {
                     chomp;
                     if( /$matchrx/ ) {
                         push @matches, [ $1, $2 ];
-                        last;
+                        last;  # only one phrase will match
                     }
                     last if $got == $len;
                 }
@@ -1033,21 +1037,24 @@ sub get_kw_keys {
 
     # ascii, maybe 0-9 even
     for( $parms->{'field'} ) {
-        croak qq/Missing: field/    unless defined;
+        # croak qq/Missing: field/    unless defined;  # XXX optional ...
+        last unless defined;
         croak qq/Invalid field: $_/ unless /^[0-9A-Za-z]+$/;
         $index_entry .= " $_";
     }
 
     # 0-9
     for( $parms->{'occ'} ) {
-        croak qq/Missing: occ/    unless defined;
+        # croak qq/Missing: occ/    unless defined;  # XXX optional ...
+        last unless defined;
         croak qq/Invalid occ: $_/ unless /^[0-9]+$/;
         $index_entry .= " $_";
     }
 
     # 0-9
     for( $parms->{'pos'} ) {
-        croak qq/Missing: pos/    unless defined;
+        # croak qq/Missing: pos/    unless defined;  # XXX optional ...
+        last unless defined;
         croak qq/Invalid pos: $_/ unless /^[0-9]+$/;
         $index_entry .= " $_";
     }
@@ -2146,6 +2153,8 @@ sub set_vals {
         $_ = '' unless defined;
     }
 
+    local $Data::Dumper::Terse  = 1;
+    local $Data::Dumper::Indent = 0;
     my $val = Dumper \@vals;
        $val = Encode::encode( $enc, $val );
 
