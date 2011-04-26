@@ -872,21 +872,6 @@ _end_
 
     $kw_group = $index->get_kw_group ({
         tag     => 'ti',
-        keyword => 'willie',
-        });
-
-    # tried to get "[['title',1,1,[1,0]],['title',2,1,[1,1]]]",
-    # by saying 0+$2 and $2*1, but DD wouldn't cooperate
-
-    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: willie' );
-[
-    [title,1,1,[1,0]]
-    [title,2,1,[1,1]]
-]
-_end_
-
-    $kw_group = $index->get_kw_group ({
-        tag     => 'ti',
         keyword => 'elephant',
         });
     is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: elephant' );
@@ -927,6 +912,128 @@ _end_
     [title,1,3,[7,0]]
     [title,2,3,[7,1]]
     [title,1,1,[7,2]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'willie',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: willie' );
+[
+    [title,1,1,[1,0]]
+    [title,2,1,[1,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'willie*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: willie*' );
+[
+    [title,1,1,[1,0]]
+    [title,2,1,[1,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'willi*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: willi*' );
+[
+    [title,1,1,[1,0]]
+    [title,2,1,[1,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'will*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: will*' );
+[
+    [title,1,1,[1,0]]
+    [title,2,1,[1,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'wil*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: wil*' );
+[
+    [title,1,1,[1,0]]
+    [title,2,1,[1,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'wi*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: wi*' );
+[
+    [title,1,1,[1,0]]
+    [title,2,1,[1,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'war',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: war' );
+[
+    [title,12,13,[9,0]]
+    [title,22,1,[9,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'wa*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: wa*' );
+[
+    [title,12,13,[9,0]]
+    [title,22,1,[9,1]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'www',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: www' );
+[
+    [title,3,1,[14,0]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'ww*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: ww*' );
+[
+    [title,3,1,[14,0]]
+]
+_end_
+
+    $kw_group = $index->get_kw_group ({
+        tag     => 'ti',
+        keyword => 'w*',
+        });
+    is( dump_kw_group($kw_group), <<'_end_', 'get_kw_group ti: w*' );
+[
+    [title,12,13,[9,0]]
+    [title,22,1,[9,1]]
+    [title,1,1,[1,0]]
+    [title,2,1,[1,1]]
+    [title,3,1,[14,0]]
 ]
 _end_
 

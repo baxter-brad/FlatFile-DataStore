@@ -527,7 +527,6 @@ sub get_kw_group {
 
                 # locate the starting entry point(s)
                 my $eplist = $self->retrieve_index_key_kv( $index_key => 'eplist' );
-
                 my @eps;
                 if( length $keyword == 0 ) {
                     @eps = split $Sp => $eplist;
@@ -538,16 +537,14 @@ sub get_kw_group {
 
                 for my $ep ( @eps ) {
                     # start traversing entry groups
-                    my $match_key = qr{^$index_key$Sp$ep$Sp\Q$keyword};
-                    my $found;
-
+                    my $match_key  = qr{^$index_key$Sp$ep$Sp\Q$keyword};
                     my $next_group = $self->retrieve_entry_point_kv( "$index_key$Sp$ep" => 'next' );
-                    my $eg_keynum;
+                    my( $eg_keynum, $found );
                     while( $next_group ) {
 
                         if( $next_group =~ /$match_key/ ) {
                             $found++;
-                            ( $eg_keynum, $next_group ) = $self->retrieve_entry_group_kv( $next_group, 'keynum', 'next' );
+                            ( $eg_keynum, $next_group ) = $self->retrieve_entry_group_kv( $next_group => 'keynum', 'next' );
                             my $eg_rec = $ds->retrieve( $eg_keynum );
 
                             # loop through the index entries in this group
@@ -576,7 +573,7 @@ sub get_kw_group {
                             }
                         }
                         else {
-                            $next_group = ''; # in case we don't match
+                            $next_group = $self->retrieve_entry_group_kv( $next_group => 'next' );
                             last if $found;  # short circuit the rest
                         }
 
