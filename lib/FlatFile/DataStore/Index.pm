@@ -1353,45 +1353,21 @@ sub add_item {
 
     # set the bit in the 'ep', 'ik', and 'all' bitstrings
     # this logic is safe for 'add' (but not for 'delete') ...
+    my $all_keynum = $self->retrieve_all_star_kv();
+    my $ik_keynum  = $self->retrieve_index_key_kv( $index_key => 'keynum' );
+    my $ep_keynum  = $self->retrieve_entry_point_kv( $entry_point => 'keynum' );
 
-    if( my $all_keynum = $self->retrieve_all_star_kv() ) {
-        my $all_rec = $ds->retrieve( $all_keynum );
-        my( $all_howmany, $all_bitstring ) = split $Sp => $all_rec->data;
-        my $all_vec = str2bit uncompress $all_bitstring;
-        set_bit( $all_vec, $num );
-        my $new_bitstring = compress bit2str $all_vec;
-        if( $new_bitstring ne $all_bitstring ) {
+    for my $keynum ( $all_keynum, $ik_keynum, $ep_keynum ) {
+        next unless $keynum;
+        my $rec       = $ds->retrieve( $keynum );
+        my $bitstring = (split $Sp => $rec->data)[-1];
+        my $vec       = str2bit uncompress $bitstring;
+        set_bit( $vec, $num );
+        my $new_bitstring = compress bit2str $vec;
+        if( $new_bitstring ne $bitstring ) {
             $ds->update({
-                record => $all_rec,
-                data   => howmany( $all_vec ).$Sp.$new_bitstring
-                });
-        }
-    }
-
-    if( my $ik_keynum = $self->retrieve_index_key_kv( $index_key => 'keynum' ) ) {
-        my $ik_rec = $ds->retrieve( $ik_keynum );
-        my( $ik_howmany, $ik_bitstring ) = split $Sp => $ik_rec->data;
-        my $ik_vec = str2bit uncompress $ik_bitstring;
-        set_bit( $ik_vec, $num );
-        my $new_bitstring = compress bit2str $ik_vec;
-        if( $new_bitstring ne $ik_bitstring ) {
-            $ds->update({
-                record => $ik_rec,
-                data   => howmany( $ik_vec ).$Sp.$new_bitstring
-                });
-        }
-    }
-
-    if( my $ep_keynum = $self->retrieve_entry_point_kv( $entry_point => 'keynum' ) ) {
-        my $ep_rec = $ds->retrieve( $ep_keynum );
-        my( $ep_howmany, $ep_bitstring ) = split $Sp => $ep_rec->data;
-        my $ep_vec = str2bit uncompress $ep_bitstring;
-        set_bit( $ep_vec, $num );
-        my $new_bitstring = compress bit2str $ep_vec;
-        if( $new_bitstring ne $ep_bitstring ) {
-            $ds->update({
-                record => $ep_rec,
-                data   => howmany( $ep_vec ).$Sp.$new_bitstring
+                record => $rec,
+                data   => howmany( $vec ) . $Sp . $new_bitstring
                 });
         }
     }
@@ -1518,7 +1494,7 @@ sub delete_item {
                     # + we delete the entry group from the dbm file
                     $self->delete_entry_group( $entry_group, $entry_point, $index_key );
 
-                    # (XXX really no need to delete the record -- it's simply ignored)
+                    # delete the record
                     $ds->delete({ record => $group_rec, data => '' });
                 }
 
@@ -1664,7 +1640,7 @@ sub update_index_key_kv {
         croak /Unrecognized field: $field/;
     }
 
-die "caller: ".(caller)[2] if $key eq '';  # debug
+die "caller: ".(caller)[2] if $key eq '';  # XXX debug
 
     $self->set_vals( $key => @vals );
 }
@@ -1717,7 +1693,7 @@ sub update_entry_point_kv {
         croak /Unrecognized field: $field/;
     }
 
-die "caller: ".(caller)[2] if $key eq '';  # debug
+die "caller: ".(caller)[2] if $key eq '';  # XXX debug
 
     $self->set_vals( $key => @vals );
 }
@@ -1824,6 +1800,22 @@ sub update_index_key_ds {
 #   write all_rec => count all_bitstring
 #   return all_rec
 #
+#   There is a disconnect between the "all star" entry and the act of
+#   deleting a record.  Logically, it is deleting a record that should
+#   make the bit for the record be set to 0 in the all star entry.
+#   But (XXX so far) we are not calling any index routines for adding
+#   or deleting a record.  We are only calling them when we add or
+#   delete index entries, i.e., when we're indexing a record.
+#
+#   To maintain the above logic, we can force each record to have an
+#   'id' field that is indexed.  That way, the id index entry for a
+#   record will always be present until the record is deleted, at
+#   which time the all star bit should be set to 0 by virtue of the
+#   fact that there are no longer any index entries for the record.
+#
+#   XXX investigate how to update the all star entry on record
+#   XXX add/delete
+#
 
 sub update_all_star_ds {
     my( $self ) = @_;
@@ -1913,7 +1905,7 @@ sub update_entry_group_kv {
         croak /Unrecognized field: $field/;
     }
 
-die "caller: ".(caller)[2] if $key eq '';  # debug
+die "caller: ".(caller)[2] if $key eq '';  # XXX debug
 
     $self->set_vals( $key => @vals );
 }
@@ -1983,7 +1975,7 @@ sub set_vals {
 
 #---------------------------------------------------------------------
 #
-# =head2 delete_key( $key )
+# =head2 delete_kv( $key )
 #
 #     $key: key whose value we're setting (key not encoded yet)
 #
@@ -1994,7 +1986,7 @@ sub set_vals {
 # =cut
 #
 
-sub delete_key {
+sub delete_kv {
     my( $self, $key ) = @_;
 
     my $enc = $self->encoding;
@@ -2062,14 +2054,14 @@ sub delete_entry_group {
     my( $self, $entry_group, $entry_point, $index_key ) = @_;
 
     my( $eg_keynum, $eg_count, $eg_prev, $eg_next ) = $self->retrieve_entry_group_kv( $entry_group );
-    my $ep_count = $self->retrieve_entry_point_kv( $entry_point => 'count' );
-    my( $ik_count, $eplist ) = $self->retrieve_index_key_kv( $index_key => 'count', 'eplist' );
+    my( $ep_keynum, $ep_count ) = $self->retrieve_entry_point_kv( $entry_point => 'keynum', 'count' );
+    my( $ik_keynum, $ik_count, $eplist ) = $self->retrieve_index_key_kv( $index_key );
 
     my $ep_regx = qr/^$entry_point/;
     my $ep = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
 
-    # + we delete the entry group
-    $self->delete_key( $entry_group );
+    # + we delete the entry group (group_rec deleted in caller)
+    $self->delete_kv( $entry_group );
 
     # if entry group is the only group under its entry point
     #   - it's the only one if its prev group *and* next group are not under its entry point
@@ -2077,14 +2069,20 @@ sub delete_entry_group {
     if( (!$eg_prev || $eg_prev !~ $ep_regx) &&
         (!$eg_next || $eg_next !~ $ep_regx) ){
 
+        my $ds = $self->datastore;
+
         # + we delete entry point, too
-        $self->delete_key( $entry_point );
+        $self->delete_kv( $entry_point );
+        my $ep_rec = $ds->retrieve( $ep_keynum );
+        $ds->delete({ record => $ep_rec, data => '' });
 
         # if entry point is the only one in the index key eplist
         if( $eplist eq $ep ) {
 
             # + we delete the index key, too
-            $self->delete_key( $index_key );
+            $self->delete_kv( $index_key );
+            my $ik_rec = $ds->retrieve( $ik_keynum );
+            $ds->delete({ record => $ik_rec, data => '' });
         }
 
         # else if entry point isn't the only one
