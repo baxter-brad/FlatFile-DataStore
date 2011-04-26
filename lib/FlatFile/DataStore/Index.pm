@@ -1759,11 +1759,15 @@ sub update_entry_point_ds {
         }
     }
 
-    my $ep_rec = $ds->retrieve( $ep_keynum );
-    $ds->update({
-        record => $ep_rec,
-        data   => howmany( $ep_vec ) . $Sp . compress bit2str $ep_vec,
-        });
+    my $ep_rec        = $ds->retrieve( $ep_keynum );
+    my $old_bitstring = (split $Sp => $ep_rec->data)[-1];
+    my $new_bitstring = compress bit2str $ep_vec;
+    if( $new_bitstring ne $old_bitstring ) {
+        $ds->update({
+            record => $ep_rec,
+            data   => howmany( $ep_vec ) . $Sp . $new_bitstring
+            });
+    }
 
     return $ep_rec;
 }
@@ -1798,11 +1802,15 @@ sub update_index_key_ds {
         $ik_vec = $ik_vec | $ep_vec;
     }
 
-    my $ik_rec = $ds->retrieve( $ik_keynum );
-    $ds->update({
-        record => $ik_rec,
-        data   => howmany( $ik_vec ) . $Sp . compress bit2str $ik_vec,
-        });
+    my $ik_rec        = $ds->retrieve( $ik_keynum );
+    my $old_bitstring = (split $Sp => $ik_rec->data)[-1];
+    my $new_bitstring = compress bit2str $ik_vec;
+    if( $new_bitstring ne $old_bitstring ) {
+        $ds->update({
+            record => $ik_rec,
+            data   => howmany( $ik_vec ) . $Sp . $new_bitstring
+            });
+    }
 
     return $ik_rec;
 }
@@ -1845,11 +1853,15 @@ sub update_all_star_ds {
         $all_vec = $all_vec | $ik_vec;
     }
 
-    my $all_rec = $ds->retrieve( $all_keynum );
-    $ds->update({
-        record => $all_rec,
-        data   => howmany( $all_vec ) . $Sp . compress bit2str $all_vec,
-        });
+    my $all_rec       = $ds->retrieve( $all_keynum );
+    my $old_bitstring = (split $Sp => $all_rec->data)[-1];
+    my $new_bitstring = compress bit2str $all_vec;
+    if( $new_bitstring ne $old_bitstring ) {
+        $ds->update({
+            record => $all_rec,
+            data   => howmany( $all_vec ) . $Sp . $new_bitstring
+            });
+    }
 
     return $all_rec;
 }
