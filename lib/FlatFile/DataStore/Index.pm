@@ -488,20 +488,183 @@ sub get_kw_group {
     my $ds   = $self->datastore;
     my $dir  = $ds->dir;
     my $name = $ds->name;
+    my $nl   = $ds->recsep;  # "newline" for datastore
 
     my $keys        = $self->get_kw_keys( $parms );
     my $entry_group = $keys->{'entry_group'};
     my $truncated   = $keys->{'truncated'};
 
+    my $tag         = $parms->{'tag'};
+    my $keyword     = $parms->{'keyword'};
+
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
     $self->dbm( \%dbm );
 
-    # XXX yada yada
+    my @matches;
+
+    TRY: {
+        my $index_key = $keys->{'index_key'};
+        last TRY unless exists $dbm{ $index_key };
+
+        if( $truncated ) {
+
+            # we can't use the bitstrings in ik/ep for truncation
+            # because we need field/occ/pos for adjacency
+
+            # the ik/ep bitstrings are still needed for updating
+            # the all star bitstring
+
+            my $eglen = $keys->{'eglen'};
+
+            $keyword =~ s{[$Trunc]$}{};  # remove truncation char
+
+            # if keyword is shorter than our entry group length
+            # then we know that every index entry in every matching
+            # entry group will match our keyword
+
+            if( length $keyword <= $eglen ) {
+
+                # locate the starting entry point
+                my $ep;
+                for( split $Sp => $self->retrieve_index_key_kv( $index_key => 'eplist' ) ) {
+                    if( $keyword =~ m{^$_} ) {
+                        $ep = $_;
+                        last;
+                    }
+                }
+
+                # start traversing entry groups
+                my $match_key = join $Sp => $index_key, $ep, $keyword;
+                my $found;
+
+                my $next_group = $self->retrieve_entry_point_kv( "$index_key$Sp$ep" => 'next' );
+                while( $next_group ) {
+
+                    if( $match_key =~ m{^$next_group} ) {
+                        $found++;
+                        my( $eg_keynum, $next_group ) = $self->retrieve_entry_group_kv( $next_group, 'keynum', 'next' );
+                        my $eg_rec = $ds->retrieve( $eg_keynum );
+
+                        # loop through the index entries in this group
+                        # we want every index entry, because we know
+                        # they all match our keyword
+
+                        # XXX would split be better ... ?
+                        my $match_space = quotemeta $Sp;
+                        my $match_sep   = quotemeta $Sep;
+                        my $matchrx = qr{
+                            $match_space ([a-zA-Z0-9]+)  # $1 field
+                            $match_space ([0-9]+)        # $2 occ
+                            $match_space ([0-9]+)        # $3 pos
+                            $match_sep
+                            }x;
+
+                        my $ie_offset = 0;
+                        for( split $nl => $eg_rec->data ) {
+                            if( /$matchrx/ ) {
+                                push @matches, [ $1, $2, $3, [ $eg_keynum, $ie_offset ] ];
+                            }
+                            else {
+                                croak /Expected a match/;
+                            }
+                            $ie_offset++;
+                        }
+                    }
+                    else {
+                        last if $found;  # short circuit the rest
+                    }
+
+                }
+
+            }
+
+            # else keyword is longer than our entry group length,
+            # so we need to get the one matching entry group and
+            # find every matching index entry in it
+
+            else {
+                my $match_space    = quotemeta $Sp;
+                my $match_sep      = quotemeta $Sep;
+                my $match_tag      = quotemeta $tag;
+                my $match_keyword  = quotemeta $keyword;
+                   $match_keyword .= "[^$match_space]*";  # truncated
+
+                my $matchrx = qr{^
+                    $match_tag     $match_space  #    tag
+                    $match_keyword $match_space  #    keyword
+                    ([a-zA-Z0-9]+) $match_space  # $1 field
+                    ([0-9]+)       $match_space  # $2 occ
+                    ([0-9]+)       $match_sep    # $3 pos
+                    }x;
+
+                my $eg_keynum         = $self->retrieve_entry_group_kv( $entry_group => 'keynum' );
+                my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
+
+                my $found;
+                my $got;
+                local $/ = $nl;  # $fh is opened in binmode
+                my $ie_offset = 0;
+                while( <$fh> ) {
+                    last if ($got += length) > $len;
+                    chomp;
+                    if( /$matchrx/ ) {
+                        $found++;
+                        push @matches, [ $1, $2, $3, [ $eg_keynum, $ie_offset ] ];
+                    }
+                    else {
+                        last if $found;  # short circuit the rest
+                    }
+                    last if $got == $len;
+                    $ie_offset++;
+                }
+                close $fh;
+            }
+
+        }  # if truncated
+
+        else {
+            if( my $eg_keynum = $self->retrieve_entry_group_kv( $entry_group => 'keynum' ) ) {
+
+                my $match_space    = quotemeta $Sp;
+                my $match_sep      = quotemeta $Sep;
+                my $match_tag      = quotemeta $tag;
+                my $match_keyword  = quotemeta $keyword;
+
+                my $matchrx = qr{^
+                    $match_tag     $match_space  #    tag
+                    $match_keyword $match_space  #    keyword
+                    ([a-zA-Z0-9]+) $match_space  # $1 field
+                    ([0-9]+)       $match_space  # $2 occ
+                    ([0-9]+)       $match_sep    # $3 pos
+                    }x;
+
+                my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
+
+                my $got;
+                local $/ = $nl;  # $fh is opened in binmode
+                my $ie_offset = 0;
+                while( <$fh> ) {
+                    last if ($got += length) > $len;
+                    chomp;
+                    if( /$matchrx/ ) {
+                        push @matches, [ $1, $2, $3, [ $eg_keynum, $ie_offset ] ];
+                        last;
+                    }
+                    last if $got == $len;
+                    $ie_offset++;
+                }
+                close $fh;
+            }
+        }
+    }  # TRY
 
     $self->dbm( '' );
     untie %dbm;
     $self->unlock;
+
+    return unless @matches;
+    return       \@matches;
 }
 
 #---------------------------------------------------------------------
@@ -595,12 +758,6 @@ sub get_ph_bitstring {
     my $tag         = $parms->{'tag'};
     my $phrase      = $parms->{'phrase'};
 
-    my $match_tag     = quotemeta $tag;
-    my $match_phrase  = quotemeta $phrase;
-       $match_phrase .= '.*' if $truncated;
-
-    my $matchrx = qr{^$match_tag$Sp$match_phrase$Sep([0-9]+)$Sp(.*)$};
-
     $self->readlock;
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
     $self->dbm( \%dbm );
@@ -615,7 +772,7 @@ sub get_ph_bitstring {
             my $eplen     = $keys->{'eplen'};
             my $eglen     = $keys->{'eglen'};
 
-            $phrase =~ s{ [$Trunc] $}{}x;  # remove truncation char
+            $phrase =~ s{[$Trunc]$}{};  # remove truncation char
 
             # if phrase was "*", i.e., "find all"
 
@@ -635,7 +792,7 @@ sub get_ph_bitstring {
 
                 # get entry point bitstring(s)
                 for my $ep ( split $Sp => $self->retrieve_index_key_kv( $index_key => 'eplist' ) ) {
-                    if( $ep =~ m{^ $phrase }x ) {
+                    if( $ep =~ m{^$phrase} ) {
                         my $ep_keynum = $self->retrieve_entry_point_kv( "$index_key$Sp$ep" => 'keynum' );
                         my $ep_rec = $ds->retrieve( $ep_keynum );
                         push @matches, [ split $Sp => $ep_rec->data ];
@@ -648,12 +805,12 @@ sub get_ph_bitstring {
             # then we know that every index entry in every matching
             # entry group will match our phrase
 
-            elsif( length $phrase < $eglen ) {
+            elsif( length $phrase <= $eglen ) {
 
                 # locate the starting entry point
                 my $ep;
                 for( split $Sp => $self->retrieve_index_key_kv( $index_key => 'eplist' ) ) {
-                    if( $phrase =~ m{^ $_ }x ) {
+                    if( $phrase =~ m{^$_} ) {
                         $ep = $_;
                         last;
                     }
@@ -661,12 +818,12 @@ sub get_ph_bitstring {
 
                 # start traversing entry groups
                 my $match_key = join $Sp => $index_key, $ep, $phrase;
-                my $found;  # XXX we might not need this -- have to think ...
+                my $found;
 
-                my $this_group = $self->retrieve_entry_point_kv_kv( "$index_key$Sp$ep" => 'next' );
+                my $this_group = $self->retrieve_entry_point_kv( "$index_key$Sp$ep" => 'next' );
                 while( $this_group ) {
 
-                    if( $match_key =~ m{^ $this_group }x ) {
+                    if( $match_key =~ m{^$this_group} ) {
                         $found++;
                         my( $eg_keynum, $this_group ) = $self->retrieve_entry_group_kv( $this_group, 'keynum', 'next' );
                         my $eg_rec = $ds->retrieve( $eg_keynum );
@@ -676,7 +833,7 @@ sub get_ph_bitstring {
                         # they all match our phrase
 
                         for( split $nl => $eg_rec->data ) {
-                            if( m{ $Sep ([0-9]+) $Sp (.*) $}x ) {
+                            if( m{ $Sep ([0-9]+) $Sp (.*) $}x ) {  # resume
                                 push @matches, [ $1, $2 ];  # (count) (bitstring)
                             }
                         }
@@ -694,10 +851,19 @@ sub get_ph_bitstring {
             # find every matching index entry in it
 
             else {
+                my $match_space   = quotemeta $Sp;
+                my $match_sep     = quotemeta $Sep;
                 my $match_tag     = quotemeta $tag;
                 my $match_phrase  = quotemeta $phrase;
                    $match_phrase .= '.*';  # truncated
-                my $matchrx       = qr{^$match_tag$Sp$match_phrase$Sep([0-9]+)$Sp(.*)$};
+
+                my $matchrx = qr{^
+                    $match_tag     $match_space  # tag
+                    $match_phrase                # phrase
+                    $match_sep
+                    ([0-9]+)       $match_space  # count
+                    (.*)                         # bitstring
+                    $}x;
 
                 my $eg_keynum         = $self->retrieve_entry_group_kv( $entry_group => 'keynum' );
                 my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
@@ -725,6 +891,19 @@ sub get_ph_bitstring {
         else {
             if( my $eg_keynum = $self->retrieve_entry_group_kv( $entry_group => 'keynum' ) ) {
 
+                my $match_space   = quotemeta $Sp;
+                my $match_sep     = quotemeta $Sep;
+                my $match_tag     = quotemeta $tag;
+                my $match_phrase  = quotemeta $phrase;
+
+                my $matchrx = qr{^
+                    $match_tag     $match_space  # tag
+                    $match_phrase                # phrase
+                    $match_sep
+                    ([0-9]+)       $match_space  # count
+                    (.*)                         # bitstring
+                    $}x;
+
                 my( $fh, $pos, $len ) = $ds->locate_record_data( $eg_keynum );
 
                 my $got;
@@ -747,7 +926,7 @@ sub get_ph_bitstring {
     untie %dbm;
     $self->unlock;
 
-    return                unless @matches;
+    return unless @matches;
 
     my( $count, $bitstring );
     if( @matches == 1 ) {
@@ -844,7 +1023,7 @@ sub get_kw_keys {
     for( $parms->{'keyword'} ) {
         croak qq/Missing: keyword/ unless defined;
         croak qq/Keyword may not contain spaces: $_/ if /$Sp/;
-        $truncated = 1 if m{ [$Trunc] $}x;
+        $truncated = 1 if m{[$Trunc]$};
         my $ep = substr $_, 0, $eplen;
         my $eg = substr $_, 0, $eglen;
         $entry_point = "$index_key $ep";
@@ -940,7 +1119,7 @@ sub get_ph_keys {
     for( $parms->{'phrase'} ) {
         croak qq/Missing: phrase/ unless defined;
         croak qq/Phrase may not contain double spaces: $_/ if /$Sep/;
-        $truncated = 1 if m{ [$Trunc] $}x;
+        $truncated = 1 if m{[$Trunc]$};
         my $ep = substr $_, 0, $eplen;
         my $eg = substr $_, 0, $eglen;
         $entry_point = "$index_key $ep";
@@ -2272,9 +2451,8 @@ sub debug_kv {
     my $max  = sub {$_[$_[0]<$_[1]]};
     my $mx   = 0;
        $mx   = $max->( $mx, length ) for @keys;
-    my $regx = qr{^ (.+) $Sep (.+) $Sep (.+) (?: $Sep (.+) )* $}x;
     for my $key ( @keys ) {
-        my @vals     = $self->get_vals( $key, $regx );  # generic retrieve
+        my @vals     = $self->get_vals( $key );  # generic retrieve
         my @keyparts = split $Sp  => $key;
         no warnings 'uninitialized';
         if(    $key eq '*' ) { # all star

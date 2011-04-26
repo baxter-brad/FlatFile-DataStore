@@ -806,62 +806,46 @@ tp w willie t |     27 |      1  | tp w war and  |               |
 
 _end_
 
+    my $b2n = sub { join ' ' => bit2num str2bit uncompress $_[0] };
+
     my $bitstring;
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'tp',
         phrase => 'war and peace',
         });
-
-    my @nums;
-    @nums = bit2num str2bit uncompress $bitstring;
-
-    is( "@nums", '10', 'get_ph_bistring tp: war and peace' );
+die unless $bitstring;
+    is( $b2n->($bitstring), '10', 'get_ph_bistring tp: war and peace' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'www',
         });
-
-    @nums = bit2num str2bit uncompress $bitstring;
-
-    is( "@nums", '30', 'get_ph_bistring sp: www' );
+    is( $b2n->($bitstring), '30', 'get_ph_bistring sp: www' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'little house on the prairie',
         });
-
-    @nums = bit2num str2bit uncompress $bitstring;
-
-    is( "@nums", '20', 'get_ph_bistring sp: little house on the prairie' );
+    is( $b2n->($bitstring), '20', 'get_ph_bistring sp: little house on the prairie' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'willie the elephant',
         });
-
-    @nums = bit2num str2bit uncompress $bitstring;
-
-    is( "@nums", '40', 'get_ph_bistring sp: willie the elephant' );
+    is( $b2n->($bitstring), '40', 'get_ph_bistring sp: willie the elephant' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => '*',
         });
-
-    @nums = bit2num str2bit uncompress $bitstring;
-
-    is( "@nums", '20 30 40', 'get_ph_bistring sp: *' );
+    is( $b2n->($bitstring), '20 30 40', 'get_ph_bistring sp: *' );
 
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'w*',
         });
-
-    @nums = bit2num str2bit uncompress $bitstring;
-
-    is( "@nums", '30 40', 'get_ph_bistring sp: w*' );
+    is( $b2n->($bitstring), '30 40', 'get_ph_bistring sp: w*' );
 
 }
 
