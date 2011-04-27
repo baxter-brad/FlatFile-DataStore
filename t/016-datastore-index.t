@@ -17,7 +17,7 @@ sub dump_kw_group {
         push @ret, "    [";
             push @ret, join ',' => $_->[0], $_->[1], $_->[2];
                 push @ret, ",[";
-                    push @ret, join ',' => $_->[3][0], $_->[3][1];
+                    push @ret, join ',' => @{$_->[3]};
                 push @ret, "]";
         push @ret, "]\n";
     }
@@ -835,38 +835,38 @@ _end_
         tag    => 'tp',
         phrase => 'war and peace',
         });
-    is( $b2n->($bitstring), '10', 'get_ph_bistring tp: war and peace' );
+    is( $b2n->($bitstring), '10', 'get_ph_bitstring tp: war and peace' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'www',
         });
-    is( $b2n->($bitstring), '30', 'get_ph_bistring sp: www' );
+    is( $b2n->($bitstring), '30', 'get_ph_bitstring sp: www' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'little house on the prairie',
         });
-    is( $b2n->($bitstring), '20', 'get_ph_bistring sp: little house on the prairie' );
+    is( $b2n->($bitstring), '20', 'get_ph_bitstring sp: little house on the prairie' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'willie the elephant',
         });
-    is( $b2n->($bitstring), '40', 'get_ph_bistring sp: willie the elephant' );
+    is( $b2n->($bitstring), '40', 'get_ph_bitstring sp: willie the elephant' );
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => '*',
         });
-    is( $b2n->($bitstring), '20 30 40', 'get_ph_bistring sp: *' );
+    is( $b2n->($bitstring), '20 30 40', 'get_ph_bitstring sp: *' );
 
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'w*',
         });
-    is( $b2n->($bitstring), '30 40', 'get_ph_bistring sp: w*' );
+    is( $b2n->($bitstring), '30 40', 'get_ph_bitstring sp: w*' );
 
     my $kw_group;
 
@@ -1059,6 +1059,32 @@ _end_
     [title,3,1,[14,0]]
 ]
 _end_
+
+    my $group1 = $index->get_kw_group ({ tag => 'ti', keyword => 'willie' });
+    my $group2 = $index->get_kw_group ({ tag => 'ti', keyword => 'the'    });
+    my $result = $index->combine_kw_groups({ group1 => $group1, group2 => $group2 });
+    my $dump   = dump_kw_group( $result );
+    is( $dump, <<'_end_', 'combine_kw_groups: ti: willie w1 ti: the' );
+[
+    [title,1,2,[5,0,1,0]]
+    [title,2,2,[5,1,1,1]]
+]
+_end_
+
+    $group2 = $index->get_kw_group ({ tag => 'ti', keyword => 'elephant' });
+    $result = $index->combine_kw_groups({ group1 => $result, group2 => $group2 });
+    $dump   = dump_kw_group( $result );
+    is( $dump, <<'_end_', 'combine_kw_groups: ti: willie the elephant' );
+[
+    [title,1,3,[7,0,5,0,1,0]]
+    [title,2,3,[7,1,5,1,1,1]]
+]
+_end_
+
+    $bitstring = $index->get_kw_bitstring ({
+        group => $result,
+        });
+    is( $b2n->($bitstring), '42 50 314', 'get_kw_bitstring ti: willie the elephant' );
 
 }
 

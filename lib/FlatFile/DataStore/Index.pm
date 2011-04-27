@@ -109,23 +109,26 @@ datastore index.
 
     # get a bitstring group for a keyword
 
-    my $group = $index->get_kw_group({
+    my $kw_group = $index->get_kw_group({
         tag     => 'ti',
         keyword => $keyword,
     });
 
-    # combine the bitstring group into one bitstring
+    # combine two groups into one group
 
-    my $bitstring = $index->combine_group({
-        group => $group
+    my $kw_group = $index->combine_kw_groups({
+        group1 => $kw_group1,
+        group2 => $kw_group2,
+        op     => 'w1',  # "with 1" (i.e., adjacency -- the default)
     });
 
-    # get a bitstring for a keyword
-    # XXX is this just a wrapper around get_kw_group()/combine_group()?
+    # get a bitstring for a keyword, something like this
+    # - kw_group  = get_kw_group(     { tag    => ..., keyword => ...            })
+    # - kw_group  = combine_kw_groups({ group1 => kw_group1, group2 => kw_group2 })
+    # - bitstring = get_kw_bitstring( { group  => kw_group                       })
 
     $bitstring = $index->get_kw_bitstring({
-        tag     => 'ti',
-        keyword => $keyword,
+        group => $kw_group
     });
 
     # get a bitstring for a phrase
@@ -138,7 +141,7 @@ datastore index.
     #-----------------------------------------------------------------
     # initial load of index data
     # (index must be empty -- one could use apply() on an empty index,
-    # but initial_load() is faster)
+    # but initial_load() is (XXX should be) faster)
 
     # file name (will be opened using index's encoding)
 
@@ -567,7 +570,7 @@ sub get_kw_group {
                                     push @matches, [ $1, $2, $3, [ $eg_keynum, $ie_offset ] ];
                                 }
                                 else {
-                                    croak /Expected a match/;
+                                    croak qq/Expected a match/;
                                 }
                                 $ie_offset++;
                             }
@@ -670,51 +673,202 @@ sub get_kw_group {
 
 #---------------------------------------------------------------------
 
-=head2 combine_group()
+=head2 combine_kw_groups()
 
-combine a bitstring group into a single bitstring
+combine a keyword groups into a single group
+
+=for comment
+
+1. compare each member of the second group to all the members of the
+   first group
+
+2. they "match" when the field name and occurrence number are the same
+   and when the position number of the second group member is one more
+   than that of the first.
+
+3. when there's a match, we push the keynum(s) from the first group
+   onto the keynum list of the second group and push the resulting
+   member onto the third -- result -- group
+
+4. after all the members of both groups are compared, the resulting
+   group contains new members, each of which has the position numbers
+   of the second group's members
+
+5. this resulting group is pushed back onto the solution stack, ready
+   to be processed by an immediately following adjacency operation if
+   there is one
+
+operators:
+
+'w' for 'with' (within the same field, in the given order)
+'n' for 'near' (within the same field, in any order)
+
+intervals:
+
+'0' (any number of terms in between)
+'1' (no terms in between)
+'2' (one term in between)
+... (etc.)
+
+examples:
+
+term1 w1 term2 ("term1 term2" in a field)
+term1 w2 term2 ("term1 (one term) term2" in a field)
+term1 w0 term2 ("term1 (any terms) term2" in a field)
+
+term1 n1 term2 ("term1 term2" or "term2 term1" in a field)
+term1 n2 term2 ("term1 (one term) term2" or
+                "term2 (one term) term1" in a field)
+term1 n0 term2 ("term1 (any terms) term2" or
+                "term2 (any terms) term1" in a field)
+
+interval mnemonics:
+
+'1' -- "limit to one word away"
+'2' -- "limit to two words away"
+'0' -- "no limits"
 
 =cut
 
-sub combine_group {
+sub combine_kw_groups {
     my( $self, $parms ) = @_;
 
-    # XXX yada yada
+    my $group1 = $parms->{'group1'};
+    my $group2 = $parms->{'group2'};
+    croak qq/Bad call/ unless $group1 and $group2;
+
+    my $op = $parms->{'op'}   || 'w1';  # "with 1" -- adjacent
+    my $iv = substr( $op, 1 ) ||   1 ;  # 'w' == 'w1'; 'n' == 'n1'
+    croak qq/Bad call/ unless $iv >= 0;
+
+    my $result;
+
+    # 'with'
+    if( $op =~ /^w/ ) {
+        if( $iv ) {
+            for my $_2 ( @$group2 ) {
+                for my $_1 ( @$group1 ) {
+                    if(        $_2->[0]  eq $_1->[0]       &&  # field
+                               $_2->[1]  eq $_1->[1]       &&  # occ
+                               $_2->[2]  eq $_1->[2] + $iv ){  # pos
+                        push @{$_2->[3]}, @{$_1->[3]};         # eg/ie
+                        push @$result, $_2;
+                    }
+                }
+            }
+        }
+        else {
+            for my $_2 ( @$group2 ) {
+                for my $_1 ( @$group1 ) {
+                    if(        $_2->[0]  eq $_1->[0] &&  # field
+                               $_2->[1]  eq $_1->[1] &&  # occ
+                               $_2->[2]  gt $_1->[2] ){  # pos
+                        push @{$_2->[3]}, @{$_1->[3]};   # eg/ie
+                        push @$result, $_2;
+                    }
+                }
+            }
+        }
+    }
+    # 'near'
+    elsif( $op =~ /^n/ ) {
+        if( $iv ) {
+            for my $_2 ( @$group2 ) {
+                for my $_1 ( @$group1 ) {
+                    if(        $_2->[0]  eq $_1->[0]          &&  # field
+                               $_2->[1]  eq $_1->[1]          &&  # occ
+                          abs( $_2->[2]  -  $_1->[2] ) <= $iv ){  # pos
+                        push @{$_2->[3]}, @{$_1->[3]};            # eg/ie
+                        push @$result, $_2;
+                    }
+                }
+            }
+        }
+        else {
+            for my $_2 ( @$group2 ) {
+                for my $_1 ( @$group1 ) {
+                    if(        $_2->[0]  eq $_1->[0] &&  # field
+                               $_2->[1]  eq $_1->[1] ){  # occ
+                                                         # any pos
+                        push @{$_2->[3]}, @{$_1->[3]};   # eg/ie
+                        push @$result, $_2;
+                    }
+                }
+            }
+        }
+    }
+    else {
+        croak qq/Bad op: $op/;
+    }
+
+    return $result;
 }
 
 #---------------------------------------------------------------------
 
 =head2 get_kw_bitstring()
 
-get a bitstring for a keyword
+get a bitstring for a keyword group
 
     $bitstring = $index->get_kw_bitstring({
-        tag     => 'ti',
-        keyword => $keyword,
+        group => $kw_group,
     });
+
+=for comment
+
+1. for each member of the result group, the bitstrings referenced by
+   the array of keynums are ANDed into one bitstring
+
+2. the resulting bitstrings for each member are then ORed into one
+   bitstring
+
+3. this final bitstring represents all the records where those terms
+   may be found adjacent to each other
+
+4. this final bitstring is pushed on to the stack for the next
+   operation or to be returned
 
 =cut
 
 sub get_kw_bitstring {
     my( $self, $parms ) = @_;
 
-    my $ds   = $self->datastore;
-    my $dir  = $ds->dir;
-    my $name = $ds->name;
+    my $ds = $self->datastore;
+    my $nl = $ds->recsep;  # "newline" for datastore
 
-    my $keys        = $self->get_kw_keys( $parms );
-    my $entry_group = $keys->{'entry_group'};
-    my $truncated   = $keys->{'truncated'};
+    my $group = $parms->{'group'};
+    return unless $group;
 
-    $self->readlock;
-    tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-    $self->dbm( \%dbm );
+    my %egs;  # cache
+    my @vecs;
 
-    # XXX yada yada
+    for( @$group ) {
+        my $vec;
+        my @tmp = @{$_->[3]};
 
-    $self->dbm( '' );
-    untie %dbm;
-    $self->unlock;
+        # while( my @a = splice @tmp, 0, 2 ) {
+        #     my( $eg_keynum, $ie_offset ) = @a;
+        while( my( $eg_keynum, $ie_offset ) = splice @tmp, 0, 2 ) {
+
+            my $ies = $egs{ $eg_keynum };
+            unless( $ies ) {
+                my $eg_rec = $ds->retrieve( $eg_keynum );
+                $ies = $egs{ $eg_keynum } = [ split $nl => $eg_rec->data ];
+            }
+            my $ie = $ies->[ $ie_offset ];
+            chomp $ie;
+            my $bitstring = (split $Sp => $ie)[-1];
+            my $bvec = str2bit uncompress $bitstring;
+            if( $vec ) { $vec &= $bvec }
+            else       { $vec  = $bvec }
+        }
+        push @vecs, $vec;
+    }
+
+    my $vec  = '';
+       $vec |= $_ for @vecs;
+
+    return compress bit2str $vec;
 }
 
 #---------------------------------------------------------------------
@@ -834,7 +988,7 @@ sub get_ph_bitstring {
                         # they all match our phrase
 
                         for( split $nl => $eg_rec->data ) {
-                            if( m{ $Sep ([0-9]+) $Sp (.*) $}x ) {  # resume
+                            if( m{$Sep([0-9]+)$Sp(.*)$} ) {
                                 push @matches, [ $1, $2 ];  # (count) (bitstring)
                             }
                         }
@@ -1787,7 +1941,7 @@ sub retrieve_index_key_kv {
         m{^ keynum $}x and do{ push @ret, $vals[0];    next };
         m{^ count  $}x and do{ push @ret, $vals[1]||0; next };
         m{^ eplist $}x and do{ push @ret, $vals[2];    next };
-        croak /Unrecognized field: $_/;
+        croak qq/Unrecognized field: $_/;
     }
     return @ret if wantarray;
     return $ret[0];
@@ -1820,7 +1974,7 @@ sub update_index_key_kv {
         $field =~ m{^ keynum $}x and do{ $vals[0] = $val; next };
         $field =~ m{^ count  $}x and do{ $vals[1] = $val; next };
         $field =~ m{^ eplist $}x and do{ $vals[2] = $val; next };
-        croak /Unrecognized field: $field/;
+        croak qq/Unrecognized field: $field/;
     }
 
 die "caller: ".(caller)[2] if $key eq '';  # XXX debug
@@ -1849,7 +2003,7 @@ sub retrieve_entry_point_kv {
         m{^ count  $}x and do{ push @ret, $vals[1]||0; next };
         m{^ prev   $}x and do{ push @ret, $vals[2];    next };
         m{^ next   $}x and do{ push @ret, $vals[3];    next };
-        croak /Unrecognized field: $_/;
+        croak qq/Unrecognized field: $_/;
     }
     return @ret if wantarray;
     return $ret[0];
@@ -1873,7 +2027,7 @@ sub update_entry_point_kv {
         $field =~ m{^ count  $}x and do{ $vals[1] = $val; next };
         $field =~ m{^ prev   $}x and do{ $vals[2] = $val; next };
         $field =~ m{^ next   $}x and do{ $vals[3] = $val; next };
-        croak /Unrecognized field: $field/;
+        croak qq/Unrecognized field: $field/;
     }
 
 die "caller: ".(caller)[2] if $key eq '';  # XXX debug
@@ -2062,7 +2216,7 @@ sub retrieve_entry_group_kv {
         m{^ count  $}x and do{ push @ret, $vals[1]||0; next };
         m{^ prev   $}x and do{ push @ret, $vals[2];    next };
         m{^ next   $}x and do{ push @ret, $vals[3];    next };
-        croak /Unrecognized field: $_/;
+        croak qq/Unrecognized field: $_/;
     }
     return @ret if wantarray;
     return $ret[0];
@@ -2085,7 +2239,7 @@ sub update_entry_group_kv {
         $field =~ m{^ count  $}x and do{ $vals[1] = $val; next };
         $field =~ m{^ prev   $}x and do{ $vals[2] = $val; next };
         $field =~ m{^ next   $}x and do{ $vals[3] = $val; next };
-        croak /Unrecognized field: $field/;
+        croak qq/Unrecognized field: $field/;
     }
 
 die "caller: ".(caller)[2] if $key eq '';  # XXX debug
