@@ -1,0 +1,69 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Welders working in the shipyards of the J.A. Jones Construction Company in Brunswick, Georgia, installing components of the main deck housing for a Liberty ship. This three-deck structure is mounted amidships above the engine.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj110'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collection, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, The people and the shipyard subseries, notebook 2, photograph 2-24.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Ships--Welding--Georgia--Brunswick',
+    'Welding',
+    'Welders (Persons)--Georgia--Brunswick',
+    'Decks (Naval architecture)--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Shipbuilding industry--Georgia--Brunswick',
+    'Liberty ships--Georgia--Brunswick',
+    'Liberty ships--Design and construction',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'World War, 1939-1945--War work',
+    'Docks--Georgia--Brunswick',
+    'Cranes, derricks, etc.--Georgia--Brunswick',
+    'Ladders',
+    'Temporary structures (Building)'
+  ],
+  'dc_title' => [
+    '[Photograph of main deck components being welded and put together, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943-1945?]',
+    'Main deck components going into place'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj110'
+  ],
+  'item' => [
+    'jaj110'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

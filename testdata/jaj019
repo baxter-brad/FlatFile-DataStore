@@ -1,0 +1,71 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1944-05-23'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Aerial view of the construction of the Alexander S. Clay at the J.A. Jones Construction Company shipyard in Brunswick, Georgia taken from near the ship\'s bow. Walkways, ladders and scaffolding have been built around the ship. Workers are visible on the top and along the sides of the ship, as well as on the docks below. Workers are queued up in several lines at the bottom of the photograph. Named for U.S. senator for Georgia Alexander Stephens Clay (1853-1910), the Alexander S. Clay was the forty-fifth ship built by the J.A. Jones Construction Company in Brunswick, Georgia. Its keel was laid May 15, 1944. The ship was launched June 30, 1944 and delivered July 15, 1944.',
+    '"U.S.M.C. Hull - 2364, J.A.J. Co. Hull - 149, Keel Laid - 5/15/44, Photo - 5/23/44"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj019'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries,notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ships under construction subseries, notebook 1, photograph 1-19.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'United States. Maritime Commission',
+    'Alexander S. Clay (Ship)',
+    'Liberty ships--Georgia--Brunswick',
+    'Liberty ships--Design and construction',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Hulls (Naval architecture)',
+    'World War, 1939-1945--Naval operations, American',
+    'Merchant marine--United States--History--20th century',
+    'Cargo ships--United States--History--20th century',
+    'Temporary structures (Building)',
+    'Scaffolding',
+    'Docks--Georgia--Brunswick',
+    'Shipbuilding--Aerial photographs',
+    'Ladders'
+  ],
+  'dc_title' => [
+    '[Photograph of the Liberty ship Alexander S. Clay under construction, J.A. Jones Construction Company shipyard, Brunswick, Georgia], 1944 May 23',
+    'Alexander S. Clay'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj019'
+  ],
+  'item' => [
+    'jaj019'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

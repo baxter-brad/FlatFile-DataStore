@@ -1,0 +1,63 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Workers welding together parts of a Liberty ship at the J.A. Jones Construction Company shipyard, Brunswick, Georgia. ',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj146'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, The people and the shipyard subseries, notebook 2, photograph 2-60.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Welders (Persons)--Georgia--Brunswick',
+    'Women welders--Georgia--Brunswick',
+    'Welding',
+    'Shipbuilding industry--Employees',
+    'Shipyards--Employees--Georgia--Brunswick',
+    'Shipbuilding industry--Georgia--Brunswick',
+    'Liberty ships--Georgia--Brunswick',
+    'Liberty ships--Design and construction',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'World War, 1939-1945--War work',
+    'World War, 1939-1945--Naval operations, American'
+  ],
+  'dc_title' => [
+    '[Photograph of workers welding parts of a Liberty ship together, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943] ',
+    'Welding together parts of the ship'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj146'
+  ],
+  'item' => [
+    'jaj146'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

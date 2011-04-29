@@ -1,0 +1,68 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Group of workers from the J.A. Jones Construction Company in Brunswick, Georgia being led in prayer by a minister before laying the keel of a Liberty ship. The minister, in striped shirt and tie, is accompanied by a worker who has removed his hard hat, presumably in prayer. Both men are holding onto a large bar that has been suspended by cable and rope from above. One worker has left his hard hat resting on a wooden support structure; another holds his hat under his arm; both hats are marked with text that is not legible.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj108'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, The people and the shipyard subseries, notebook 2, photograph 2-22.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Prayer--Georgia--Brunswick',
+    'Clergy--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Liberty ships--Georgia--Brunswick',
+    'Liberty ships--Design and construction',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Shipbuilding industry--Georgia--Brunswick',
+    'Keels',
+    'Scaffolding',
+    'Temporary structures (Building)',
+    '',
+    'World War, 1939-1945--War work',
+    'Docks--Georgia--Brunswick'
+  ],
+  'dc_title' => [
+    '[Photograph of shipyard workers praying during the laying of a Liberty ship keel, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943-1945?]',
+    'Prayer during keel laying'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj108'
+  ],
+  'item' => [
+    'jaj108'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

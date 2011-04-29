@@ -1,0 +1,66 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943-04-29'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Mildred DeLaney Stemons Arnall, wife of Governor Ellis Arnall of Georgia, christening the Joseph R. Lamar during a ceremonial Liberty ship launching in the shipyard of the J.A. Jones Construction Company in Brunswick, Georgia. The governor stands behind her as she begins to swing the bottle. Named for U.S. Supreme Court Associate Justice Joseph Rucker Lamar (1857-1916), the ship was the third constructed in Brunswick by the J.A. Jones Construction Company. Its keel was laid April 17, 1943. The ship was launched April 29, 1943 and delivered June 17, 1943.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj031'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ship launchings subseries, notebook 1, photograph 1-31.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Joseph R. Lamar (Ship)',
+    'Arnall, Ellis Gibbs, 1907-',
+    'Arnall, Mildred DeLaney Stemons',
+    'Liberty ships--Georgia--Brunswick',
+    'Ships--Launching',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Rites and ceremonies--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work',
+    'Champagne (Wine)',
+    'Wine bottles--Georgia--Brunswick'
+  ],
+  'dc_title' => [
+    '[Photograph of Mildred DeLaney Stemons Arnall christening the Liberty ship Joseph R. Lamar, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943 Apr. 29]',
+    'Gov. & Mrs. Ellis Arnall'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj031'
+  ],
+  'item' => [
+    'jaj031'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

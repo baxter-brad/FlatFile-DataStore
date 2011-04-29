@@ -1,0 +1,63 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'The Liberty ship Joseph M. Terrell being outfitted at the docks after being launched from the shipyard of the J.A. Jones Construction Company in Brunswick, Georgia. The name of the ship is visible (directly above its lifeboats). Named for Georgia legislator, attorney general, governor, and U.S. senator, Joseph Meriwether Terrell (1861-1912), the Joseph M. Terrell was the twenty-seventh ship built at Brunswick by the J.A. Jones Construction Company. The ship\'s keel was laid on December 23, 1943, and it was launched on February 14, 1944. and delivered on February 26, 1944.',
+    '"27-13"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj074'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Completed ships after launching subseries, notebook 1, photograph 1-74.'
+  ],
+  'dc_subject' => [
+    'Joseph M. Terrell (Ship)',
+    'J.A. Jones Construction Company',
+    'Liberty ships--Georgia--Brunswick',
+    'Ships--Launching',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Ships--Equipment and supplies',
+    'World War, 1939-1945--War work',
+    'Docks--Georgia--Brunswick'
+  ],
+  'dc_title' => [
+    '[Photograph of the Liberty ship Joseph M. Terrell at the docks of J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1944]',
+    'Liberty ship at dock being outfitted'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj074'
+  ],
+  'item' => [
+    'jaj074'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

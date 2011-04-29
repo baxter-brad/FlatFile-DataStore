@@ -1,0 +1,64 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1944-09-28'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Photograph of the officers of the U.S.S. Hornet, sent as a token of thanks to the workers of the J.A. Jones Construction Company in Brunswick, Georgia, for working without pay on Christmas Day, 1944, as an act of support for Allied military personnel worldwide. In the photograph, nine officers stand in front of a kill chart that reads "Destination Tokyo," and includes strike information for several Pacific campaigns. Based on the height of the officers, the chart appears to be somewhere between ten and twelve feet high. Each destroyed Japanese ship and airplane is represented by a Japanese flag; larger flags seem to correspond with larger hits. ',
+    '"(center) and present (fourth from left) Executive Officers and Heads of Departments of U.S.S. Hornet, 28 Sept., 19-- in grateful appreciation to the Employees of J.A. Jones Construction Co. Shipyard [illegible] Comm., U.S. Navy [illegible], U.S.S. Hornet"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj089'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library,  Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Special Christmas subseries, notebook 2, photograph 2-3.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Hornet (Aircraft carrier : CV 12)',
+    'United States. Navy--Officers',
+    'Santa Claus--Georgia--Brunswick',
+    'Christmas--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Liberty ships--Georgia--Brunswick',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'World War, 1939-1945--War work'
+  ],
+  'dc_title' => [
+    '[Photograph of executive officers and heads of departments of the aircraft carrier Hornet, 1944? Sept. 28]',
+    'Officers of the U.S.S. Hornet'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj089'
+  ],
+  'item' => [
+    'jaj089'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

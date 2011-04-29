@@ -1,0 +1,63 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Copy of a photograph taken for the Atlanta Constitution showing a female welder (Nanelle Surrency Bacon) from the J.A. Jones Construction Company in Brunswick, Georgia, with her face protection removed.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj127'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, The people and the shipyards subseries, notebook 2, photograph 2-40.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Women welders--Georgia--Brunswick',
+    'Welders (Persons)--Georgia--Brunswick',
+    'Welding',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Shipbuilding industry--Georgia--Brunswick',
+    'World War, 1939-1945--War work',
+    'Bacon, Nanelle Surrency'
+  ],
+  'dc_title' => [
+    '[Photograph of a J.A. Jones Construction Company female welder with face protection removed, Brunswick, Georgia, 1943-1945?]',
+    'Unknown welder with face guard shoved up'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj127'
+  ],
+  'item' => [
+    'jaj127'
+  ],
+  'upd' => [
+    '2008/07/28'
+  ]
+}

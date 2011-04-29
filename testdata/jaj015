@@ -1,0 +1,71 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1944-05-24'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Aerial view of the construction of the James B. Duke at the J.A. Jones Construction Company shipyard in Brunswick, Georgia taken from near the ship\'s stern. A crane is hoisted above the ship, though most of it is cropped out of view. The cable and hook are dangling from the top of the shot. Ladders and scaffolding have been built around the ship, and workers are visible on the top. Named for president of the American Tobacco Company and co-founder of the Southern Company James Buchanan Duke (1856-1925), the James B. Duke was the forty-third ship built by the J.A. Jones Construction Company in Brunswick, Georgia. Its keel was laid April 29, 1944. The ship was launched June 19, 1944 and delivered June 30, 1944.',
+    '"U.S.M.C. Hull - 2362, J.A.J. Co. Hull - 147, Keel Laid - 4/29/44, Photo - 5/24/44"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj015'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ships under construction subseries, notebook 1, photograph 1-15.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'United States. Maritime Commission',
+    'James B. Duke (Ship)',
+    'Liberty ships--Georgia--Brunswick',
+    'Liberty ships--Design and construction',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Hulls (Naval architecture)',
+    'World War, 1939-1945--Naval operations, American',
+    'Merchant marine--United States--History--20th century',
+    'Cargo ships--United States--History--20th century',
+    'Temporary structures (Building)',
+    'Scaffolding',
+    'Cranes, derricks, etc.--Georgia--Brunswick',
+    'Shipbuilding--Aerial photographs',
+    'Ladders'
+  ],
+  'dc_title' => [
+    '[Photograph of the Liberty ship James B. Duke under construction, J.A. Jones Construction Company shipyard, Brunswick, Georgia], 1944 May 24',
+    'James B. Duke'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj015'
+  ],
+  'item' => [
+    'jaj015'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

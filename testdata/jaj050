@@ -1,0 +1,68 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1944-05-25'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'J. Melville Broughton (the governor of North Carolina), Mrs. Broughton, Edwin L. Jones, and Mrs. Jones at the ceremonial launching of the Donald W. Bain, held in the J.A. Jones Construction Company shipyard in Brunswick, Georgia. Named for former North Carolina treasurer Donald W. Bain (d. 1892), the ship was the forty-first constructed in Brunswick by the J.A. Jones Construction Company. Its keel was laid April 17, 1944. The ship was launched May 25, 1944 and delivered June 17, 1944.',
+    '"41-2"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj050'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collections, Photographs series, Ship launchings subseries, notebook 1, photograph 1-50.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Donald W. Bain (Ship)',
+    'Broughton, J. Melville (Joseph Melville), 1888-1949',
+    'Broughton, J. Melville, Mrs.',
+    'Jones, Edwin L.',
+    'Jones, Edwin L., Mrs.',
+    'Liberty ships--Georgia--Brunswick',
+    'Ships--Launching',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Rites and ceremonies--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work',
+    'Bouquets--Georgia--Brunswick'
+  ],
+  'dc_title' => [
+    '[Photograph of J. Melville Broughton at the launching of the Liberty ship Donald W. Bain, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1944 May 25?]',
+    'J. Melville Broughton and Mrs. Broughton with Mr. and Mrs. Edwin L. Jones'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj050'
+  ],
+  'item' => [
+    'jaj050'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

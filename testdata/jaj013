@@ -1,0 +1,72 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1944-05-23'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Aerial view of the construction of the Donald W. Bain at the J.A. Jones Construction Company shipyard in Brunswick, Georgia taken from the bow. Ladders are visible alongside the top levels of the ship. Scaffolding is visible on either side of the ship. Workers can be seen on the top of ship, inside the scaffolding at the stern, on the walkways, and on the dock below. There is an obstruction or burned-out spot at the lower left-hand corner of the photograph. Named for former North Carolina treasurer Donald W. Bain (d. 1892), the ship was the forty-first constructed in Brunswick by the J.A. Jones Construction Company. Its keel was laid April 17, 1944. The ship was launched May 25, 1944 and delivered June 17, 1944.',
+    '"U.S.M.C. Hull - 2360, J.A.J. Co. Hull - 145, Keel Laid - 4/17/44, Photo - 5/23/44"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj013'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ships under construction subseries, notebook 1, photograph 1-13.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'United States. Maritime Commission',
+    'Donald W. Bain (Ship)',
+    'Liberty ships--Georgia--Brunswick',
+    'Liberty ships--Design and construction',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Hulls (Naval architecture)',
+    'World War, 1939-1945--Naval operations, American',
+    'Merchant marine--United States--History--20th century',
+    'Cargo ships--United States--History--20th century',
+    'Temporary structures (Building)',
+    'Scaffolding',
+    'Cranes, derricks, etc.--Georgia--Brunswick',
+    'Docks--Georgia--Brunswick',
+    'Shipbuilding--Aerial photographs',
+    'Ladders'
+  ],
+  'dc_title' => [
+    '[Photograph of the Liberty ship Donald W. Bain under construction (second view), J.A. Jones Construction Company shipyard, Brunswick, Georgia], 1944 May 23',
+    'Donald W. Bain (2nd view)'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj013'
+  ],
+  'item' => [
+    'jaj013'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

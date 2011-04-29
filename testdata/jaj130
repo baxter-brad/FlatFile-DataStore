@@ -1,0 +1,66 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'A woman (sitting, arms folded) and a man (sleeping on a bench, arms folded, belongings resting on his stomach, wearing a hat over his face) wait separately  at the employment office of the J.A. Jones Construction Company, Brunswick, Georgia. Two men in the background are seated at the bench behind the sleeping man.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj130'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, notebook number, photograph number], J.A. Jones Construction Company records, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, The people and the shipyard subseries, notebook 2, photograph 2-43.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'J.A. Jones Construction Company--Employees--Recruiting--Georgia--Brunswick',
+    'J.A. Jones Construction Company--Personnel management--Georgia--Brunswick',
+    'Shipbuilding industry--Employees--Recruiting--Georgia--Brunswick',
+    'Shipbuilding industry--Personnel management--Georgia--Brunswick',
+    'Shipbuilding industry--Georgia--Brunswick',
+    'Shipyards--Employees--Recruiting--Georgia--Brunswick',
+    'Shipyards--Personnel management--Georgia--Brunswick',
+    'Employees--Recruiting--Georgia--Brunswick',
+    'Personnel management--Georgia--Brunswick',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'World War, 1939-1945--War work'
+  ],
+  'dc_title' => [
+    '[Photograph of people at the J.A. Jones Construction Company employment office, Brunwick, Georgia, 1943-1945?]',
+    'Employment office of J.A. Jones Construction Company'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj130'
+  ],
+  'item' => [
+    'jaj130'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

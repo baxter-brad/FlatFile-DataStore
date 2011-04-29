@@ -1,0 +1,59 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Governor Arnall speaking at a meeting in the J.A. Jones Construction Company shipyard in Brunswick, Georgia. Men are seated on each side.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj051'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ship launchings subseries, notebook 1, photograph 1-51.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Arnall, Ellis Gibbs, 1907-',
+    'Liberty ships--Georgia--Brunswick',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'World War, 1939-1945--War work'
+  ],
+  'dc_title' => [
+    '[Photograph of Georgia Governor Ellis Arnall, at a meeting at the J.A. Jones Construction Company, Brunswick, Georgia, 1943-1945?]',
+    'Unknown speaker (possibly Gov. Ellis Arnall)'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj051'
+  ],
+  'item' => [
+    'jaj051'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

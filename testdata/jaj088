@@ -1,0 +1,64 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1944-12-25'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Santa and Director of Public Relations Frank Poole watch Myrtis Campbell, wife of Nat M. Campbell, as she counts workers filing by while sitting at a cash register in what appears to be a lunch room. Employees of the J.A. Jones Construction Company in Brunswick, Georgia worked without pay on Christmas Day, 1944, in support of Allied military personnel serving around the world. Carley Zell furnished free Christmas dinner to all of the workers. ',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj088'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Special Christmas subseries, notebook 2, photograph 2-3.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Campbell, Myrtis',
+    'Poole, Frank',
+    'Santa Claus--Georgia--Brunswick',
+    'Christmas--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Liberty ships--Georgia--Brunswick',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work'
+  ],
+  'dc_title' => [
+    '[Photograph of Santa watching as Myrtis Campbell counts all the workers, 1944 Dec. 25]',
+    'Santa watches Myrtis check in shipyard workers'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj088'
+  ],
+  'item' => [
+    'jaj088'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

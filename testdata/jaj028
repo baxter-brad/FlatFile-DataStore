@@ -1,0 +1,60 @@
+{
+  'dc_contributor' => [
+    'Three Rivers Regional Library System (Ga.)',
+    'Digital Library of Georgia'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Group of civilians watching a ship launching in the shipyard of the J.A. Jones Construction Company in Brunswick, Georgia. The shipyard and workers sporting hard hats can be seen in the background.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj028'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, notebook number, photograph number], J.A. Jones Construction Company records, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ship launchings subseries, notebook 1, photograph 1-28.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Liberty ships--Georgia--Brunswick',
+    'Ships--Launching',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Rites and ceremonies--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work'
+  ],
+  'dc_title' => [
+    '[Photograph of a large group of people at a Liberty ship launching, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943]',
+    'Crowd at Liberty ship launching 1943'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj028'
+  ],
+  'item' => [
+    'jaj028'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

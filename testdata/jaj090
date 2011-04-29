@@ -1,0 +1,71 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1944-12-25'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'An impromptu kitchen crew helps prepare Christmas dinner for all shipyard workers of the J.A. Jones Construction Company in Brunswick, Georgia, who worked without pay on Christmas Day, 1944, as an act of support for Allied military personnel worldwide. The free meal was provided by Carley Zell. Front, with both hands in flour: Nat M. Campbell, office assistant and payroll superintendent, and a payroll superintendent and war bonds chairman (unknown). Back: George Mon, a director of shipyard security (unknown), Duncan Morton, Santa, and a security guard (unknown). ',
+    'Truncated number in lower right corner of photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj090'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Special Christmas subseries, notebook 2, photograph 2-4.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Campbell, Nat M.',
+    'Zell, Carley',
+    'Mon, George',
+    'Morton, Duncan',
+    'Kitchens--Georgia--Brunswick',
+    'Kitchen utensils--Georgia--Brunswick',
+    'Pots--Georgia--Brunswick',
+    'Christmas cookery--Georgia--Brunswick',
+    'Santa Claus--Georgia--Brunswick',
+    'Christmas--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Liberty ships--Georgia--Brunswick',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work'
+  ],
+  'dc_title' => [
+    '[Photograph of the kitchen crew preparing dinner with Santa looking on, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1944 Dec. 25]',
+    'Santa helps kitchen crew prepare dinner'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj090'
+  ],
+  'item' => [
+    'jaj090'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

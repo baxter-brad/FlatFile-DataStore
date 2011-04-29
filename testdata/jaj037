@@ -1,0 +1,62 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Man at the speaker\'s podium with women standing in background, at a ceremonial Liberty ship launching. The ceremony is held in the J.A. Jones Construction Company shipyard in Brunswick, Georgia.',
+    '"24-4"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj037'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ship launchings subseries, notebook 1, photograph 1-37.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Liberty ships--Georgia--Brunswick',
+    'Ships--Launching',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Rites and ceremonies--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work'
+  ],
+  'dc_title' => [
+    '[Photograph of an unknown man at the speaker\'s podium before a Liberty ship launching, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943-1945?]',
+    'Unknown man speaking before ship christening'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj037'
+  ],
+  'item' => [
+    'jaj037'
+  ],
+  'upd' => [
+    '2008/07/09'
+  ]
+}

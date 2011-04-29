@@ -1,0 +1,71 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943-10-22'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Pvt. Pete Wilborn, grandson of Henry W. Grady, Mrs. Henry W. Grady III, Mrs. Eugene Black, daughter of Henry W. Grady (holding bouquet), Fredrica Ward, Ralph McGill, and Michael Black, grandson of Henry W. Grady, at the launching of the Henry W. Grady from the shipyard of the J.A. Jones Construction Company in Brunswick, Georgia. Named for Atlanta journalist, political leader, and New South booster Henry Woodfin Grady (1850-1889), the ship was the thirteenth constructed in Brunswick by the J.A. Jones Construction Company. Its keel was laid July 31, 1943. The ship was launched October 22, 1943 and delivered October 30, 1943.',
+    '"13-3"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj045'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ship launchings subseries, notebook 1, photograph 1-45.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Henry W. Grady (Ship)',
+    'Grady, Henry Woodfin, 1850-1889',
+    'Grady, Henry W. III, Mrs.',
+    'Black, Augusta Evans Grady',
+    'Ward, Fredrica',
+    'Black, Michael',
+    'Wilborn, Pete',
+    'McGill, Ralph, 1898-1969',
+    'Liberty ships--Georgia--Brunswick',
+    'Ships--Launching',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Rites and ceremonies--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work',
+    'Bouquets--Georgia--Brunswick'
+  ],
+  'dc_title' => [
+    '[Photograph of Pete Wilborn, Mrs. Henry W. Grady III, Mrs. Eugene Black, Mrs. Fredrica Ward, Ralph McGill, and Michael Black at the launching of the Liberty ship Henry W. Grady, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943 Oct. 22?]',
+    'Mr. Wellborn, Mrs. Henry W. Grady III, and others'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj045'
+  ],
+  'item' => [
+    'jaj045'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943-04-21'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Aerial view of the installation of bottom plates of the hull of the John A. Campbell at the J.A. Jones Construction Company shipyard in Brunswick, Georgia. Workers can be seen on top of the ship. Named for Georgia-born, U.S. Supreme Court Justice John Archibald Campbell (1811-1889), the ship was the eighth constructed in Brunswick by the J.A. Jones Construction Company. Its keel was laid April 13, 1943. The ship was launched August 14, 1943 and delivered August 31, 1943.',
+    '',
+    '"U.S.M.C. Hull - 1496, J.A.J. Co. Hull - 112, Keel laid - 4/13/4[3?], Photo - 4/21/43"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj001'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook no, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia.',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ships under construction subseries, notebook 1, photograph 1-1.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'United States. Maritime Commission',
+    'John A. Campbell (Ship)',
+    'Liberty ships--Georgia--Brunswick',
+    'Liberty ships--Design and construction',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Hulls (Naval architecture)',
+    'Keels',
+    'World War, 1939-1945--Naval operations, American',
+    'Merchant marine--United States--History--20th century',
+    'Cargo ships--United States--History--20th century',
+    'Shipbuilding--Aerial photographs'
+  ],
+  'dc_title' => [
+    '[Photograph of the construction of the hull of the Liberty ship John A. Campbell, J.A. Jones Construction Company shipyard, Brunswick, Georgia], 1943 Apr. 21',
+    'John A. Campbell'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj001'
+  ],
+  'item' => [
+    'jaj001'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

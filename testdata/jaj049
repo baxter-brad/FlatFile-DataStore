@@ -1,0 +1,64 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Mrs. Purcell (center), wife of the Methodist bishop of North Carolina, at the christening of a Liberty ship in the shipyard of the J.A. Jones Construction Company in Brunswick, Georgia. Her daughter, Claire Purcell is at left. A third woman (unknown) is on Mrs. Purcell\'s right. ',
+    '"63-5"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj049'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ship launchings subseries, notebook 1, photograph 1-49.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Purcell, G. G., Mrs.',
+    'Purcell, Claire',
+    'Liberty ships--Georgia--Brunswick',
+    'Ships--Launching',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Rites and ceremonies--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work'
+  ],
+  'dc_title' => [
+    '[Photograph of Mrs. G. G. Purcell at a Liberty ship launching, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943-1945?]',
+    'Mrs. G. G. Purcell and her daughter on left'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj049'
+  ],
+  'item' => [
+    'jaj049'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

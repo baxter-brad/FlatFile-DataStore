@@ -1,0 +1,68 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Two admirals visit the J.A. Jones Construction Company shipyard in Brunswick, Georgia. Left to right: Edwin L. Jones, Admiral Emory Scott Land, chairman of the USMC,  Emil J. Kratt, Admiral Vickery, head of the USMC\'s technical division, Frank Poole, and Nat Campbell, office assistant and payroll superintendent.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj114'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, The people and the shipyard subseries, notebook 2, photograph 2-28.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Jones, Edwin L.',
+    'Kratt, Emil J.',
+    'Poole, Frank',
+    'Campbell, Nat M.',
+    'Land, Emory Scott, 1879-1971',
+    'Vickery, Howard L.',
+    'United States. Navy--Officers',
+    'Admirals--United States',
+    'Shipbuilding industry--Employees',
+    'Shipbuilding industry--Georgia--Brunswick',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'World War, 1939-1945--War work',
+    'Airplanes--Georgia--Brunswick'
+  ],
+  'dc_title' => [
+    '[Photograph of officials and admirals standing in front of an airplane, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943-1945?]',
+    'Two admirals visit J.A. Jones'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj114'
+  ],
+  'item' => [
+    'jaj114'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943-08-14'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'The John A. Campbell, assisted by a tugboat, just after being launched from the shipyard of the J A. Jones Construction Company in Brunswick, Georgia; a third boat is also visible. Named for Georgia-born, U.S. Supreme Court Justice John Archibald Campbell (1811-1889), the ship was the eighth constructed in Brunswick by the J.A. Jones Construction Company. Its keel was laid April 13, 1943. The ship was launched August 14, 1943 and delivered August 31, 1943.',
+    '',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj075'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Completed ships after launching subseries, notebook 1, photograph 1-75.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company ',
+    'John A. Campbell (Ship)',
+    'Liberty ships--Georgia--Brunswick',
+    'Ships--Launching',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Rites and ceremonies--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work',
+    'Tugboats--Georgia--Brunswick'
+  ],
+  'dc_title' => [
+    '[Photograph of the John A. Campbell Liberty ship just after launching from the J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943 Aug. 14?]',
+    'The John A. Campbell just after launching'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj075'
+  ],
+  'item' => [
+    'jaj075'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

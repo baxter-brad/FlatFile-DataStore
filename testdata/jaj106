@@ -1,0 +1,61 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'An aerial view of the shipyards of the J.A. Jones Construction Company in Brunswick, Georgia. The bottom of the image (mostly a view of the ocean) is obstructed by the aircraft\'s windshield.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj106'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, The people and the shipyards subseries, notebook 2, photograph 2-20.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Shipyards--Georgia--Brunswick--Aerial photographs',
+    'Shipbuilding industry--Georgia--Brunswick',
+    'World War, 1939-1945--Naval operations, American',
+    'World War, 1939-1945--War work',
+    'Ships--Georgia--Brunswick',
+    'Docks--Georgia--Brunswick'
+  ],
+  'dc_title' => [
+    '[Aerial photograph of the J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943-1945?]',
+    'Aerial view of shipyards'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs',
+    'Aerial photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj106'
+  ],
+  'item' => [
+    'jaj106'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

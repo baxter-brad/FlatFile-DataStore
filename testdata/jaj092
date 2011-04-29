@@ -1,0 +1,62 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1944'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Unknown man holding a scroll, signed by Emil J. Kratt, general manager, with the names of all the shipyard workers at the J.A. Jones Construction Company in Brunswick, Georgia, who worked Christmas Day, 1944, without pay as an act of support for Allied military personnel worldwide. Also visible are the hands of another person helping to hold the scroll and holding a cigarette. The scroll reads: "We take extreme pride in listing the names of the workers of the J. A. Jones Construction Company, Inc. in the Brunswick shipyard, Brunswick, Georgia, who donated these services on Christmas Day, December 25, 1944, without pay, as a token of thanks to the members of our armed forces. [List of employees]. Recognition is hereby accorded the inspection staffs of the United States Maritime Commission, the American Bureau of Shipping and the Bureau of Marine Inspection and Navigation, for carrying out their regular duties. Emil J. Kratt [signature], General Manager"',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj092'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Special Christmas subseries, notebook 2, photograph 2-6.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Christmas--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Liberty ships--Georgia--Brunswick',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work',
+    'Cigarettes'
+  ],
+  'dc_title' => [
+    '[Photograph of an unknown man holding a scroll honoring J.A. Jones Construction Company workers who worked on Christmas Day, 1944, Brunswick, Georgia, 1944?]',
+    'Scroll of honor of shipyard workers\' names'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj092'
+  ],
+  'item' => [
+    'jaj092'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

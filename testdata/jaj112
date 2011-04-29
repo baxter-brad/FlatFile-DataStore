@@ -1,0 +1,64 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1943/1945'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'View of the docks at the shipyards of the J.A. Jones Construction Company in Brunswick, Georgia. Two Liberty ships are tethered to the docks where final preparations are made for their departure; two cranes sit directly on the docks. ',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj112'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, The people and the shipyard subseries, notebook 2, photograph 2-26.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Docks--Georgia--Brunswick',
+    'Shipbuilding industry--Employees',
+    'Shipbuilding industry--Georgia--Brunswick',
+    'Liberty ships--Georgia--Brunswick',
+    'Liberty ships--Design and construction',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Ships--Launching',
+    'World War, 1939-1945--War work',
+    'Cranes, derricks, etc.--Georgia--Brunswick'
+  ],
+  'dc_title' => [
+    '[Photograph of the view of the shipyard docks from a ship, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1943-1945?]',
+    'River side view of shipyards'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj112'
+  ],
+  'item' => [
+    'jaj112'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}

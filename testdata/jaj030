@@ -1,0 +1,66 @@
+{
+  'dc_contributor' => [
+    'Brunswick-Glynn County Library. Special Collections (Ga.)',
+    'Digital Library of Georgia',
+    'Ships for Victory Collection (Digital Library of Georgia)'
+  ],
+  'dc_coverage_spatial' => [
+    'Brunswick (Ga.)',
+    'Glynn County (Ga.)'
+  ],
+  'dc_coverage_temporal' => [
+    '1944-08-07'
+  ],
+  'dc_date' => [
+    '2005'
+  ],
+  'dc_description' => [
+    'Hugh F. Aiken on left with portrait of Thomas Butler King at the launching of the Thomas Butler King Liberty ship from the J.A. Jones Construction Company shipyard in Brunswick, Georgia. On the right, the unidentified man might possibly be Nat M. Campbell, executive assistant, and later, a payroll superintendent for the J.A. Jones Construction Company. The edges of the photograph have yellowed. Named for Coastal Georgia planter and politician Thomas Butler King (1800-1864), the ship was the fiftieth constructed in Brunswick by the J.A. Jones Construction Company. Its keel was laid June 23, 1944. The ship was launched August 7, 1944 and delivered August 19, 1944.',
+    '"50-5"--photograph.',
+    'Original photograph scanned by the Brunswick-Glynn County Library. Described by the Digital Library of Georgia as a part of Georgia HomePLACE: an initiative of the Georgia Public Library Service and GALILEO.'
+  ],
+  'dc_identifier' => [
+    'http://dlg.galileo.usg.edu/vsbg/id:jaj030'
+  ],
+  'dc_publisher' => [
+    '[Athens, Ga] : Digital Library of Georgia'
+  ],
+  'dc_rights' => [
+    'Cite as: [title of photograph, series, subseries, notebook number, photograph number], J.A. Jones Construction Company collection, Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, as presented in the Digital Library of Georgia',
+    'Contact repository re: reproduction and usage.'
+  ],
+  'dc_source' => [
+    '1 photograph : b&w',
+    'Photograph held by the Special Collections, Brunswick-Glynn County Library, Three Rivers Regional Library System, J.A. Jones Construction Company collection, Photographs series, Ship launchings subseries, notebook 1, photograph 1-30.'
+  ],
+  'dc_subject' => [
+    'J.A. Jones Construction Company',
+    'Thomas Butler King (Ship)',
+    'King, T. Butler (Thomas Butler), 1800-1864',
+    'Aiken, Hugh F.',
+    'Campbell, Nat M.',
+    'Liberty ships--Georgia--Brunswick',
+    'Ships--Launching',
+    'Shipbuilding--Georgia--Brunswick',
+    'Shipyards--Georgia--Brunswick',
+    'Rites and ceremonies--Georgia--Brunswick',
+    'United States--Social life and customs',
+    'World War, 1939-1945--War work'
+  ],
+  'dc_title' => [
+    '[Photograph of Hugh F. Aiken at the launching of the Liberty ship Thomas Butler King, J.A. Jones Construction Company shipyard, Brunswick, Georgia, 1944 Aug. 7?]',
+    'Hugh F. Aiken with portrait of Thomas Butler King'
+  ],
+  'dc_type' => [
+    'Black-and-white photographs'
+  ],
+  'id' => [
+    'dlg_vsbg_jaj030'
+  ],
+  'item' => [
+    'jaj030'
+  ],
+  'upd' => [
+    '2006/06/06'
+  ]
+}
