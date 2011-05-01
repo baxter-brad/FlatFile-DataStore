@@ -846,8 +846,6 @@ sub get_kw_bitstring {
         my $vec;
         my @tmp = @{$_->[3]};
 
-        # while( my @a = splice @tmp, 0, 2 ) {
-        #     my( $eg_keynum, $ie_offset ) = @a;
         while( my( $eg_keynum, $ie_offset ) = splice @tmp, 0, 2 ) {
 
             my $ies = $egs{ $eg_keynum };
@@ -856,7 +854,6 @@ sub get_kw_bitstring {
                 $ies = $egs{ $eg_keynum } = [ split $nl => $eg_rec->data ];
             }
             my $ie = $ies->[ $ie_offset ];
-            chomp $ie;
             my $bitstring = (split $Sp => $ie)[-1];
             my $bvec = str2bit uncompress $bitstring;
             if( $vec ) { $vec &= $bvec }
