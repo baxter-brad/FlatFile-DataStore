@@ -217,7 +217,7 @@ sub validate {
             if( $md5pos < $md5size ) {
                 my $sref = $ds->read_bytes( $md5fh, $md5pos, $outlen );
                 my $md5line = $sref? $$sref: '';
-                die qq/Mismatched md5 lines/ unless $$md5line eq $md5out;
+                die qq/Mismatched md5 lines/ unless $md5line eq $md5out;
             }
             else {
                 $ds->write_bytes( $md5fh, $md5pos, \$md5out );
@@ -347,51 +347,51 @@ sub migrate {
             my $new_keynum = $keynum > $last_keynum;
 
             for( $indicator ) {
-                /$create/ && do { $to_ds->create( $from_data_ref, $from_user_data );
+                /$create/ && do { $to_ds->create({ data => $from_data_ref, user => $from_user_data });
                                   die "Bad transind: $transind"
                                       unless $transind =~ /$create/;  # assertions
                                   last };
                 /$oldupd/ && $new_keynum
-                          && do { $to_ds->create( $from_data_ref, $from_user_data );
+                          && do { $to_ds->create({ data => $from_data_ref, user => $from_user_data });
                                   die "Bad transind: $transind"
                                       unless $transind =~ /$create/;
                                   last };
                 /$oldupd/ && $pending_deletes{ $keynum }
                           && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
-                                  $to_ds->delete( $to_rec, $from_data_ref, $from_user_data );
+                                  $to_ds->delete({ record => $to_rec, data => $from_data_ref, user => $from_user_data });
                                   delete $pending_deletes{ $keynum };
                                   die "Bad transind: $transind"
                                       unless $transind =~ /$delete/;
                                   last };
                 /$oldupd/ && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
-                                  $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
+                                  $to_ds->update({ record => $to_rec, data => $from_data_ref, user => $from_user_data });
                                   die "Bad transind: $transind"
                                       unless $transind =~ /$update/;
                                   last };
                 /$update/ && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
-                                  $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
+                                  $to_ds->update({ record => $to_rec, data => $from_data_ref, user => $from_user_data });
                                   die "Bad transind: $transind"
                                       unless $transind =~ /$update/;
                                   last };
                 /$olddel/ && $new_keynum
-                          && do { $to_ds->create( $from_data_ref, $from_user_data );
+                          && do { $to_ds->create({ data => $from_data_ref, user => $from_user_data });
                                   ++$pending_deletes{ $keynum };
                                   die "Bad transind: $transind"
                                       unless $transind =~ /$create/;
                                   last };
                 /$olddel/ && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
-                                  $to_ds->update( $to_rec, $from_data_ref, $from_user_data );
+                                  $to_ds->update({ record => $to_rec, data => $from_data_ref, user => $from_user_data });
                                   ++$pending_deletes{ $keynum };
                                   die "Bad transind: $transind"
                                       unless $transind =~ /$update/;
                                   last };
                 /$delete/ && do { my $to_rec =
                                   $to_ds->retrieve( $keynum );
-                                  $to_ds->delete( $to_rec, $from_data_ref, $from_user_data );
+                                  $to_ds->delete({ record => $to_rec, data => $from_data_ref, user => $from_user_data });
                                   delete $pending_deletes{ $keynum };
                                   die "Bad transind: $transind"
                                       unless $transind =~ /$delete/;
@@ -501,7 +501,7 @@ sub migrate_nohist {
         # delete  -   skip
 
         unless( $from_rec->indicator =~ /$delete/ ) {
-            $to_ds->create( $from_data_ref, $from_user_data )
+            $to_ds->create({ data => $from_data_ref, user => $from_user_data })
                 unless $from_rec->indicator =~ /$delete/;
             print {$nohistfh} "$keynum $to_keynum\n";
             $to_keynum++;

@@ -787,6 +787,7 @@ _end_
         [ "sp", "www", 30 ],
         [ "sp", "little house on the prairie", 20 ],
         [ "sp", "willie the elephant", 40 ],
+        [ "sp", "wilbur hot springs", 70 ],
     ) {
         my( $tag, $ph, $num ) = @$_;
 
@@ -802,11 +803,12 @@ _end_
 
 Adding sp www; sp little house on the prairie
 *             |      2 |
-sp            |     32 |      3= |           l w |
+sp            |     32 |      4= |           l w |
 sp l          |     35 |      1+ |               | sp l little h |
-sp l little h |     34 |      1  |               | sp w willie t |
-sp w          |     33 |      2+ | sp l little h | sp w willie t |
-sp w willie t |     36 |      1  | sp l little h |      sp w www |
+sp l little h |     34 |      1  |               | sp w wilbur h |
+sp w          |     33 |      3+ | sp l little h | sp w wilbur h |
+sp w wilbur h |     37 |      1  | sp l little h | sp w willie t |
+sp w willie t |     36 |      1  | sp w wilbur h |      sp w www |
 sp w www      |     31 |      1  | sp w willie t |               |
 ti            |      3 |     14= |     a e p t w |
 ti a          |     11 |      2+ |               |      ti a and |
@@ -859,14 +861,14 @@ _end_
         tag    => 'sp',
         phrase => '*',
         });
-    is( $b2n->($bitstring), '20 30 40', 'get_ph_bitstring sp: *' );
+    is( $b2n->($bitstring), '20 30 40 70', 'get_ph_bitstring sp: *' );
 
 
     $bitstring = $index->get_ph_bitstring ({
         tag    => 'sp',
         phrase => 'w*',
         });
-    is( $b2n->($bitstring), '30 40', 'get_ph_bitstring sp: w*' );
+    is( $b2n->($bitstring), '30 40 70', 'get_ph_bitstring sp: w*' );
 
     my $kw_group;
 

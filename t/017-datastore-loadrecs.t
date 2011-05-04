@@ -128,14 +128,77 @@ returns todo list  -- href of deletes and adds;
 
 =cut
 
+my $index = init_index();
+
+package FlatFile::DataStore::Index;
+
+my $specs = {
+
+    kw_norm => \&rm_punct_kw,
+    ph_norm => \&rm_punct_ph,
+
+    kw => {  # hash of index tags
+        au  => [ { tag => '01', field => 'dc_contributor'       }, ],  # array of fields
+        dd  => [ { tag => '02', field => 'dc_date'              }, ],
+        de  => [ { tag => '03', field => 'dc_description'       }, ],
+        dt  => [ { tag => '04', field => 'dc_coverage_temporal' }, ],
+        ge  => [ { tag => '05', field => 'dc_coverage_spatial'  }, ],
+        id  => [ { tag => '06', field => 'id'                   }, ],
+        it  => [ { tag => '07', field => 'item'                 }, ],
+        pu  => [ { tag => '08', field => 'dc_publisher'         }, ],
+        ri  => [ { tag => '09', field => 'dc_rights'            }, ],
+        so  => [ { tag => '10', field => 'dc_source'            }, ],
+        su  => [ { tag => '11', field => 'dc_subject'           }, ],
+        ti  => [ { tag => '12', field => 'dc_title', norm => \&rm_punct_kw, }, ],
+        ty  => [ { tag => '13', field => 'dc_type'              }, ],
+        up  => [ { tag => '14', field => 'upd'                  }, ],
+        ur  => [ { tag => '15', field => 'dc_identifier'        }, ],
+    },
+
+    ph => {
+        aup => [ { field => 'dc_contributor'       }, ],
+        ddp => [ { field => 'dc_date'              }, ],
+        dep => [ { field => 'dc_description'       }, ],
+        dtp => [ { field => 'dc_coverage_temporal' }, ],
+        gep => [ { field => 'dc_coverage_spatial'  }, ],
+        idp => [ { field => 'id'                   }, ],
+        itp => [ { field => 'item'                 }, ],
+        pup => [ { field => 'dc_publisher'         }, ],
+        rip => [ { field => 'dc_rights'            }, ],
+        sop => [ { field => 'dc_source'            }, ],
+        sup => [ { field => 'dc_subject'           }, ],
+        tip => [ { field => 'dc_title', norm => \&rm_punct_ph, }, ],
+        typ => [ { field => 'dc_type'              }, ],
+        upp => [ { field => 'upd'                  }, ],
+        urp => [ { field => 'dc_identifier'        }, ],
+    },
+
+};
+
+print "\nIndexing ...\n";
+for my $keynum ( 0 .. $records_ds->lastkeynum ) {
+    my $dsrec = $records_ds->retrieve( $keynum );
+    my $oprec = eval $dsrec->data; die $@ if $@;
+
+print "$keynum ";
+
+    $index->index_rec( $specs, $keynum, $oprec );
+}
+print "\n";
+
 #---------------------------------------------------------------------
 sub rm_punct_kw {
     my( $val ) = @_;
 
-    $val =  lc $val;
-    $val =~ s/\p{IsPunct}+/ /g;
-    $val =~ s/\s\s+/ /g;
+    for( $val ) {
+        $_ = lc;
+        s{\p{IsPunct}+}{ }g;
+        s{^\s+}        {};
+        s{\s+$}        {};
+        s{\s\s+}       { }g;
+    }
 
+    return if $val eq '';
     split m{\s} => $val;  # returned
 }
 
@@ -143,10 +206,15 @@ sub rm_punct_kw {
 sub rm_punct_ph {
     my( $val ) = @_;
 
-    $val =  lc $val;
-    $val =~ s/\p{IsPunct}+/ /g;
-    $val =~ s/\s\s+/ /g;
+    for( $val ) {
+        $_ = lc;
+        s{\p{IsPunct}+}{ }g;
+        s{^\s+}        {};
+        s{\s+$}        {};
+        s{\s\s+}       { }g;
+    }
 
+    return if $val eq '';
     $val;  # returned
 }
 
@@ -157,10 +225,11 @@ sub kw_norm {
     my %todo;  # to return
     my $todo = sub {
         my( $action, $value, $occ ) = @_;
-        my @keywords = $callback->( $value );
-        for my $j ( 0 .. $#keywords ) {
-            my $pos = $j + 1;
-            push @{$todo{ $action }}, "$keywords[$j] $field $occ $pos $keynum";
+        if( my @keywords = $callback->( $value ) ) {
+            for my $j ( 0 .. $#keywords ) {
+                my $pos = $j + 1;
+                push @{$todo{ $action }}, [ $keywords[$j], $field, $occ, $pos, $keynum ];
+            }
         }
     };
 
@@ -180,8 +249,8 @@ sub kw_norm {
         for my $i ( 0 .. $max ) {
 
             my $occ     = $i + 1;
-            my $new_val = $new_vals[$i];
-            my $old_val = $old_vals[$i];
+            my $new_val = $new_vals->[$i];
+            my $old_val = $old_vals->[$i];
 
             # cases:
             #          1.4    1.3      1.2      1.1
@@ -218,13 +287,13 @@ sub kw_norm {
     elsif( $old_vals ) {  # 2. delete old
         for my $i ( 0 .. $#$old_vals ) {
             my $occ = $i + 1;
-            $todo->( del => $old_vals[$i], $occ );
+            $todo->( del => $old_vals->[$i], $occ );
         }
     }
     elsif( $new_vals ) {  # 3. add new
         for my $i ( 0 .. $#$new_vals ) {
             my $occ = $i + 1;
-            $todo->( add => $new_vals[$i], $occ );
+            $todo->( add => $new_vals->[$i], $occ );
         }
     }
     else {  # 4. return
@@ -241,7 +310,10 @@ sub ph_norm {
     my %todo;  # to return
     my $todo = sub {
         my( $action, $value ) = @_;
-        push @{$todo{ $action }}, join ' ' => $callback->( $value ), $keynum;
+        my $phrase = $callback->( $value );
+        if( defined $phrase and $phrase ne '' ) {
+            push @{$todo{ $action }}, [ $phrase, $keynum ];
+        }
     };
 
     my $new_vals = $new_oprec->{ $field };  # aref
@@ -258,8 +330,8 @@ sub ph_norm {
         my $max = $#$new_vals > $#$old_vals? $#$new_vals: $#$old_vals;
         for my $i ( 0 .. $max ) {
 
-            my $new_val = $new_vals[$i];
-            my $old_val = $old_vals[$i];
+            my $new_val = $new_vals->[$i];
+            my $old_val = $old_vals->[$i];
 
             # cases:
             #          1.4    1.3      1.2      1.1
@@ -306,49 +378,86 @@ sub ph_norm {
     \%todo;  # returned
 }
 
-my $index = init_index();
-my $specs = {
+sub index_rec {
+    my( $self, $specs, $keynum, $new_oprec, $old_oprec ) = @_;
 
-    kw_norm => \&rm_punct_kw,
-    ph_norm => \&rm_punct_ph,
+    # kw
+    my $default_norm = $specs->{'kw_norm'};
+    my $tspecs = $specs->{'kw'};
+    for my $index ( sort keys %$tspecs ) {
+        my $ispecs = $tspecs->{ $index };
+        for my $fspecs ( @$ispecs ) {
+            my $field = $fspecs->{'field'};
+            my $ftag  = $fspecs->{'tag'};
+            my $norm  = $fspecs->{'norm' }||$default_norm;
+            my $todo = kw_norm( $field, $norm, $keynum, $new_oprec, $old_oprec );
+            if( my $deletions = $todo->{'del'} ) {
+                for my $del ( @$deletions ) {
+                    my( $keyword, $field, $occ, $pos, $num ) = @$del;
+                    croak qq/Missing keyword:$num:$field/ unless defined $keyword and $keyword ne '';
+                    $self->delete_kw({
+                        tag     => $index,
+                        keyword => $keyword,
+                        field   => $ftag,
+                        occ     => $occ,
+                        pos     => $pos,
+                        num     => $num,
+                        });
+                }
+            }
+            if( my $additions = $todo->{'add'} ) {
+                for my $add ( @$additions ) {
+                    my( $keyword, $field, $occ, $pos, $num ) = @$add;
+                    croak qq/Missing keyword:$num:$field/.Dumper($todo) unless defined $keyword and $keyword ne '';
+                    $self->add_kw({
+                        tag     => $index,
+                        keyword => $keyword,
+                        field   => $ftag,
+                        occ     => $occ,
+                        pos     => $pos,
+                        num     => $num,
+                        });
+                }
+            }
+        }
+    }
 
-    kw => {  # hash of index tags
-        au  => [ { field => 'dc_contributor'       }, ],  # array of fields
-        dd  => [ { field => 'dc_date'              }, ],
-        de  => [ { field => 'dc_description'       }, ],
-        dt  => [ { field => 'dc_coverage_temporal' }, ],
-        ge  => [ { field => 'dc_coverage_spatial'  }, ],
-        id  => [ { field => 'id'                   }, ],
-        it  => [ { field => 'item'                 }, ],
-        pu  => [ { field => 'dc_publisher'         }, ],
-        ri  => [ { field => 'dc_rights'            }, ],
-        so  => [ { field => 'dc_source'            }, ],
-        su  => [ { field => 'dc_subject'           }, ],
-        ti  => [ { field => 'dc_title', norm => \&rm_punct_kw, }, ],
-        ty  => [ { field => 'dc_type'              }, ],
-        up  => [ { field => 'upd'                  }, ],
-        ur  => [ { field => 'dc_identifier'        }, ],
-    },
+    # ph
+    $default_norm = $specs->{'ph_norm'};
+    $tspecs = $specs->{'ph'};
+    for my $index ( sort keys %$tspecs ) {
+        my $ispecs = $tspecs->{ $index };
+        for my $fspecs ( @$ispecs ) {
+            my $field = $fspecs->{'field'};
+            my $norm  = $fspecs->{'norm' }||$default_norm;
+            my $todo = ph_norm( $field, $norm, $keynum, $new_oprec, $old_oprec );
+            if( my $deletions = $todo->{'del'} ) {
+                for my $del ( @$deletions ) {
+                    my( $phrase, $num ) = @$del;
+                    croak qq/Missing phrase:$num:$field/ unless defined $phrase and $phrase ne '';
+                    $self->delete_ph({
+                        tag    => $index,
+                        phrase => $phrase,
+                        num    => $num,
+                        });
+                }
+            }
+            if( my $additions = $todo->{'add'} ) {
+                for my $add ( @$additions ) {
+                    my( $phrase, $num ) = @$add;
+                    croak qq/Missing phrase:$num:$field/ unless defined $phrase and $phrase ne '';
+                    $self->add_ph({
+                        tag    => $index,
+                        phrase => $phrase,
+                        num    => $num,
+                        });
+                }
+            }
+        }
+    }
 
-    ph => {
-        aup => [ { field => 'dc_contributor'       }, ],
-        ddp => [ { field => 'dc_date'              }, ],
-        dep => [ { field => 'dc_description'       }, ],
-        dtp => [ { field => 'dc_coverage_temporal' }, ],
-        gep => [ { field => 'dc_coverage_spatial'  }, ],
-        idp => [ { field => 'id'                   }, ],
-        itp => [ { field => 'item'                 }, ],
-        pup => [ { field => 'dc_publisher'         }, ],
-        rip => [ { field => 'dc_rights'            }, ],
-        sop => [ { field => 'dc_source'            }, ],
-        sup => [ { field => 'dc_subject'           }, ],
-        tip => [ { field => 'dc_title', norm => \&rm_punct_ph, }, ],
-        typ => [ { field => 'dc_type'              }, ],
-        upp => [ { field => 'upd'                  }, ],
-        urp => [ { field => 'dc_identifier'        }, ],
-    },
-
-};
+}
+package main;
 
 }}
 
@@ -381,7 +490,7 @@ sub init_index {
         qq'desc='.uri_escape($desc),
         qw(
             recsep=%0A
-            defaults=medium
+            defaults=small_nohist
             user=20-%20-%7E
         )
     );

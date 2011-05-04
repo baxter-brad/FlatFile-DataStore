@@ -349,7 +349,7 @@ sub init {
 
     # here is where we get the config of an existing index
     elsif( $config_rec ) {
-        $config = eval ${$config_rec->data};
+        $config = eval $config_rec->data;
         croak qq/Something is wrong with index configuration: $@/ if $@;
     }
 
@@ -393,7 +393,7 @@ sub add_kw {
     croak qq/Missing: num/ unless defined $num;
 
     # returned:
-    $self->add_item( $num, $self->get_kw_keys( $parms ) );
+    $self->add_item( kw => $num, $self->get_kw_keys( $parms ) );
 }
 
 #---------------------------------------------------------------------
@@ -420,7 +420,7 @@ sub delete_kw {
     croak qq/Missing: num/ unless defined $num;
 
     # returned:
-    $self->delete_item( $num, $self->get_kw_keys( $parms ) );
+    $self->delete_item( kw => $num, $self->get_kw_keys( $parms ) );
 }
 
 
@@ -445,7 +445,7 @@ sub add_ph {
     croak qq/Missing: num/ unless defined $num;
 
     # returned:
-    $self->add_item( $num, $self->get_ph_keys( $parms ) );
+    $self->add_item( ph => $num, $self->get_ph_keys( $parms ) );
 }
 
 #---------------------------------------------------------------------
@@ -469,7 +469,7 @@ sub delete_ph {
     croak qq/Missing: num/ unless defined $num;
 
     # returned:
-    $self->delete_item( $num, $self->get_ph_keys( $parms ) );
+    $self->delete_item( ph => $num, $self->get_ph_keys( $parms ) );
 }
 
 #---------------------------------------------------------------------
@@ -1173,7 +1173,7 @@ sub get_kw_keys {
 
     # should be decoded already (i.e., in perl's internal format)
     for( $parms->{'keyword'} ) {
-        croak qq/Missing: keyword/ unless defined;
+        croak qq/Missing: keyword/ unless defined and $_ ne '';
         croak qq/Keyword may not contain spaces: $_/ if /$Sp/;
         $truncated = 1 if m{[$Trunc]$};
         my $ep = substr $_, 0, $eplen;
@@ -1187,7 +1187,7 @@ sub get_kw_keys {
     for( $parms->{'field'} ) {
         # croak qq/Missing: field/    unless defined;  # XXX optional ...
         last unless defined;
-        croak qq/Invalid field: $_/ unless /^[0-9A-Za-z]+$/;
+        croak qq/Invalid field: $_/ unless /^[_0-9A-Za-z]+$/;
         $index_entry .= " $_";
     }
 
@@ -1342,7 +1342,7 @@ else if entry group doesn't exist
 =cut
 
 sub add_item {
-    my( $self, $num, $keys ) = @_;
+    my( $self, $type, $num, $keys ) = @_;
 
     my $index_key   = $keys->{'index_key'};
     my $entry_point = $keys->{'entry_point'};
@@ -1391,13 +1391,27 @@ sub add_item {
         if( $ie_changed ) {
 
             # recreate record data and update group counts
-            my $newdata  = '';
-            my $newcount = 0;
-            for my $key ( sort keys %entries ) {
-                my $val   = $entries{ $key };
-                $newdata .= join( $Sep => $key, $val ) . $nl;
-                $newcount++;
+            my $newdata   = '';
+            my $newcount  = 0;
+
+            if( $type eq 'ph' ) {
+                for my $key ( sort keys %entries ) {
+                    my $val   = $entries{ $key };
+                    $newdata .= join( $Sep => $key, $val ) . $nl;
+                    $newcount++;
+                }
             }
+            else {  # 'kw'
+                my $prev_term = '';
+                for my $key ( sort keys %entries ) {
+                    my $val   = $entries{ $key };
+                    $newdata .= join( $Sep => $key, $val ) . $nl;
+                    my $term = (split $Sp => $key, 1)[0];
+                    $newcount++ if $term ne $prev_term;
+                    $prev_term = $term;
+                }
+            }
+
             $newdata = Encode::encode( $enc, $newdata );
             $ds->update({ record => $group_rec, data => $newdata });
 
@@ -1466,6 +1480,7 @@ sub add_item {
         }
 
         my $ep = (split $Sp => $entry_point)[1];  # e.g., 'a' in 'ti a'
+        croak qq/Bad entry_point: $entry_point/ if $ep eq '';
 
         # eplist is string of space-separated entry point characters
         # if entry point not in the list
@@ -1773,7 +1788,7 @@ else if entry group doesn't exist
 =cut
 
 sub delete_item {
-    my( $self, $num, $keys ) = @_;
+    my( $self, $type, $num, $keys ) = @_;
 
     my $index_key   = $keys->{'index_key'};
     my $entry_point = $keys->{'entry_point'};
@@ -1836,24 +1851,40 @@ sub delete_item {
                 else {
 
                     # + we update the record with the remaining entries
-                    my $newdata  = '';
+                    my $newdata   = '';
+                    my $newcount  = 0;
+                    my $prev_term = '';
                     for my $key ( sort keys %entries ) {
                         my $val   = $entries{ $key };
                         $newdata .= join( $Sep => $key, $val ) . $nl;
+                        if( $type eq 'ph' ) {
+                            $newcount++;
+                        }
+                        else {  # 'kw'
+                            my $term = (split $Sp => $key, 1)[0];
+                            $newcount++ if $term ne $prev_term;
+                            $prev_term = $term;
+                        }
                     }
+
                     $newdata = Encode::encode( $enc, $newdata );
                     $ds->update({ record => $group_rec, data => $newdata });
 
-                    # + we decrement the entry group count (for the index entry we removed)
-                    $self->update_entry_group_kv( $entry_group => { count => $eg_count -1 } );
+                    # update the entry point count and index key count
+                    # (since we deleted an index entry)
+                    if( my $diff = $eg_count - $newcount ) {  # diff should be zero or 1
 
-                    # + we decrement the entry point count (for the index entry we removed)
-                    my $ep_count = $self->retrieve_entry_point_kv( $entry_point => 'count' );
-                    $self->update_entry_point_kv( $entry_point => { count => $ep_count - 1 } );
+                        # + we decrease the entry group count (for the index entry we removed)
+                        $self->update_entry_group_kv( $entry_group => { count => $newcount } );
 
-                    # + we decrement the index key count (for the index entry we removed)
-                    my $ik_count = $self->retrieve_index_key_kv( $index_key => 'count' );
-                    $self->update_index_key_kv( $index_key => { count => $ik_count - 1 } );
+                        # + we descrease the entry point count (for the index entry we removed)
+                        my $ep_count = $self->retrieve_entry_point_kv( $entry_point => 'count' );
+                        $self->update_entry_point_kv( $entry_point => { count => $ep_count - $diff } );
+
+                        # + we decrease the index key count (for the index entry we removed)
+                        my $ik_count = $self->retrieve_index_key_kv( $index_key => 'count' );
+                        $self->update_index_key_kv( $index_key => { count => $ik_count - $diff } );
+                    }
 
                 }
 
