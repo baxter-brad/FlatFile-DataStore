@@ -1341,6 +1341,30 @@ else if entry group doesn't exist
 
 =cut
 
+sub begin_transaction {
+    my( $self ) = @_;
+
+    my $ds      = $self->datastore;
+    my $dir     = $ds->dir;
+    my $name    = $ds->name;
+
+    $self->writelock;
+    tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
+    my $dbm = \%dbm;
+    $self->dbm( $dbm );
+
+    return $dbm, $ds; 
+}
+
+sub end_transaction {
+    my( $self ) = @_;
+
+    $self->dbm( '' );
+    # untie %dbm;  # automagical with referrence gone XXX I think
+    $self->unlock;
+
+}
+
 sub add_item {
     my( $self, $type, $num, $keys ) = @_;
 
@@ -1349,19 +1373,14 @@ sub add_item {
     my $entry_group = $keys->{'entry_group'};
     my $index_entry = $keys->{'index_entry'};
 
+    my( $dbm, $ds ) = $self->begin_transaction;
+
     my $enc     = $self->encoding;
-    my $ds      = $self->datastore;
-    my $dir     = $ds->dir;
-    my $name    = $ds->name;
     my $nl      = $ds->recsep;  # "newline" for datastore
     my $userlen = $ds->userlen;
 
-    $self->writelock;
-    tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-    $self->dbm( \%dbm );
-
     # if the entry group is already in the dbm file
-    if( exists $dbm{ $entry_group } ) {
+    if( exists $dbm->{ $entry_group } ) {
 
         my( $eg_keynum, $eg_count ) = $self->retrieve_entry_group_kv( $entry_group => 'keynum', 'count' );
         my $group_rec = $ds->retrieve( $eg_keynum );
@@ -1452,7 +1471,7 @@ sub add_item {
             });
 
         # set up all star entry
-        unless( exists $dbm{ '*' } ) {
+        unless( exists $dbm->{ '*' } ) {
             my $all_vec = '';
             set_bit( $all_vec, $num );
             my $all_rec = $ds->create({
@@ -1464,7 +1483,7 @@ sub add_item {
 
         my( $ik_keynum, $ik_count, $eplist );
 
-        if( exists $dbm{ $index_key } ) {
+        if( exists $dbm->{ $index_key } ) {
             ( $ik_keynum, $ik_count, $eplist ) = $self->retrieve_index_key_kv( $index_key );
         }
         else {  # set up new index key entry
@@ -1721,9 +1740,7 @@ sub add_item {
         }
     }
 
-    $self->dbm( '' );
-    untie %dbm;
-    $self->unlock;
+    $self->end_transaction;
 
     return( $entry_group, $entry_point, $index_key ) if wantarray;
     return  $entry_group;
@@ -1795,19 +1812,14 @@ sub delete_item {
     my $entry_group = $keys->{'entry_group'};
     my $index_entry = $keys->{'index_entry'};
 
+    my( $dbm, $ds ) = $self->begin_transaction;
+
     my $enc  = $self->encoding;
-    my $ds   = $self->datastore;
-    my $dir  = $ds->dir;
-    my $name = $ds->name;
     my $nl   = $ds->recsep;  # "newline" for datastore
     my $err;
 
-    $self->writelock;
-    tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-    $self->dbm( \%dbm );
-
     # if entry group exists in the dbm file
-    if( exists $dbm{ $entry_group } ) {
+    if( exists $dbm->{ $entry_group } ) {
 
         # - index key exists with at least one element in its eplist
         # - entry point exists with at least this one entry group under it
@@ -1928,9 +1940,7 @@ sub delete_item {
     $self->update_index_key_ds( $index_key );
     $self->update_all_star_ds();
 
-    $self->dbm( '' );
-    untie %dbm;
-    $self->unlock;
+    $self->end_transaction;
 
     croak $err if $err;
 }
