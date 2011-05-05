@@ -488,10 +488,11 @@ get a bitstring group for a keyword
 sub get_kw_group {
     my( $self, $parms ) = @_;
 
-    my $ds   = $self->datastore;
-    my $dir  = $ds->dir;
-    my $name = $ds->name;
-    my $nl   = $ds->recsep;  # "newline" for datastore
+    $self->begin_transaction( 'read' );
+
+    my $dbm = $self->dbm;
+    my $ds  = $self->datastore;
+    my $nl  = $ds->recsep;  # "newline" for datastore
 
     my $keys        = $self->get_kw_keys( $parms );
     my $entry_group = $keys->{'entry_group'};
@@ -500,15 +501,11 @@ sub get_kw_group {
     my $tag         = $parms->{'tag'};
     my $keyword     = $parms->{'keyword'};
 
-    $self->readlock;
-    tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-    $self->dbm( \%dbm );
-
     my @matches;
 
     TRY: {
         my $index_key = $keys->{'index_key'};
-        last TRY unless exists $dbm{ $index_key };
+        last TRY unless exists $dbm->{ $index_key };
 
         if( $truncated ) {
 
@@ -663,9 +660,7 @@ sub get_kw_group {
         }
     }  # TRY
 
-    $self->dbm( '' );
-    untie %dbm;
-    $self->unlock;
+    $self->end_transaction;
 
     return unless @matches;
     return       \@matches;
@@ -898,9 +893,10 @@ get a resulting count.
 sub get_ph_bitstring {
     my( $self, $parms ) = @_;
 
+    $self->begin_transaction( 'read' );
+
+    my $dbm  = $self->dbm;
     my $ds   = $self->datastore;
-    my $dir  = $ds->dir;
-    my $name = $ds->name;
     my $nl   = $ds->recsep;  # "newline" for datastore
 
     my $keys        = $self->get_ph_keys( $parms );
@@ -910,15 +906,11 @@ sub get_ph_bitstring {
     my $tag         = $parms->{'tag'};
     my $phrase      = $parms->{'phrase'};
 
-    $self->readlock;
-    tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-    $self->dbm( \%dbm );
-
     my @matches;
 
     TRY: {
         my $index_key = $keys->{'index_key'};
-        last TRY unless exists $dbm{ $index_key };
+        last TRY unless exists $dbm->{ $index_key };
 
         if( $truncated ) {
             my $eplen     = $keys->{'eplen'};
@@ -1074,9 +1066,7 @@ sub get_ph_bitstring {
         }
     }  # TRY
 
-    $self->dbm( '' );
-    untie %dbm;
-    $self->unlock;
+    $self->end_transaction;
 
     return unless @matches;
 
@@ -1342,25 +1332,23 @@ else if entry group doesn't exist
 =cut
 
 sub begin_transaction {
-    my( $self ) = @_;
+    my( $self, $type ) = @_;
 
     my $ds      = $self->datastore;
     my $dir     = $ds->dir;
     my $name    = $ds->name;
 
-    $self->writelock;
+    $self->lock( $type );
     tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-    my $dbm = \%dbm;
-    $self->dbm( $dbm );
+    $self->dbm( \%dbm );
 
-    return $dbm, $ds; 
 }
 
 sub end_transaction {
     my( $self ) = @_;
 
-    $self->dbm( '' );
-    # untie %dbm;  # automagical with referrence gone XXX I think
+    $self->dbm( '' );  # lose the reference
+    # untie %dbm;      # automagical when reference gone XXX I think
     $self->unlock;
 
 }
@@ -1373,9 +1361,9 @@ sub add_item {
     my $entry_group = $keys->{'entry_group'};
     my $index_entry = $keys->{'index_entry'};
 
-    my( $dbm, $ds ) = $self->begin_transaction;
-
+    my $dbm     = $self->dbm;
     my $enc     = $self->encoding;
+    my $ds      = $self->datastore;
     my $nl      = $ds->recsep;  # "newline" for datastore
     my $userlen = $ds->userlen;
 
@@ -1740,8 +1728,6 @@ sub add_item {
         }
     }
 
-    $self->end_transaction;
-
     return( $entry_group, $entry_point, $index_key ) if wantarray;
     return  $entry_group;
 }
@@ -1812,11 +1798,10 @@ sub delete_item {
     my $entry_group = $keys->{'entry_group'};
     my $index_entry = $keys->{'index_entry'};
 
-    my( $dbm, $ds ) = $self->begin_transaction;
-
-    my $enc  = $self->encoding;
-    my $nl   = $ds->recsep;  # "newline" for datastore
-    my $err;
+    my $dbm = $self->dbm;
+    my $enc = $self->encoding;
+    my $ds  = $self->datastore;
+    my $nl  = $ds->recsep;  # "newline" for datastore
 
     # if entry group exists in the dbm file
     if( exists $dbm->{ $entry_group } ) {
@@ -1923,7 +1908,7 @@ sub delete_item {
         # else if the entry group doesn't contain our index entry
         else {
 
-            $err = qq/index entry not found: $index_entry/;
+            croak qq/index entry not found: $index_entry/;
         }
 
     }
@@ -1931,7 +1916,7 @@ sub delete_item {
     # else if entry group doesn't exist
     else {
 
-        $err = qq/entry group not found: $entry_group/;
+        croak qq/entry group not found: $entry_group/;
     }
 
     # long way around to updating the collective bitstrings ...
@@ -1940,9 +1925,6 @@ sub delete_item {
     $self->update_index_key_ds( $index_key );
     $self->update_all_star_ds();
 
-    $self->end_transaction;
-
-    croak $err if $err;
 }
 
 #---------------------------------------------------------------------
@@ -2816,6 +2798,8 @@ sub ph_norm {
 sub index_rec {
     my( $self, $specs, $keynum, $new_oprec, $old_oprec ) = @_;
 
+    $self->begin_transaction( 'write' );
+
     # kw
     my $default_norm = $specs->{'kw_norm'};
     my $tspecs = $specs->{'kw'};
@@ -2891,55 +2875,41 @@ sub index_rec {
         }
     }
 
+    $self->end_transaction;
 }
 
 #---------------------------------------------------------------------
 #
-# =head2 readlock()
+# =head2 lock( $type )
 #
-# Gets the lock file name from the object, opens it for input, locks
-# it, and stores the open file handle in the object.  This file handle
-# isn't really used except for locking, so it's a bit of a "lock token"
+# Gets the lock file name from the object, opens it for read or write
+# (according to $type ), locks it, and stores the open file handle in
+# the object as a sort of 'lock token' -- unlock() closes the file.
 #
 # Private method.
 #
 # =cut
 #
 
-sub readlock {
-    my( $self ) = @_;
+sub lock {
+    my( $self, $type ) = @_;
 
     my $file = $self->dbm_lock_file;
     my $fh;
 
-    sysopen( $fh, $file, O_RDONLY|O_CREAT ) or croak qq/Can't open for read $file: $!/;
-    flock $fh, LOCK_SH   or croak qq/Can't lock shared $file: $!/;
-    binmode $fh;
+    if( $type eq 'write' ) {
+        sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak qq/Can't open for read-write $file: $!/;
+        my $ofh = select( $fh ); $| = 1; select ( $ofh );  # flush buffers
+        flock $fh, LOCK_EX or croak qq/Can't lock exclusive $file: $!/;
+    }
+    elsif( $type eq 'read' ) {
+        sysopen( $fh, $file, O_RDONLY|O_CREAT ) or croak qq/Can't open for read $file: $!/;
+        flock $fh, LOCK_SH or croak qq/Can't lock shared $file: $!/;
+    }
+    else {
+        croak qq/Bad lock type: ($type)/;
+    }
 
-    $self->locked( $fh );
-}
-
-#---------------------------------------------------------------------
-#
-# =head2 writelock()
-#
-# Get the lock file name from the object, opens it for read/write,
-# locks it, and stores the open file handle in the object.
-#
-# Private method.
-#
-# =cut
-#
-
-sub writelock {
-    my( $self ) = @_;
-
-    my $file = $self->dbm_lock_file;
-    my $fh;
-
-    sysopen( $fh, $file, O_RDWR|O_CREAT ) or croak qq/Can't open for read-write $file: $!/;
-    my $ofh = select( $fh ); $| = 1; select ( $ofh );  # flush buffers
-    flock $fh, LOCK_EX                    or croak qq/Can't lock exclusive $file: $!/;
     binmode $fh;
 
     $self->locked( $fh );
@@ -2949,7 +2919,7 @@ sub writelock {
 #
 # =head2 unlock()
 #
-# Closes the file handle -- the "lock token" in the object.
+# Closes the file handle -- the 'lock token' in the object.
 #
 # Private method.
 #
@@ -2985,21 +2955,19 @@ sub debug_kv {
 
     $title ||= '';
     $force ||= 0;
-    my $enc  = $self->encoding;
-    my $ds   = $self->datastore;
-    my $dir  = $ds->dir;
-    my $name = $ds->name;
+
+    $self->begin_transaction( 'read' );
+
+    my $dbm = $self->dbm;
+    my $ds  = $self->datastore;
 
     # guard against accidental use against a big index
-    croak qq/Index too big for debug_kv()/ if $ds->howmany > 100 and !$force;
+    croak qq/Index too big for debug_kv()/
+        if $ds->howmany > 100 and !$force;
 
     my @ret; push @ret, "\n$title\n" if $title;
 
-    $self->writelock;
-    tie my %dbm, $dbm_package, "$dir/$name", @{$dbm_parms};
-    $self->dbm( \%dbm );
-
-    my @keys = sort keys %dbm;
+    my @keys = sort keys %$dbm;
     my $max  = sub {$_[$_[0]<$_[1]]};
     my $mx   = 0;
        $mx   = $max->( $mx, length ) for @keys;
@@ -3018,9 +2986,7 @@ sub debug_kv {
     }
     push @ret, "\n";
 
-    $self->dbm( '' );
-    untie %dbm;
-    $self->unlock;
+    $self->end_transaction;
 
     join '' => @ret;  # returned
 }

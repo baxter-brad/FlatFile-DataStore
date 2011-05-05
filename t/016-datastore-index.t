@@ -127,6 +127,7 @@ my $uri  = join( ';' =>
     });
 
     $title = "Adding ti willie the elephant";
+    $index->begin_transaction( 'write' );
     for(
         [qw( ti willie   title 1 1 42 )],
         [qw( ti the      title 1 2 42 )],
@@ -143,6 +144,7 @@ my $uri  = join( ';' =>
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -160,6 +162,7 @@ ti w willi |      1 |      1  |   ti t the |            |
 _end_
 
     $title = "Adding ti willie the elephant";
+    $index->begin_transaction( 'write' );
     for(
         [qw( ti willie   title 1 1 314 )],
         [qw( ti the      title 1 2 314 )],
@@ -176,6 +179,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
     # note: same as above, because only the bits change
 
@@ -195,6 +199,7 @@ ti w willi |      1 |      1  |   ti t the |            |
 _end_
 
     $title = "Adding ti war and peace";
+    $index->begin_transaction( 'write' );
     for(
         [qw( ti war   title 12 13 1 )],
         [qw( ti and   title 13 22 1 )],
@@ -211,6 +216,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -234,6 +240,7 @@ _end_
 
 
     $title = "Adding ti war and peace, ti willie the elephant, ti elephants";
+    $index->begin_transaction( 'write' );
     for(
         [qw( ti war       title 22 1 10 )],
         [qw( ti and       title 23 2 10 )],
@@ -254,6 +261,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -276,6 +284,7 @@ ti w willi |      1 |      2  |   ti w war |            |
 _end_
 
     $title = "Adding ti www";
+    $index->begin_transaction( 'write' );
     for(
         [qw( ti    www         title   3  1  11 )],
         # [   'ti', "\x{263a}", 'title', 3, 1, 11  ],
@@ -291,6 +300,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -314,6 +324,7 @@ ti w www   |     14 |      1  | ti w willi |            |
 _end_
 
     $title = "Adding su war and peace, su willie the elephant, su elephants";
+    $index->begin_transaction( 'write' );
     for(
         [qw( su war      subject 22 1  10  )],
         [qw( su and      subject 23 2  10  )],
@@ -334,6 +345,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -369,6 +381,7 @@ ti w www      |     14 |      1  |    ti w willi |               |
 _end_
 
     $title = "Deleting su war";
+    $index->begin_transaction( 'write' );
     for(
         [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
@@ -389,6 +402,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -423,6 +437,7 @@ ti w www      |     14 |      1  |    ti w willi |               |
 _end_
 
     $title = "Deleting su and";
+    $index->begin_transaction( 'write' );
     for(
         # [qw( su war      subject 22 1  10  )],
         [qw( su and      subject 23 2  10  )],
@@ -443,6 +458,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -475,6 +491,7 @@ ti w www      |     14 |      1  |    ti w willi |               |
 _end_
 
     $title = "Deleting su peace";
+    $index->begin_transaction( 'write' );
     for(
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
@@ -495,6 +512,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -525,6 +543,7 @@ ti w www      |     14 |      1  |    ti w willi |               |
 _end_
 
     $title = "Deleting su willie";
+    $index->begin_transaction( 'write' );
     for(
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
@@ -545,6 +564,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -573,6 +593,7 @@ ti w www      |     14 |      1  |    ti w willi |               |
 _end_
 
     $title = "Deleting su the";
+    $index->begin_transaction( 'write' );
     for(
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
@@ -593,6 +614,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -619,6 +641,7 @@ ti w www      |     14 |      1  |    ti w willi |               |
 _end_
 
     $title = "Deleting su elephant";
+    $index->begin_transaction( 'write' );
     for(
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
@@ -639,6 +662,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -665,6 +689,7 @@ ti w www      |     14 |      1  |    ti w willi |               |
 _end_
 
     $title = "Deleting su elephants";
+    $index->begin_transaction( 'write' );
     for(
         # [qw( su war      subject 22 1  10  )],
         # [qw( su and      subject 23 2  10  )],
@@ -685,6 +710,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -708,6 +734,7 @@ ti w www   |     14 |      1  | ti w willi |            |
 _end_
 
     $title = "Adding tp willie the elephant";
+    $index->begin_transaction( 'write' );
     for(
         [ "tp", "willie the elephant", 42 ],
     ) {
@@ -719,6 +746,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -745,6 +773,7 @@ tp w willie t |     27 |      1  |               |               |
 _end_
 
     $title = "Adding tp war and peace";
+    $index->begin_transaction( 'write' );
     for(
         [ "tp", "war and peace", 10 ],
     ) {
@@ -756,6 +785,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
@@ -783,6 +813,7 @@ tp w willie t |     27 |      1  | tp w war and  |               |
 _end_
 
     $title = "Adding sp www; sp little house on the prairie";
+    $index->begin_transaction( 'write' );
     for(
         [ "sp", "www", 30 ],
         [ "sp", "little house on the prairie", 20 ],
@@ -797,6 +828,7 @@ _end_
             num     => $num,
             });
     }
+    $index->end_transaction;
 
         $debug = $index->debug_kv( $title );
     is( $debug, <<_end_, $title );
