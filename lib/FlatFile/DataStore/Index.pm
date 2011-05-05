@@ -2530,6 +2530,360 @@ sub gen_userdata {
 }
 
 #---------------------------------------------------------------------
+
+=for comment
+
+parms:
+
+keynum -- integer, data record sequence number
+oprec  -- hash ref, hash of arrays (hash is fields, array is occurrences)
+specs  -- indexes, fields, normalization routines
+
+specs:
+
+index tags:                 e.g., ti, au, su, tip, aup, sup, etc.
+fields         (per tag):   e.g., dc_title, dc_contributor, dc_subject, etc.
+normalizations (per field): e.g., &rm_punct_kw, &rm_punct_ph,
+
+norm parms:
+
+field     -- string
+callback  -- coderef
+keynum    -- integer, which bit to affect
+new_oprec -- href
+old_oprec -- href
+
+returns todo list  -- href of deletes and adds;
+
+my $specs = {
+
+    kw_norm => \&rm_punct_kw,
+    ph_norm => \&rm_punct_ph,
+
+    kw => {  # hash of index tags
+        au  => [ { tag => '01', field => 'dc_contributor'       }, ],  # array of fields
+        dd  => [ { tag => '02', field => 'dc_date'              }, ],
+        de  => [ { tag => '03', field => 'dc_description'       }, ],
+        dt  => [ { tag => '04', field => 'dc_coverage_temporal' }, ],
+        ge  => [ { tag => '05', field => 'dc_coverage_spatial'  }, ],
+        id  => [ { tag => '06', field => 'id'                   }, ],
+        it  => [ { tag => '07', field => 'item'                 }, ],
+        pu  => [ { tag => '08', field => 'dc_publisher'         }, ],
+        ri  => [ { tag => '09', field => 'dc_rights'            }, ],
+        so  => [ { tag => '10', field => 'dc_source'            }, ],
+        su  => [ { tag => '11', field => 'dc_subject'           }, ],
+        ti  => [ { tag => '12', field => 'dc_title', norm => \&rm_punct_kw, }, ],
+        ty  => [ { tag => '13', field => 'dc_type'              }, ],
+        up  => [ { tag => '14', field => 'upd'                  }, ],
+        ur  => [ { tag => '15', field => 'dc_identifier'        }, ],
+    },
+
+    ph => {
+        aup => [ { field => 'dc_contributor'       }, ],
+        ddp => [ { field => 'dc_date'              }, ],
+        dep => [ { field => 'dc_description'       }, ],
+        dtp => [ { field => 'dc_coverage_temporal' }, ],
+        gep => [ { field => 'dc_coverage_spatial'  }, ],
+        idp => [ { field => 'id'                   }, ],
+        itp => [ { field => 'item'                 }, ],
+        pup => [ { field => 'dc_publisher'         }, ],
+        rip => [ { field => 'dc_rights'            }, ],
+        sop => [ { field => 'dc_source'            }, ],
+        sup => [ { field => 'dc_subject'           }, ],
+        tip => [ { field => 'dc_title', norm => \&rm_punct_ph, }, ],
+        typ => [ { field => 'dc_type'              }, ],
+        upp => [ { field => 'upd'                  }, ],
+        urp => [ { field => 'dc_identifier'        }, ],
+    },
+
+};
+
+print "\nIndexing ...\n";
+for my $keynum ( 0 .. $records_ds->lastkeynum ) {
+    my $dsrec = $records_ds->retrieve( $keynum );
+    my $oprec = eval $dsrec->data; die $@ if $@;
+
+print "$keynum ";
+
+    $index->index_rec( $specs, $keynum, $oprec );
+}
+print "\n";
+
+=cut
+
+#---------------------------------------------------------------------
+sub rm_punct_kw {
+    my( $val ) = @_;
+
+    for( $val ) {
+        $_ = lc;
+        s{\p{IsPunct}+}{ }g;
+        s{^\s+}        {};
+        s{\s+$}        {};
+        s{\s\s+}       { }g;
+    }
+
+    return if $val eq '';
+    split m{\s} => $val;  # returned
+}
+
+#---------------------------------------------------------------------
+sub rm_punct_ph {
+    my( $val ) = @_;
+
+    for( $val ) {
+        $_ = lc;
+        s{\p{IsPunct}+}{ }g;
+        s{^\s+}        {};
+        s{\s+$}        {};
+        s{\s\s+}       { }g;
+    }
+
+    return if $val eq '';
+    $val;  # returned
+}
+
+#---------------------------------------------------------------------
+sub kw_norm {
+    my( $field, $callback, $keynum, $new_oprec, $old_oprec ) = @_;
+
+    my %todo;  # to return
+    my $todo = sub {
+        my( $action, $value, $occ ) = @_;
+        if( my @keywords = $callback->( $value ) ) {
+            for my $j ( 0 .. $#keywords ) {
+                my $pos = $j + 1;
+                push @{$todo{ $action }}, [ $keywords[$j], $field, $occ, $pos, $keynum ];
+            }
+        }
+    };
+
+    my $new_vals = $new_oprec->{ $field };  # aref
+    my $old_vals = $old_oprec->{ $field };  # aref
+
+    # cases:
+    #           4.      3.       2.       1.
+    # new_vals  undef   true     undef    true 
+    # old_vals  undef   undef    true     true
+    # action    return  add_new  del_old  compare
+
+    if( $new_vals and $old_vals ) {  # 1. compare
+
+        my $max = $#$new_vals > $#$old_vals? $#$new_vals: $#$old_vals;
+
+        for my $i ( 0 .. $max ) {
+
+            my $occ     = $i + 1;
+            my $new_val = $new_vals->[$i];
+            my $old_val = $old_vals->[$i];
+
+            # cases:
+            #          1.4    1.3      1.2      1.1
+            # new_val  undef  defined  undef    defined
+            # old_val  undef  undef    defined  defined
+            # action   skip   add new  del old  add & del
+
+            if( defined $new_val and defined $old_val ) {  # 1.1 add & delete
+                
+                # cases:
+                #
+                # new_val eq old_val ... skip
+                # new_val ne old_val ... delete old_val & add new_val
+
+                if( $new_val ne $old_val ) {  # delete old & add new
+
+                    $todo->( del => $old_val, $occ );
+                    $todo->( add => $new_val, $occ );
+                }
+                else {  # skip
+                }
+            }
+            elsif( defined $old_val ) {  # 1.2 delete old
+                $todo->( del => $old_val, $occ );
+            }
+            elsif( defined $new_val ) {  # 1.3 add new
+                $todo->( add => $new_val, $occ );
+            }
+            else {  # 1.4 skip
+                # XXX both are undefined ... error?
+            }
+        }
+    }
+    elsif( $old_vals ) {  # 2. delete old
+        for my $i ( 0 .. $#$old_vals ) {
+            my $occ = $i + 1;
+            $todo->( del => $old_vals->[$i], $occ );
+        }
+    }
+    elsif( $new_vals ) {  # 3. add new
+        for my $i ( 0 .. $#$new_vals ) {
+            my $occ = $i + 1;
+            $todo->( add => $new_vals->[$i], $occ );
+        }
+    }
+    else {  # 4. return
+        return;
+    }
+
+    \%todo;  # returned
+}
+
+#---------------------------------------------------------------------
+sub ph_norm {
+    my( $field, $callback, $keynum, $new_oprec, $old_oprec ) = @_;
+
+    my %todo;  # to return
+    my $todo = sub {
+        my( $action, $value ) = @_;
+        my $phrase = $callback->( $value );
+        if( defined $phrase and $phrase ne '' ) {
+            push @{$todo{ $action }}, [ $phrase, $keynum ];
+        }
+    };
+
+    my $new_vals = $new_oprec->{ $field };  # aref
+    my $old_vals = $old_oprec->{ $field };  # aref
+
+    # cases:
+    #           4.      3.       2.       1.
+    # new_vals  undef   true     undef    true 
+    # old_vals  undef   undef    true     true
+    # action    return  add_new  del_old  compare
+
+    if( $new_vals and $old_vals ) {  # 1. compare
+
+        my $max = $#$new_vals > $#$old_vals? $#$new_vals: $#$old_vals;
+        for my $i ( 0 .. $max ) {
+
+            my $new_val = $new_vals->[$i];
+            my $old_val = $old_vals->[$i];
+
+            # cases:
+            #          1.4    1.3      1.2      1.1
+            # new_val  undef  defined  undef    defined
+            # old_val  undef  undef    defined  defined
+            # action   skip   add new  del old  add & del
+
+            if( defined $new_val and defined $old_val ) {  # 1.1 add & delete
+                
+                # cases:
+                #
+                # new_val eq old_val ... skip
+                # new_val ne old_val ... delete old_val & add new_val
+
+                if( $new_val ne $old_val ) {  # delete old & add new
+                    $todo->( del => $old_val );
+                    $todo->( add => $new_val );
+                }
+                else {  # skip
+                    # values are equal, no need to do anything
+                }
+            }
+            elsif( defined $old_val ) {  # 1.2 delete old
+                $todo->( del => $old_val );
+            }
+            elsif( defined $new_val ) {  # 1.3 add new
+                $todo->( add => $new_val );
+            }
+            else {  # 1.4 skip
+                # XXX both are undefined ... error?
+            }
+        }
+    }
+    elsif( $old_vals ) {  # 2. delete old
+        $todo->( del => $_ ) for @$old_vals;
+    }
+    elsif( $new_vals ) {  # 3. add new
+        $todo->( add => $_ ) for @$new_vals;
+    }
+    else {  # 4. return
+        return;
+    }
+
+    \%todo;  # returned
+}
+
+sub index_rec {
+    my( $self, $specs, $keynum, $new_oprec, $old_oprec ) = @_;
+
+    # kw
+    my $default_norm = $specs->{'kw_norm'};
+    my $tspecs = $specs->{'kw'};
+    for my $index ( sort keys %$tspecs ) {
+        my $ispecs = $tspecs->{ $index };
+        for my $fspecs ( @$ispecs ) {
+            my $field = $fspecs->{'field'};
+            my $ftag  = $fspecs->{'tag'};
+            my $norm  = $fspecs->{'norm' }||$default_norm;
+            my $todo = kw_norm( $field, $norm, $keynum, $new_oprec, $old_oprec );
+            if( my $deletions = $todo->{'del'} ) {
+                for my $del ( @$deletions ) {
+                    my( $keyword, $field, $occ, $pos, $num ) = @$del;
+                    croak qq/Missing keyword:$num:$field/ unless defined $keyword and $keyword ne '';
+                    $self->delete_kw({
+                        tag     => $index,
+                        keyword => $keyword,
+                        field   => $ftag,
+                        occ     => $occ,
+                        pos     => $pos,
+                        num     => $num,
+                        });
+                }
+            }
+            if( my $additions = $todo->{'add'} ) {
+                for my $add ( @$additions ) {
+                    my( $keyword, $field, $occ, $pos, $num ) = @$add;
+                    croak qq/Missing keyword:$num:$field/.Dumper($todo) unless defined $keyword and $keyword ne '';
+                    $self->add_kw({
+                        tag     => $index,
+                        keyword => $keyword,
+                        field   => $ftag,
+                        occ     => $occ,
+                        pos     => $pos,
+                        num     => $num,
+                        });
+                }
+            }
+        }
+    }
+
+    # ph
+    $default_norm = $specs->{'ph_norm'};
+    $tspecs = $specs->{'ph'};
+    for my $index ( sort keys %$tspecs ) {
+        my $ispecs = $tspecs->{ $index };
+        for my $fspecs ( @$ispecs ) {
+            my $field = $fspecs->{'field'};
+            my $norm  = $fspecs->{'norm' }||$default_norm;
+            my $todo = ph_norm( $field, $norm, $keynum, $new_oprec, $old_oprec );
+            if( my $deletions = $todo->{'del'} ) {
+                for my $del ( @$deletions ) {
+                    my( $phrase, $num ) = @$del;
+                    croak qq/Missing phrase:$num:$field/ unless defined $phrase and $phrase ne '';
+                    $self->delete_ph({
+                        tag    => $index,
+                        phrase => $phrase,
+                        num    => $num,
+                        });
+                }
+            }
+            if( my $additions = $todo->{'add'} ) {
+                for my $add ( @$additions ) {
+                    my( $phrase, $num ) = @$add;
+                    croak qq/Missing phrase:$num:$field/ unless defined $phrase and $phrase ne '';
+                    $self->add_ph({
+                        tag    => $index,
+                        phrase => $phrase,
+                        num    => $num,
+                        });
+                }
+            }
+        }
+    }
+
+}
+
+#---------------------------------------------------------------------
 #
 # =head2 readlock()
 #
