@@ -149,6 +149,7 @@ my %Generated = qw(
     keybase     1
     toclen      1
     datamax     1
+    tocs        1
     );
 
 # all attributes, including some more user-supplied ones
@@ -363,10 +364,10 @@ sub init {
         $self->keylen(     $len                        );
         $self->keybase(    $base                       );
 
-        $self->userlen(    (split /-/, $self->user)[0] );
         $self->dateformat( (split /-/, $self->date)[1] );
         $self->regx(       $self->make_preamble_regx   );
         $self->crud(       $self->make_crud            );
+        $self->tocs(       {}                          );
         $self->dir(        $dir                        );  # dir not in uri
 
         $self->toclen( 10          +  # blanks between parts
@@ -407,6 +408,10 @@ sub init {
 
         if( my $max = $self->tocmax ) {
             $self->tocmax( convert_max( $max ) );
+        }
+
+        if( my $user = $self->user ) {
+            $self->userlen( (split /-/, $user)[0] );
         }
 
         for my $attr ( keys %Attrs ) {
@@ -1450,6 +1455,7 @@ sub userlen     {for($_[0]->{userlen}     ){$_=$_[1]if@_>1;return$_}}
 sub dateformat  {for($_[0]->{dateformat}  ){$_=$_[1]if@_>1;return$_}}
 sub regx        {for($_[0]->{regx}        ){$_=$_[1]if@_>1;return$_}}
 sub crud        {for($_[0]->{crud}        ){$_=$_[1]if@_>1;return$_}}
+sub tocs        {for($_[0]->{tocs}        ){$_=$_[1]if@_>1;return$_}}
 sub datamax     {for($_[0]->{datamax}     ){$_=$_[1]if@_>1;return$_}}
 
 sub preamblelen {for($_[0]->{preamblelen} ){$_=0+$_[1]if@_>1;return$_}}

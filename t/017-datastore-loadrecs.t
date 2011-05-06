@@ -153,6 +153,9 @@ my $specs = {
 my $index = init_index();
 
 print "\nIndexing ...\n";
+
+my $count;
+
 for my $keynum ( 0 .. $records_ds->lastkeynum ) {
     my $dsrec = $records_ds->retrieve( $keynum );
     my $oprec = eval $dsrec->data; die $@ if $@;
@@ -160,7 +163,11 @@ for my $keynum ( 0 .. $records_ds->lastkeynum ) {
 print "$keynum ";
 
     $index->index_rec( $specs, $keynum, $oprec );
+
+# last if $count++ > 3;
+
 }
+
 print "\n";
 
 }}

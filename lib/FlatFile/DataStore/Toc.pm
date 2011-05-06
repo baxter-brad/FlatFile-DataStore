@@ -115,8 +115,7 @@ sub init {
         croak qq/Missing: int or num/;
     }
 
-    my $sref = $self->read_toc( $datafint );
-    my $string = $sref? $$sref: '';
+    my $string = $self->read_toc( $datafint );
 
     unless( $string ) {
         $self->datafnum( $datafint );
@@ -214,6 +213,16 @@ sub read_toc {
     my $tocfile = $self->tocfile( $fint );
     return unless -e $tocfile;
 
+    # look in tocs cache
+    # XXX is there a race condition between -M and locked_for_read?
+    if( my $tocs = $ds->tocs->{ $tocfile } ) {
+        if( -M _ <= $tocs->{'-M'} ) {  # unchanged
+            for( $tocs->{ $fint } ) {
+                return $_ if defined;
+            }
+        }
+    }
+
     my $tocfh  = $ds->locked_for_read( $tocfile );
     my $toclen = $ds->toclen;
 
@@ -227,7 +236,11 @@ sub read_toc {
     my $tocline = $ds->read_bytes( $tocfh, $seekpos, $toclen );
     close $tocfh or croak qq/Can't close $tocfile: $!/;
 
-    $tocline;  # returned
+    # write to tocs cache
+    $ds->tocs->{ $tocfile }{'-M'}    = -M $tocfile;
+    $ds->tocs->{ $tocfile }{ $fint } = $$tocline;
+
+    $$tocline;  # returned
 }
 
 #---------------------------------------------------------------------
@@ -255,8 +268,14 @@ sub write_toc {
     else {
         $seekpos = $toclen * $fint; }
 
-    $ds->write_bytes( $tocfh, $seekpos, \($self->to_string) );
+    my $tocline = $self->to_string;
+
+    $ds->write_bytes( $tocfh, $seekpos, \$tocline );
     close $tocfh or croak qq/Can't close $tocfile: $!/;
+
+    # write to tocs cache
+    $ds->tocs->{ $tocfile }{'-M'}    = -M $tocfile;
+    $ds->tocs->{ $tocfile }{ $fint } = $tocline;
 }
 
 #---------------------------------------------------------------------
