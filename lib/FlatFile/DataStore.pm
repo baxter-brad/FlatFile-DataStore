@@ -93,14 +93,11 @@ use File::Path;
 use Fcntl qw(:DEFAULT :flock);
 use Digest::MD5 qw(md5_hex);
 use Carp;
-use Memoize;
 
 use FlatFile::DataStore::Preamble;
 use FlatFile::DataStore::Record;
 use FlatFile::DataStore::Toc;
 use Math::Int2Base qw( base_chars int2base base2int );
-memoize( 'int2base' );
-memoize( 'base2int' );
 
 use Data::Omap qw( :ALL );
 sub untaint;

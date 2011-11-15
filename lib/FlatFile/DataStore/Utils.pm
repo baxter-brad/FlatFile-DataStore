@@ -9,10 +9,7 @@ use Fcntl qw(:DEFAULT :flock);
 use SDBM_File;
 use Digest::MD5 qw(md5_hex);
 use FlatFile::DataStore;
-use Memoize;
 use Math::Int2Base qw( base_chars int2base base2int );
-memoize( 'int2base' );
-memoize( 'base2int' );
 
 #---------------------------------------------------------------------
 
