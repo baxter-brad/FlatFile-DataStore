@@ -46,7 +46,11 @@ use warnings;
 
 use File::Path;
 use Carp;
+use Memoize;
+
 use Math::Int2Base qw( base_chars int2base base2int );
+memoize( 'int2base' );
+memoize( 'base2int' );
 
 my %Attrs = qw(
     datastore 1

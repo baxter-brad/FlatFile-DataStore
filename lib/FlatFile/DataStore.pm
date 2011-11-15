@@ -93,11 +93,15 @@ use File::Path;
 use Fcntl qw(:DEFAULT :flock);
 use Digest::MD5 qw(md5_hex);
 use Carp;
+use Memoize;
 
 use FlatFile::DataStore::Preamble;
 use FlatFile::DataStore::Record;
 use FlatFile::DataStore::Toc;
 use Math::Int2Base qw( base_chars int2base base2int );
+memoize( 'int2base' );
+memoize( 'base2int' );
+
 use Data::Omap qw( :ALL );
 sub untaint;
 
@@ -1375,7 +1379,7 @@ if C<$value> is given.  Otherwise, they just return the value.
  $ds->keylen(      [$value] ); # length of stored keynum
  $ds->keybase(     [$value] ); # base   of stored keynum
  $ds->translen(    [$value] ); # length of stored transaction number
- $ds->transbase(   [$value] ); # base   of stored transation number
+ $ds->transbase(   [$value] ); # base   of stored transaction number
  $ds->fnumlen(     [$value] ); # length of stored file number
  $ds->fnumbase(    [$value] ); # base   of stored file number
  $ds->userlen(     [$value] ); # format from uri

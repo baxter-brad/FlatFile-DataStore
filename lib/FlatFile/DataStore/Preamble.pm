@@ -61,7 +61,12 @@ use strict;
 use warnings;
 
 use Carp;
+use Memoize;
+
 use Math::Int2Base qw( base_chars int2base base2int );
+memoize( 'int2base' );
+memoize( 'base2int' );
+
 use Data::Omap qw( :ALL );
 
 my %Generated = qw(

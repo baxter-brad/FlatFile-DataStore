@@ -278,7 +278,7 @@ sub TIEHASH {
     if( $dbm_specs ) {
         $self->{ $_ } = $dbm_specs->{ $_ } for keys %$dbm_specs;
     }
-    $self->{'dbm_lock_file'} = "$dir/$name$self->{'dbm_lock_ext'}",
+    $self->{'dbm_lock_file'} = "$dir/$name$self->{'dbm_lock_ext'}";
 
     eval qq{require $self->{'dbm_package'}; 1}
         or croak qq/Can't use $self->{'dbm_package'}: $@/;
