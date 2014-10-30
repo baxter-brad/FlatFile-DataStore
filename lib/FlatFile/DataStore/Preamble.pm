@@ -315,7 +315,7 @@ sub then {
             $mo = substr $date, index( $format, 'mm'     ), 2;
             $da = substr $date, index( $format, 'dd'     ), 2;
             if( (my $pos = index( $format, 'tttttt' )) > -1 ) {
-                $tm = substr $date, $pos, 2;
+                $tm = substr $date, $pos, 6;
                 ( $hr, $mn, $sc ) = $tm =~ /(..)(..)(..)/;
                 $tm = " $hr:$mn:$sc";
             }
